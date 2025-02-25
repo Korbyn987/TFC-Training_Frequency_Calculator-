@@ -3,8 +3,8 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Provider } from "react-redux";
 import store from "./src/redux/store"; // Ensure this path is correct
-import HomeScreen from "./src/screens/HomeScreen"; // Create this screen
-import DetailsScreen from "./src/screens/DetailsScreen"; // Create this screen
+import HomeScreen from "./screens/HomeScreen"; // Create this screen
+import DetailsScreen from "./screens/DetailsScreen"; // Create this screen
 
 const Stack = createStackNavigator();
 
