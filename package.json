@@ -1,1 +1,29 @@
-{"name":"tfc","version":"0.0.1","private":true,"scripts":{"start":"node node_modules/react-native/local-cli/cli.js start"},"dependencies":{"@react-navigation/native":"^7.0.14","@react-navigation/stack":"^7.1.1","react-native":"0.78.0"},"main":"App.js","repository":{"type":"git","url":"git+https://github.com/Korbyn987/TFC-Training_Frequency_Calculator-.git"},"keywords":[],"author":"","license":"ISC","bugs":{"url":"https://github.com/Korbyn987/TFC-Training_Frequency_Calculator-/issues"},"homepage":"https://github.com/Korbyn987/TFC-Training_Frequency_Calculator-#readme","description":""}
+{
+  "name": "tfc",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node node_modules/react-native/local-cli/cli.js start"
+  },
+  "dependencies": {
+    "@react-navigation/native": "^7.0.14",
+    "@react-navigation/stack": "^7.1.1",
+    "react-native": "0.78.0"
+  },
+  "devDependencies": {
+    "@react-native-community/cli": "latest"
+  },
+  "main": "App.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Korbyn987/TFC-Training_Frequency_Calculator-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Korbyn987/TFC-Training_Frequency_Calculator-/issues"
+  },
+  "homepage": "https://github.com/Korbyn987/TFC-Training_Frequency_Calculator-#readme",
+  "description": ""
+}
