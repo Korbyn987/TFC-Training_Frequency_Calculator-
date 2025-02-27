@@ -17,3 +17,4 @@ const HomeScreen = ({ navigation }) => {
 };
 
 export default HomeScreen;
+//this is the home screen
