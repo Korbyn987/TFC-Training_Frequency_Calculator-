@@ -1,17 +1,44 @@
 import React from "react";
-import { View, Text, Button } from "react-native";
+import { View, Text, Button, TouchableOpacity } from "react-native";
 import HomeStyles from "../styles/HomeStyles"; //importing styles
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import AboutScreen from "./AboutScreen";
+
+const Tab = createBottomTabNavigator();
 
 const HomeScreen = ({ navigation }) => {
   return (
     <View style={HomeStyles.container}>
-      <Text style={HomeStyles.header}>
-        Welcome to TFC your Training Fitness Calculator
+      {/* You will have to add more text tags such as the one below */}
+      <Text style={HomeStyles.title}>
+        Welcome to TFC your Training Frequency Calculator
       </Text>
-      <Button
-        title="Go to Details"
-        onPress={() => navigation.navigate("Details")}
-      />
+
+      <View style={HomeStyles.buttonContainer}>
+        <TouchableOpacity
+          style={Button.button}
+          onPress={() => navigation.navigate("Login")}
+        >
+          <Text style={Button.text}>Login</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[Button.button, Button.secondaryButton]}
+          onPress={() => navigation.navigate("CreateAccount")}
+        >
+          <Text style={Button.text}>Create Account</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[Button.button, Button.outlineButton]}
+          onPress={() => navigation.navigate("About")}
+        >
+          <Text style={[ButtonStyles.text, ButtonStyles.outlineText]}>
+            Learn More
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
