@@ -2,23 +2,47 @@
   "name": "tfc",
   "version": "0.0.1",
   "private": true,
+  "main": "index.js",
   "scripts": {
-    "start": "react-native start"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
   },
   "dependencies": {
-    "@expo/vector-icons": "^14.0.4",
-    "@react-native-async-storage/async-storage": "^2.1.2",
+    "@babel/core": "^7.26.9",
+    "@babel/preset-env": "^7.26.9",
+    "@babel/preset-react": "^7.26.3",
+    "@expo/vector-icons": "^14.0.0",
+    "@expo/webpack-config": "^19.0.1",
+    "@react-native-async-storage/async-storage": "1.21.0",
     "@react-navigation/bottom-tabs": "^7.2.1",
     "@react-navigation/native": "^7.0.14",
+    "@react-navigation/native-stack": "^7.2.1",
     "@react-navigation/stack": "^7.1.1",
-    "react-native": "0.78.0"
+    "@reduxjs/toolkit": "^2.2.1",
+    "babel-loader": "^10.0.0",
+    "babel-preset-expo": "^10.0.0",
+    "expo": "^50.0.0",
+    "expo-constants": "~15.4.5",
+    "expo-linking": "~6.2.2",
+    "expo-splash-screen": "~0.26.4",
+    "expo-status-bar": "~1.11.1",
+    "expo-updates": "~0.24.11",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.73.6",
+    "react-native-reanimated": "~3.6.2",
+    "react-native-safe-area-context": "4.8.2",
+    "react-native-screens": "~3.29.0",
+    "react-native-web": "~0.19.6",
+    "react-redux": "^9.1.0"
   },
   "devDependencies": {
     "@react-native-community/cli": "latest",
-    "@react-native/metro-config": "^0.78.0",
+    "@react-native/metro-config": "^0.73.4",
     "metro-react-native-babel-preset": "^0.77.0"
   },
-  "main": "App.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Korbyn987/TFC-Training_Frequency_Calculator-.git"
@@ -30,5 +54,17 @@
     "url": "https://github.com/Korbyn987/TFC-Training_Frequency_Calculator-/issues"
   },
   "homepage": "https://github.com/Korbyn987/TFC-Training_Frequency_Calculator-#readme",
-  "description": ""
+  "description": "",
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
 }
