@@ -1,20 +1,23 @@
 -- Use the database
 USE Training_Frequency_Calculator;
-
--- Create the table
-CREATE TABLE TFC_userinfo_table (
-    id INTEGER PRIMARY KEY,
-    name TEXT
-    age TEXT,
-    weight TEXT
-    height TEXT
-);
-
--- Insert data into the table
-INSERT INTO TFC_userinfo_table (name, age, weight, height) VALUES ('John Doe', '30', '200', '6"4');
-
--- Query all data from the table
-SELECT * FROM TFC_userinfo_table;
+GO
 
 -- Drop the table if it exists
-DROP TABLE IF EXISTS TFC_userinfo_table;
+IF OBJECT_ID('TFC_user_info_table', 'U') IS NOT NULL
+    DROP TABLE TFC_user_info_table;
+GO
+
+-- Create the table
+CREATE TABLE TFC_user_info_table (
+    id INTEGER PRIMARY KEY,
+    name NVARCHAR(100),
+    age NVARCHAR(10),
+    weight NVARCHAR(10),
+    height NVARCHAR(10)
+);
+GO
+
+-- Insert initial test data
+INSERT INTO TFC_user_info_table (id, name, age, weight, height) 
+VALUES (1, 'John Doe', '30', '200', '6"4');
+GO
