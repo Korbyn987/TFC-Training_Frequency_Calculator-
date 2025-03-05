@@ -17,7 +17,7 @@ import ButtonStyles from "./styles/Button";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const MainTabs = () => {
+function TabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -48,7 +48,6 @@ const MainTabs = () => {
         },
         tabBarActiveTintColor: "blue",
         tabBarInactiveTintColor: "gray",
-        tabBarStyle: {}
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
@@ -57,24 +56,39 @@ const MainTabs = () => {
       <Tab.Screen name="About" component={AboutScreen} />
     </Tab.Navigator>
   );
-};
+}
 
-const App = () => {
+function App() {
   return (
     <Provider store={store}>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="MainTabs">
-          <Stack.Screen
-            name="MainTabs"
-            component={MainTabs}
-            options={{ headerShown: false }}
+        <Stack.Navigator 
+          initialRouteName="Tabs"
+          screenOptions={{
+            headerShown: false
+          }}
+        >
+          <Stack.Screen name="Tabs" component={TabNavigator} />
+          <Stack.Screen 
+            name="Login" 
+            component={LoginScreen}
+            options={{
+              headerShown: true,
+              title: 'Login'
+            }}
           />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Create Account" component={CreateAccount} />
+          <Stack.Screen 
+            name="CreateAccount" 
+            component={CreateAccount}
+            options={{
+              headerShown: true,
+              title: 'Create Account'
+            }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </Provider>
   );
-};
+}
 
 export default App;

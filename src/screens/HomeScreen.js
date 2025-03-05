@@ -11,6 +11,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createStackNavigator } from "@react-navigation/stack";
 
 const MUSCLE_GROUPS = [
   "Biceps",
@@ -111,7 +114,7 @@ const HomeScreen = ({ navigation }) => {
         Welcome to TFC your Training Frequency Calculator
       </Text>
       <Text style={styles.subtitle}>Tap a muscle to reset its counter</Text>
-      
+
       <FlatList
         data={MUSCLE_GROUPS}
         renderItem={renderMuscleItem}
@@ -153,21 +156,30 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => navigation.navigate("Login")}
+          onPress={() => {
+            console.log('Attempting to navigate to Login');
+            navigation.navigate('Login');
+          }}
         >
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, styles.secondaryButton]}
-          onPress={() => navigation.navigate("CreateAccount")}
+          onPress={() => {
+            console.log('Attempting to navigate to CreateAccount');
+            navigation.navigate('CreateAccount');
+          }}
         >
           <Text style={styles.buttonText}>Create Account</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, styles.outlineButton]}
-          onPress={() => navigation.navigate("About")}
+          onPress={() => {
+            console.log('Attempting to navigate to About');
+            navigation.navigate('About');
+          }}
         >
           <Text style={[styles.buttonText, styles.outlineText]}>
             Learn More
@@ -182,32 +194,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#F5FCFF',
+    backgroundColor: "#F5FCFF",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginVertical: 20,
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 20,
-    color: '#666',
+    color: "#666",
   },
   list: {
     flex: 1,
   },
   muscleItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 15,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 10,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -218,11 +230,11 @@ const styles = StyleSheet.create({
   },
   muscleName: {
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   daysContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   daysText: {
     fontSize: 16,
@@ -233,32 +245,32 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 20,
     borderRadius: 10,
-    width: '80%',
+    width: "80%",
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 15,
-    textAlign: 'center',
+    textAlign: "center",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     padding: 10,
     borderRadius: 5,
     marginBottom: 15,
   },
   modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   modalButton: {
     flex: 1,
@@ -267,36 +279,36 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   cancelButton: {
-    backgroundColor: '#ff3b30',
+    backgroundColor: "#ff3b30",
   },
   saveButton: {
-    backgroundColor: '#34c759',
+    backgroundColor: "#34c759",
   },
   buttonContainer: {
     marginTop: 20,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     padding: 15,
     borderRadius: 5,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 10,
   },
   secondaryButton: {
-    backgroundColor: '#5856d6',
+    backgroundColor: "#5856d6",
   },
   outlineButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: "#007AFF",
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   outlineText: {
-    color: '#007AFF',
+    color: "#007AFF",
   },
 });
 

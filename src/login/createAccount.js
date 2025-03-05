@@ -7,12 +7,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Alert,
 } from "react-native";
+import { useNavigation } from '@react-navigation/native';
 
-const CreateAccount = ({ navigation }) => {
+const CreateAccount = () => {
+  const navigation = useNavigation();
   const [formData, setFormData] = useState({
     username: "",
+    email: "",
     password: "",
+    confirmPassword: "",
   });
 
   const handleChange = (field, value) => {
@@ -23,87 +28,214 @@ const CreateAccount = ({ navigation }) => {
   };
 
   const handleSubmit = () => {
-    console.log("Form Submitted:", formData);
-    navigation.navigate('Login');
+    // Basic validation
+    if (!formData.username || !formData.password || !formData.email || !formData.confirmPassword) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      Alert.alert("Error", "Passwords do not match");
+      return;
+    }
+
+    // TODO: Add actual account creation logic here
+    console.log("Creating account with:", formData);
+    
+    // Navigate to login screen after successful account creation
+    Alert.alert(
+      "Success",
+      "Account created successfully!",
+      [
+        {
+          text: "OK",
+          onPress: () => navigation.navigate("Login")
+        }
+      ]
+    );
   };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        padding: 20,
+        backgroundColor: '#F5FCFF',
+      }}
     >
-      <Text style={styles.title}>Create Account</Text>
+      <Text
+        style={{
+          fontSize: 24,
+          fontWeight: 'bold',
+          marginBottom: 30,
+          textAlign: 'center',
+        }}
+      >
+        Create Account
+      </Text>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Username:</Text>
+      <View
+        style={{
+          marginBottom: 15,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 16,
+            marginBottom: 5,
+            color: '#333',
+          }}
+        >
+          Username:
+        </Text>
         <TextInput
-          style={styles.input}
-          placeholder="Username"
+          style={{
+            borderWidth: 1,
+            borderColor: '#ddd',
+            padding: 12,
+            borderRadius: 8,
+            fontSize: 16,
+            backgroundColor: '#fff',
+          }}
+          placeholder="Enter username"
           value={formData.username}
           onChangeText={(value) => handleChange("username", value)}
           autoCapitalize="none"
         />
       </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Password:</Text>
+      <View
+        style={{
+          marginBottom: 15,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 16,
+            marginBottom: 5,
+            color: '#333',
+          }}
+        >
+          Email:
+        </Text>
         <TextInput
-          style={styles.input}
-          placeholder="Password"
+          style={{
+            borderWidth: 1,
+            borderColor: '#ddd',
+            padding: 12,
+            borderRadius: 8,
+            fontSize: 16,
+            backgroundColor: '#fff',
+          }}
+          placeholder="Enter email"
+          value={formData.email}
+          onChangeText={(value) => handleChange("email", value)}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+      </View>
+
+      <View
+        style={{
+          marginBottom: 15,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 16,
+            marginBottom: 5,
+            color: '#333',
+          }}
+        >
+          Password:
+        </Text>
+        <TextInput
+          style={{
+            borderWidth: 1,
+            borderColor: '#ddd',
+            padding: 12,
+            borderRadius: 8,
+            fontSize: 16,
+            backgroundColor: '#fff',
+          }}
+          placeholder="Enter password"
           value={formData.password}
           onChangeText={(value) => handleChange("password", value)}
           secureTextEntry
         />
       </View>
 
+      <View
+        style={{
+          marginBottom: 15,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 16,
+            marginBottom: 5,
+            color: '#333',
+          }}
+        >
+          Confirm Password:
+        </Text>
+        <TextInput
+          style={{
+            borderWidth: 1,
+            borderColor: '#ddd',
+            padding: 12,
+            borderRadius: 8,
+            fontSize: 16,
+            backgroundColor: '#fff',
+          }}
+          placeholder="Confirm password"
+          value={formData.confirmPassword}
+          onChangeText={(value) => handleChange("confirmPassword", value)}
+          secureTextEntry
+        />
+      </View>
+
       <TouchableOpacity
-        style={styles.button}
+        style={{
+          backgroundColor: '#007AFF',
+          padding: 15,
+          borderRadius: 8,
+          alignItems: 'center',
+          marginTop: 20,
+        }}
         onPress={handleSubmit}
       >
-        <Text style={styles.buttonText}>Create Account</Text>
+        <Text
+          style={{
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: '600',
+          }}
+        >
+          Create Account
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.linkContainer}
+        onPress={() => navigation.navigate("Login")}
+      >
+        <Text style={styles.linkText}>Already have an account? Login</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#F5FCFF',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  inputContainer: {
-    marginBottom: 15,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 10,
-    borderRadius: 5,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 5,
+  linkContainer: {
+    marginTop: 15,
     alignItems: 'center',
-    marginTop: 10,
   },
-  buttonText: {
-    color: '#fff',
+  linkText: {
+    color: '#007AFF',
     fontSize: 16,
-    fontWeight: '600',
   },
 });
 
