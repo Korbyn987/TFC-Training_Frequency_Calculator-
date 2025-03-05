@@ -63,9 +63,9 @@ function App() {
     <Provider store={store}>
       <NavigationContainer>
         <Stack.Navigator 
-          initialRouteName="Tabs"
+          initialRouteName="Login"
           screenOptions={{
-            headerShown: false
+            headerShown: true
           }}
         >
           <Stack.Screen name="Tabs" component={TabNavigator} />

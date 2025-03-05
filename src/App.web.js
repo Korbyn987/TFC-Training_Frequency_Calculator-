@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Provider } from 'react-redux';
+import store from './redux/store';
 import HomeScreen from './screens/HomeScreen';
 import AboutScreen from './screens/AboutScreen';
 import CalculatorScreen from './screens/CalculatorScreen';
@@ -11,10 +12,10 @@ import ProfileScreen from './screens/ProfileScreen';
 import LoginScreen from './login/login';
 import CreateAccount from './login/createAccount';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const MainTabs = () => {
+const TabNavigator = () => {
   return (
     <Tab.Navigator>
       <Tab.Screen name="Home" component={HomeScreen} />
@@ -27,17 +28,39 @@ const MainTabs = () => {
 
 const App = () => {
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="MainTabs">
-        <Stack.Screen
-          name="MainTabs"
-          component={MainTabs}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Create Account" component={CreateAccount} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <Provider store={store}>
+      <NavigationContainer>
+        <Stack.Navigator 
+          initialRouteName="Tabs"
+          screenOptions={{
+            headerShown: true,
+            animation: 'slide_from_right'
+          }}
+        >
+          <Stack.Screen 
+            name="Login" 
+            component={LoginScreen}
+            options={{
+              headerShown: true,
+              title: 'Login'
+            }}
+          />
+          <Stack.Screen 
+            name="CreateAccount" 
+            component={CreateAccount}
+            options={{
+              headerShown: true,
+              title: 'Create Account'
+            }}
+          />
+          <Stack.Screen
+            name="Tabs"
+            component={TabNavigator}
+            options={{ headerShown: false }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </Provider>
   );
 };
 

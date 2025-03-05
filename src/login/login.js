@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState("");
@@ -14,7 +13,7 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = () => {
     console.log("Logging in with:", { username, password });
-    navigation.navigate("MainTabs");
+    navigation.navigate("Tabs");
   };
 
   return (

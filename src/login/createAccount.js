@@ -9,10 +9,8 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { useNavigation } from '@react-navigation/native';
 
-const CreateAccount = () => {
-  const navigation = useNavigation();
+const CreateAccount = ({ navigation }) => {
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -29,7 +27,12 @@ const CreateAccount = () => {
 
   const handleSubmit = () => {
     // Basic validation
-    if (!formData.username || !formData.password || !formData.email || !formData.confirmPassword) {
+    if (
+      !formData.username ||
+      !formData.password ||
+      !formData.email ||
+      !formData.confirmPassword
+    ) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
@@ -41,18 +44,14 @@ const CreateAccount = () => {
 
     // TODO: Add actual account creation logic here
     console.log("Creating account with:", formData);
-    
+
     // Navigate to login screen after successful account creation
-    Alert.alert(
-      "Success",
-      "Account created successfully!",
-      [
-        {
-          text: "OK",
-          onPress: () => navigation.navigate("Login")
-        }
-      ]
-    );
+    Alert.alert("Success", "Account created successfully!", [
+      {
+        text: "OK",
+        onPress: () => navigation.navigate("Login"),
+      },
+    ]);
   };
 
   return (
@@ -60,17 +59,17 @@ const CreateAccount = () => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{
         flex: 1,
-        justifyContent: 'center',
+        justifyContent: "center",
         padding: 20,
-        backgroundColor: '#F5FCFF',
+        backgroundColor: "#F5FCFF",
       }}
     >
       <Text
         style={{
           fontSize: 24,
-          fontWeight: 'bold',
+          fontWeight: "bold",
           marginBottom: 30,
-          textAlign: 'center',
+          textAlign: "center",
         }}
       >
         Create Account
@@ -85,7 +84,7 @@ const CreateAccount = () => {
           style={{
             fontSize: 16,
             marginBottom: 5,
-            color: '#333',
+            color: "#333",
           }}
         >
           Username:
@@ -93,11 +92,11 @@ const CreateAccount = () => {
         <TextInput
           style={{
             borderWidth: 1,
-            borderColor: '#ddd',
+            borderColor: "#ddd",
             padding: 12,
             borderRadius: 8,
             fontSize: 16,
-            backgroundColor: '#fff',
+            backgroundColor: "#fff",
           }}
           placeholder="Enter username"
           value={formData.username}
@@ -115,7 +114,7 @@ const CreateAccount = () => {
           style={{
             fontSize: 16,
             marginBottom: 5,
-            color: '#333',
+            color: "#333",
           }}
         >
           Email:
@@ -123,11 +122,11 @@ const CreateAccount = () => {
         <TextInput
           style={{
             borderWidth: 1,
-            borderColor: '#ddd',
+            borderColor: "#ddd",
             padding: 12,
             borderRadius: 8,
             fontSize: 16,
-            backgroundColor: '#fff',
+            backgroundColor: "#fff",
           }}
           placeholder="Enter email"
           value={formData.email}
@@ -146,7 +145,7 @@ const CreateAccount = () => {
           style={{
             fontSize: 16,
             marginBottom: 5,
-            color: '#333',
+            color: "#333",
           }}
         >
           Password:
@@ -154,11 +153,11 @@ const CreateAccount = () => {
         <TextInput
           style={{
             borderWidth: 1,
-            borderColor: '#ddd',
+            borderColor: "#ddd",
             padding: 12,
             borderRadius: 8,
             fontSize: 16,
-            backgroundColor: '#fff',
+            backgroundColor: "#fff",
           }}
           placeholder="Enter password"
           value={formData.password}
@@ -176,7 +175,7 @@ const CreateAccount = () => {
           style={{
             fontSize: 16,
             marginBottom: 5,
-            color: '#333',
+            color: "#333",
           }}
         >
           Confirm Password:
@@ -184,11 +183,11 @@ const CreateAccount = () => {
         <TextInput
           style={{
             borderWidth: 1,
-            borderColor: '#ddd',
+            borderColor: "#ddd",
             padding: 12,
             borderRadius: 8,
             fontSize: 16,
-            backgroundColor: '#fff',
+            backgroundColor: "#fff",
           }}
           placeholder="Confirm password"
           value={formData.confirmPassword}
@@ -199,19 +198,19 @@ const CreateAccount = () => {
 
       <TouchableOpacity
         style={{
-          backgroundColor: '#007AFF',
+          backgroundColor: "#007AFF",
           padding: 15,
           borderRadius: 8,
-          alignItems: 'center',
+          alignItems: "center",
           marginTop: 20,
         }}
         onPress={handleSubmit}
       >
         <Text
           style={{
-            color: '#fff',
+            color: "#fff",
             fontSize: 16,
-            fontWeight: '600',
+            fontWeight: "600",
           }}
         >
           Create Account
@@ -231,10 +230,10 @@ const CreateAccount = () => {
 const styles = StyleSheet.create({
   linkContainer: {
     marginTop: 15,
-    alignItems: 'center',
+    alignItems: "center",
   },
   linkText: {
-    color: '#007AFF',
+    color: "#007AFF",
     fontSize: 16,
   },
 });
