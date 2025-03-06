@@ -1,16 +1,16 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Provider } from 'react-redux';
-import store from './redux/store';
-import HomeScreen from './screens/HomeScreen';
-import AboutScreen from './screens/AboutScreen';
-import CalculatorScreen from './screens/CalculatorScreen';
-import ProfileScreen from './screens/ProfileScreen';
-import LoginScreen from './login/login';
-import CreateAccount from './login/createAccount';
+import React from "react";
+import { View, Text } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Provider } from "react-redux";
+import store from "./redux/store";
+import HomeScreen from "./screens/HomeScreen";
+import AboutScreen from "./screens/AboutScreen";
+import CalculatorScreen from "./screens/RecoveryGuideScreen";
+import ProfileScreen from "./screens/ProfileScreen";
+import LoginScreen from "./login/login";
+import CreateAccount from "./login/createAccount";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -30,27 +30,27 @@ const App = () => {
   return (
     <Provider store={store}>
       <NavigationContainer>
-        <Stack.Navigator 
+        <Stack.Navigator
           initialRouteName="Tabs"
           screenOptions={{
             headerShown: true,
-            animation: 'slide_from_right'
+            animation: "slide_from_right",
           }}
         >
-          <Stack.Screen 
-            name="Login" 
+          <Stack.Screen
+            name="Login"
             component={LoginScreen}
             options={{
               headerShown: true,
-              title: 'Login'
+              title: "Login",
             }}
           />
-          <Stack.Screen 
-            name="CreateAccount" 
+          <Stack.Screen
+            name="CreateAccount"
             component={CreateAccount}
             options={{
               headerShown: true,
-              title: 'Create Account'
+              title: "Create Account",
             }}
           />
           <Stack.Screen

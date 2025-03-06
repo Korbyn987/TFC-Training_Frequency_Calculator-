@@ -4,11 +4,11 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Provider } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
-import { View, Text } from 'react-native';
+import { View, Text } from "react-native";
 import store from "./redux/store";
 import HomeScreen from "./screens/HomeScreen";
 import AboutScreen from "./screens/AboutScreen";
-import CalculatorScreen from "./screens/CalculatorScreen";
+import CalculatorScreen from "./screens/RecoveryGuideScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import LoginScreen from "./login/login";
 import CreateAccount from "./login/createAccount";
@@ -31,16 +31,22 @@ function TabNavigator() {
           } else if (route.name === "Profile") {
             iconName = focused ? "person" : "person-outline";
           } else if (route.name === "About") {
-            iconName = focused ? "information-circle" : "information-circle-outline";
+            iconName = focused
+              ? "information-circle"
+              : "information-circle-outline";
           }
 
           return (
             <View style={ButtonStyles.tabBarButton}>
               <Ionicons name={iconName} size={size} color={color} />
-              <Text style={[
-                ButtonStyles.tabBarText,
-                focused ? ButtonStyles.tabBarActive : ButtonStyles.tabBarInactive
-              ]}>
+              <Text
+                style={[
+                  ButtonStyles.tabBarText,
+                  focused
+                    ? ButtonStyles.tabBarActive
+                    : ButtonStyles.tabBarInactive,
+                ]}
+              >
                 {route.name}
               </Text>
             </View>
@@ -62,27 +68,27 @@ function App() {
   return (
     <Provider store={store}>
       <NavigationContainer>
-        <Stack.Navigator 
+        <Stack.Navigator
           initialRouteName="Login"
           screenOptions={{
-            headerShown: true
+            headerShown: true,
           }}
         >
           <Stack.Screen name="Tabs" component={TabNavigator} />
-          <Stack.Screen 
-            name="Login" 
+          <Stack.Screen
+            name="Login"
             component={LoginScreen}
             options={{
               headerShown: true,
-              title: 'Login'
+              title: "Login",
             }}
           />
-          <Stack.Screen 
-            name="CreateAccount" 
+          <Stack.Screen
+            name="CreateAccount"
             component={CreateAccount}
             options={{
               headerShown: true,
-              title: 'Create Account'
+              title: "Create Account",
             }}
           />
         </Stack.Navigator>
