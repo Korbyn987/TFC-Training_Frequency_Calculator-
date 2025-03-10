@@ -154,8 +154,8 @@ const HomeScreen = ({ navigation }) => {
         <TouchableOpacity
           style={HomeStyles.button}
           onPress={() => {
-            console.log('Attempting to navigate to Login');
-            navigation.navigate('Login');
+            console.log("Attempting to navigate to Login");
+            navigation.navigate("Login");
           }}
         >
           <Text style={HomeStyles.buttonText}>Login</Text>
@@ -164,8 +164,8 @@ const HomeScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[HomeStyles.button, HomeStyles.secondaryButton]}
           onPress={() => {
-            console.log('Attempting to navigate to CreateAccount');
-            navigation.navigate('CreateAccount');
+            console.log("Attempting to navigate to CreateAccount");
+            navigation.navigate("CreateAccount");
           }}
         >
           <Text style={HomeStyles.buttonText}>Create Account</Text>
@@ -174,8 +174,8 @@ const HomeScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[HomeStyles.button, HomeStyles.outlineButton]}
           onPress={() => {
-            console.log('Attempting to navigate to About');
-            navigation.navigate('About');
+            console.log("Attempting to navigate to About");
+            navigation.navigate("About");
           }}
         >
           <Text style={[HomeStyles.buttonText, HomeStyles.outlineText]}>
@@ -186,6 +186,5 @@ const HomeScreen = ({ navigation }) => {
     </View>
   );
 };
-
 
 export default HomeScreen;
