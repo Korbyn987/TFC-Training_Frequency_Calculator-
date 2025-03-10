@@ -1,8 +1,9 @@
 import { configureStore } from '@reduxjs/toolkit';
+import workoutReducer from './workoutSlice';
 
 const store = configureStore({
   reducer: {
-    // Add your reducers here
+    workout: workoutReducer
   },
 });
 
