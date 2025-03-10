@@ -1,21 +1,22 @@
 import { StyleSheet } from "react-native";
 
 const HomeStyles = StyleSheet.create({
+  // Container styles
   container: {
     flex: 1,
-    backgroundColor: "#fff", //change this
+    backgroundColor: "#fff",
     padding: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#000", //change this
+    color: "#000",
     marginBottom: 8,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: "#000", //change this,
+    color: "#000",
     marginBottom: 20,
     textAlign: "center",
   },
@@ -30,19 +31,13 @@ const HomeStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    // Native shadow props
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    // Web shadow prop
-    boxShadow: "0px 1px 2px rgba(0, 0, 0, 0.2)"
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   muscleName: {
     fontSize: 18,
     fontWeight: "500",
-    color: "#000", //change this
+    color: "#000",
   },
   daysContainer: {
     flexDirection: "row",
@@ -50,57 +45,86 @@ const HomeStyles = StyleSheet.create({
   },
   daysText: {
     fontSize: 16,
-    color: "#666", //change this
+    color: "#666",
     marginRight: 8,
   },
   editButton: {
     padding: 4,
   },
+  // Button styles
+  buttonContainer: {
+    marginTop: 20,
+    paddingHorizontal: 16,
+  },
+  button: {
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  secondaryButton: {
+    backgroundColor: "#5856D6",
+  },
+  outlineButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#007AFF",
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  outlineText: {
+    color: "#007AFF",
+  },
+  // Modal styles
   modalContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    backgroundColor: "white",
-    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
     padding: 20,
     width: "80%",
-    alignItems: "center",
+    maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "600",
     marginBottom: 16,
-    color: "#333", //change this
-  },
-  input: {
-    width: "100%",
-    height: 44,
-    backgroundColor: "#f5f5f5", //change this
-    paddingHorizontal: 12,
-    fontSize: 16,
-    marginBottom: 16,
+    textAlign: "center",
   },
   modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+  },
+  modalButton: {
     flex: 1,
-    height: 44,
+    padding: 12,
     borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
     marginHorizontal: 8,
   },
   cancelButton: {
-    backgroundColor: "#ff3b30",
+    backgroundColor: "#FF3B30",
   },
   saveButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#34C759",
   },
-  buttonText: {
-    color: "white",
+  input: {
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
-    fontWeight: "600",
+    width: "100%",
+    backgroundColor: "#FFFFFF",
   },
 });
+
 export default HomeStyles;
