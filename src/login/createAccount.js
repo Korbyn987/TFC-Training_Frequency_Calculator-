@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
   Alert,
 } from "react-native";
+import { styles } from "../styles/createAccountStyles";
 
 const CreateAccount = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -57,47 +57,18 @@ const CreateAccount = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        padding: 20,
-        backgroundColor: "#F5FCFF",
-      }}
+      style={styles.container}
     >
-      <Text
-        style={{
-          fontSize: 24,
-          fontWeight: "bold",
-          marginBottom: 30,
-          textAlign: "center",
-        }}
-      >
+      <Text style={styles.title}>
         Create Account
       </Text>
 
-      <View
-        style={{
-          marginBottom: 15,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 16,
-            marginBottom: 5,
-            color: "#333",
-          }}
-        >
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>
           Username:
         </Text>
         <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: "#ddd",
-            padding: 12,
-            borderRadius: 8,
-            fontSize: 16,
-            backgroundColor: "#fff",
-          }}
+          style={styles.input}
           placeholder="Enter username"
           value={formData.username}
           onChangeText={(value) => handleChange("username", value)}
@@ -105,29 +76,12 @@ const CreateAccount = ({ navigation }) => {
         />
       </View>
 
-      <View
-        style={{
-          marginBottom: 15,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 16,
-            marginBottom: 5,
-            color: "#333",
-          }}
-        >
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>
           Email:
         </Text>
         <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: "#ddd",
-            padding: 12,
-            borderRadius: 8,
-            fontSize: 16,
-            backgroundColor: "#fff",
-          }}
+          style={styles.input}
           placeholder="Enter email"
           value={formData.email}
           onChangeText={(value) => handleChange("email", value)}
@@ -136,29 +90,12 @@ const CreateAccount = ({ navigation }) => {
         />
       </View>
 
-      <View
-        style={{
-          marginBottom: 15,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 16,
-            marginBottom: 5,
-            color: "#333",
-          }}
-        >
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>
           Password:
         </Text>
         <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: "#ddd",
-            padding: 12,
-            borderRadius: 8,
-            fontSize: 16,
-            backgroundColor: "#fff",
-          }}
+          style={styles.input}
           placeholder="Enter password"
           value={formData.password}
           onChangeText={(value) => handleChange("password", value)}
@@ -166,29 +103,12 @@ const CreateAccount = ({ navigation }) => {
         />
       </View>
 
-      <View
-        style={{
-          marginBottom: 15,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 16,
-            marginBottom: 5,
-            color: "#333",
-          }}
-        >
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>
           Confirm Password:
         </Text>
         <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: "#ddd",
-            padding: 12,
-            borderRadius: 8,
-            fontSize: 16,
-            backgroundColor: "#fff",
-          }}
+          style={styles.input}
           placeholder="Confirm password"
           value={formData.confirmPassword}
           onChangeText={(value) => handleChange("confirmPassword", value)}
@@ -197,22 +117,10 @@ const CreateAccount = ({ navigation }) => {
       </View>
 
       <TouchableOpacity
-        style={{
-          backgroundColor: "#007AFF",
-          padding: 15,
-          borderRadius: 8,
-          alignItems: "center",
-          marginTop: 20,
-        }}
+        style={styles.button}
         onPress={handleSubmit}
       >
-        <Text
-          style={{
-            color: "#fff",
-            fontSize: 16,
-            fontWeight: "600",
-          }}
-        >
+        <Text style={styles.buttonText}>
           Create Account
         </Text>
       </TouchableOpacity>
@@ -227,15 +135,6 @@ const CreateAccount = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  linkContainer: {
-    marginTop: 15,
-    alignItems: "center",
-  },
-  linkText: {
-    color: "#007AFF",
-    fontSize: 16,
-  },
-});
+
 
 export default CreateAccount;

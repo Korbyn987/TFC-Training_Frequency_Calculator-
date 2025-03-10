@@ -7,13 +7,10 @@ import {
   Modal,
   TextInput,
   Alert,
-  StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { NavigationContainer } from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createStackNavigator } from "@react-navigation/stack";
+import HomeStyles from "../styles/homeStyles";
 
 const MUSCLE_GROUPS = [
   "Biceps",
@@ -91,15 +88,15 @@ const HomeScreen = ({ navigation }) => {
 
   const renderMuscleItem = ({ item: muscle }) => (
     <TouchableOpacity
-      style={styles.muscleItem}
+      style={HomeStyles.muscleItem}
       onPress={() => updateMuscle(muscle)}
       onLongPress={() => handleEdit(muscle)}
     >
-      <Text style={styles.muscleName}>{muscle}</Text>
-      <View style={styles.daysContainer}>
-        <Text style={styles.daysText}>{muscleData[muscle] || 0} days</Text>
+      <Text style={HomeStyles.muscleName}>{muscle}</Text>
+      <View style={HomeStyles.daysContainer}>
+        <Text style={HomeStyles.daysText}>{muscleData[muscle] || 0} days</Text>
         <TouchableOpacity
-          style={styles.editButton}
+          style={HomeStyles.editButton}
           onPress={() => handleEdit(muscle)}
         >
           <Ionicons name="pencil" size={20} color="black" />
@@ -109,79 +106,79 @@ const HomeScreen = ({ navigation }) => {
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
+    <View style={HomeStyles.container}>
+      <Text style={HomeStyles.title}>
         Welcome to TFC your Training Frequency Calculator
       </Text>
-      <Text style={styles.subtitle}>Tap a muscle to reset its counter</Text>
+      <Text style={HomeStyles.subtitle}>Tap a muscle to reset its counter</Text>
 
       <FlatList
         data={MUSCLE_GROUPS}
         renderItem={renderMuscleItem}
         keyExtractor={(item) => item}
-        style={styles.list}
+        style={HomeStyles.list}
       />
 
       <Modal visible={editMode} transparent={true} animationType="slide">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
+        <View style={HomeStyles.modalContainer}>
+          <View style={HomeStyles.modalContent}>
+            <Text style={HomeStyles.modalTitle}>
               Edit Days for {selectedMuscle}
             </Text>
             <TextInput
-              style={styles.input}
+              style={HomeStyles.input}
               value={editDays}
               onChangeText={setEditDays}
               keyboardType="numeric"
               placeholder="Enter number of days"
             />
-            <View style={styles.modalButtons}>
+            <View style={HomeStyles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[HomeStyles.modalButton, HomeStyles.cancelButton]}
                 onPress={() => setEditMode(false)}
               >
-                <Text style={styles.buttonText}>Cancel</Text>
+                <Text style={HomeStyles.buttonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
+                style={[HomeStyles.modalButton, HomeStyles.saveButton]}
                 onPress={saveEdit}
               >
-                <Text style={styles.buttonText}>Save</Text>
+                <Text style={HomeStyles.buttonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      <View style={styles.buttonContainer}>
+      <View style={HomeStyles.buttonContainer}>
         <TouchableOpacity
-          style={styles.button}
+          style={HomeStyles.button}
           onPress={() => {
             console.log('Attempting to navigate to Login');
             navigation.navigate('Login');
           }}
         >
-          <Text style={styles.buttonText}>Login</Text>
+          <Text style={HomeStyles.buttonText}>Login</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.button, styles.secondaryButton]}
+          style={[HomeStyles.button, HomeStyles.secondaryButton]}
           onPress={() => {
             console.log('Attempting to navigate to CreateAccount');
             navigation.navigate('CreateAccount');
           }}
         >
-          <Text style={styles.buttonText}>Create Account</Text>
+          <Text style={HomeStyles.buttonText}>Create Account</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.button, styles.outlineButton]}
+          style={[HomeStyles.button, HomeStyles.outlineButton]}
           onPress={() => {
             console.log('Attempting to navigate to About');
             navigation.navigate('About');
           }}
         >
-          <Text style={[styles.buttonText, styles.outlineText]}>
+          <Text style={[HomeStyles.buttonText, HomeStyles.outlineText]}>
             Learn More
           </Text>
         </TouchableOpacity>
@@ -190,126 +187,5 @@ const HomeScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: "#F5FCFF",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginVertical: 20,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 20,
-    color: "#666",
-  },
-  list: {
-    flex: 1,
-  },
-  muscleItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  muscleName: {
-    fontSize: 18,
-    fontWeight: "500",
-  },
-  daysContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  daysText: {
-    fontSize: 16,
-    marginRight: 10,
-  },
-  editButton: {
-    padding: 5,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 10,
-    width: "80%",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 15,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  modalButton: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 5,
-    marginHorizontal: 5,
-  },
-  cancelButton: {
-    backgroundColor: "#ff3b30",
-  },
-  saveButton: {
-    backgroundColor: "#34c759",
-  },
-  buttonContainer: {
-    marginTop: 20,
-  },
-  button: {
-    backgroundColor: "#007AFF",
-    padding: 15,
-    borderRadius: 5,
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  secondaryButton: {
-    backgroundColor: "#5856d6",
-  },
-  outlineButton: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "#007AFF",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  outlineText: {
-    color: "#007AFF",
-  },
-});
 
 export default HomeScreen;

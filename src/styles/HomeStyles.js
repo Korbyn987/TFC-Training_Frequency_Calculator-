@@ -30,11 +30,14 @@ const HomeStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    // Native shadow props
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
+    // Web shadow prop
+    boxShadow: "0px 1px 2px rgba(0, 0, 0, 0.2)"
   },
   muscleName: {
     fontSize: 18,
