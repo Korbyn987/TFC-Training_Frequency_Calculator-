@@ -64,13 +64,15 @@ const MuscleRecoveryMeter = ({ lastWorkout }) => {
 const RecoveryGuideScreen = () => {
   const navigation = useNavigation();
   const isAuthenticated = useSelector((state) => state.auth?.isAuthenticated);
-  const muscleStatus = useSelector((state) => state.workout?.muscleStatus || {});
+  const muscleStatus = useSelector(
+    (state) => state.workout?.muscleStatus || {}
+  );
   const workouts = useSelector((state) => state.workout?.workouts || []);
 
   // Following navigation flow memory: redirect to Login if not authenticated
   React.useEffect(() => {
     if (!isAuthenticated) {
-      navigation.navigate('Login');
+      navigation.navigate("Login");
     }
   }, [isAuthenticated, navigation]);
 
@@ -91,7 +93,7 @@ const RecoveryGuideScreen = () => {
 
   const handleMusclePress = () => {
     if (!isAuthenticated) {
-      navigation.navigate('Login');
+      navigation.navigate("Login");
       return;
     }
     // In the future, we can add interaction for authenticated users
@@ -102,7 +104,7 @@ const RecoveryGuideScreen = () => {
       <View style={styles.header}>
         <Text style={styles.title}>Recovery Guide</Text>
         <Text style={styles.subtitle}>
-          {isAuthenticated 
+          {isAuthenticated
             ? "Monitor your muscle recovery status to optimize your training"
             : "Please log in to access the Recovery Guide"}
         </Text>
