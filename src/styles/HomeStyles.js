@@ -4,15 +4,25 @@ const HomeStyles = StyleSheet.create({
   // Container styles
   container: {
     flex: 1,
+    padding: 20,
     backgroundColor: "#fff",
-    padding: 16,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#000",
-    marginBottom: 8,
-    textAlign: "center",
+    flex: 1,
+  },
+  welcomeUser: {
+    fontSize: 16,
+    color: "#4CAF50",
+    fontWeight: "600",
+    marginLeft: 10,
   },
   subtitle: {
     fontSize: 16,
@@ -78,6 +88,9 @@ const HomeStyles = StyleSheet.create({
   },
   outlineText: {
     color: "#007AFF",
+  },
+  logoutButton: {
+    backgroundColor: "#f44336",
   },
   // Modal styles
   modalContainer: {

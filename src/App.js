@@ -77,15 +77,16 @@ function App() {
           initialRouteName="Login"
           screenOptions={{
             headerShown: true,
+            headerLeft: null,  // Remove back button from all screens
           }}
         >
-          <Stack.Screen name="Tabs" component={TabNavigator} />
-          <Stack.Screen
-            name="Login"
+          <Stack.Screen 
+            name="Login" 
             component={LoginScreen}
             options={{
               headerShown: true,
               title: "Login",
+              gestureEnabled: false,  // Prevent swipe back
             }}
           />
           <Stack.Screen
@@ -94,6 +95,14 @@ function App() {
             options={{
               headerShown: true,
               title: "Create Account",
+            }}
+          />
+          <Stack.Screen 
+            name="Tabs" 
+            component={TabNavigator}
+            options={{
+              headerShown: false,
+              gestureEnabled: false,  // Prevent swipe back
             }}
           />
         </Stack.Navigator>

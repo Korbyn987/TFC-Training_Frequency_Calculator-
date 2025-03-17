@@ -10,28 +10,18 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSelector, useDispatch } from "react-redux";
+import { logout } from "../redux/authSlice";
 import HomeStyles from "../styles/homeStyles";
-
-const MUSCLE_GROUPS = [
-  "Biceps",
-  "Forearms",
-  "Quads",
-  "Hamstrings",
-  "Triceps",
-  "Abs",
-  "Shoulders",
-  "Traps",
-  "Back",
-  "Calves",
-  "Glutes",
-  "Chest",
-];
+import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 
 const HomeScreen = ({ navigation }) => {
   const [muscleData, setMuscleData] = useState({});
   const [editMode, setEditMode] = useState(false);
   const [selectedMuscle, setSelectedMuscle] = useState(null);
   const [editDays, setEditDays] = useState("");
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     loadMuscleData();
@@ -107,9 +97,16 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <View style={HomeStyles.container}>
-      <Text style={HomeStyles.title}>
-        Welcome to TFC your Training Frequency Calculator
-      </Text>
+      <View style={HomeStyles.header}>
+        <Text style={HomeStyles.title}>
+          Welcome to TFC your Training Frequency Calculator
+        </Text>
+        {isAuthenticated && user && (
+          <Text style={HomeStyles.welcomeUser}>
+            Welcome, {user.username}!
+          </Text>
+        )}
+      </View>
       <Text style={HomeStyles.subtitle}>Tap a muscle to reset its counter</Text>
 
       <FlatList
@@ -151,32 +148,38 @@ const HomeScreen = ({ navigation }) => {
       </Modal>
 
       <View style={HomeStyles.buttonContainer}>
-        <TouchableOpacity
-          style={HomeStyles.button}
-          onPress={() => {
-            console.log("Attempting to navigate to Login");
-            navigation.navigate("Login");
-          }}
-        >
-          <Text style={HomeStyles.buttonText}>Login</Text>
-        </TouchableOpacity>
+        {!isAuthenticated ? (
+          <>
+            <TouchableOpacity
+              style={HomeStyles.button}
+              onPress={() => navigation.navigate("Login")}
+            >
+              <Text style={HomeStyles.buttonText}>Login</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[HomeStyles.button, HomeStyles.secondaryButton]}
-          onPress={() => {
-            console.log("Attempting to navigate to CreateAccount");
-            navigation.navigate("CreateAccount");
-          }}
-        >
-          <Text style={HomeStyles.buttonText}>Create Account</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[HomeStyles.button, HomeStyles.secondaryButton]}
+              onPress={() => navigation.navigate("CreateAccount")}
+            >
+              <Text style={HomeStyles.buttonText}>Create Account</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity
+            style={[HomeStyles.button, HomeStyles.logoutButton]}
+            onPress={() => {
+              navigation.replace("Login");
+              dispatch(logout());
+              Alert.alert("Success", "You have been logged out successfully");
+            }}
+          >
+            <Text style={HomeStyles.buttonText}>Logout</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[HomeStyles.button, HomeStyles.outlineButton]}
-          onPress={() => {
-            console.log("Attempting to navigate to About");
-            navigation.navigate("About");
-          }}
+          onPress={() => navigation.navigate("About")}
         >
           <Text style={[HomeStyles.buttonText, HomeStyles.outlineText]}>
             Learn More

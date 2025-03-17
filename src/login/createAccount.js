@@ -10,13 +10,28 @@ import {
 } from "react-native";
 import { styles } from "../styles/createAccountStyles";
 
+// Use different URLs based on platform
+const API_URL = Platform.select({
+  ios: 'http://localhost:5001/api',  // iOS simulator
+  android: 'http://10.0.2.2:5001/api',  // Android emulator
+  default: 'http://localhost:5001/api',  // Web
+});
+
 const CreateAccount = ({ navigation }) => {
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     password: "",
     confirmPassword: "",
+    // adding default values for required fields
+    name: "",
+    age: 0,
+    gender: "Not specified",
+    weight: 0,
+    height: 0,
   });
+
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (field, value) => {
     setFormData({
@@ -25,7 +40,7 @@ const CreateAccount = ({ navigation }) => {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Basic validation
     if (
       !formData.username ||
@@ -41,17 +56,43 @@ const CreateAccount = ({ navigation }) => {
       Alert.alert("Error", "Passwords do not match");
       return;
     }
+    try {
+      setLoading(true);
 
-    // TODO: Add actual account creation logic here
-    console.log("Creating account with:", formData);
+      const response = await fetch(`${API_URL}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+          name: formData.username, //using username as name initially
+          age: 0,
+          gender: "Not Specified",
+          weight: 0,
+          height: 0,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Registration failed");
+      }
 
-    // Navigate to login screen after successful account creation
-    Alert.alert("Success", "Account created successfully!", [
-      {
-        text: "OK",
-        onPress: () => navigation.navigate("Login"),
-      },
-    ]);
+      // Navigate to Login immediately
+      navigation.replace("Login");
+      
+      // Show success message after navigation
+      Alert.alert(
+        "Account Created!",
+        "Your account has been created successfully. Please log in to continue."
+      );
+    } catch (error) {
+      Alert.alert("Error", error.message || "Failed to create account");
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,14 +100,10 @@ const CreateAccount = ({ navigation }) => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <Text style={styles.title}>
-        Create Account
-      </Text>
+      <Text style={styles.title}>Create Account</Text>
 
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          Username:
-        </Text>
+        <Text style={styles.label}>Username:</Text>
         <TextInput
           style={styles.input}
           placeholder="Enter username"
@@ -77,9 +114,7 @@ const CreateAccount = ({ navigation }) => {
       </View>
 
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          Email:
-        </Text>
+        <Text style={styles.label}>Email:</Text>
         <TextInput
           style={styles.input}
           placeholder="Enter email"
@@ -91,9 +126,7 @@ const CreateAccount = ({ navigation }) => {
       </View>
 
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          Password:
-        </Text>
+        <Text style={styles.label}>Password:</Text>
         <TextInput
           style={styles.input}
           placeholder="Enter password"
@@ -104,9 +137,7 @@ const CreateAccount = ({ navigation }) => {
       </View>
 
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          Confirm Password:
-        </Text>
+        <Text style={styles.label}>Confirm Password:</Text>
         <TextInput
           style={styles.input}
           placeholder="Confirm password"
@@ -116,13 +147,8 @@ const CreateAccount = ({ navigation }) => {
         />
       </View>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleSubmit}
-      >
-        <Text style={styles.buttonText}>
-          Create Account
-        </Text>
+      <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+        <Text style={styles.buttonText}>Create Account</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -134,7 +160,5 @@ const CreateAccount = ({ navigation }) => {
     </KeyboardAvoidingView>
   );
 };
-
-
 
 export default CreateAccount;

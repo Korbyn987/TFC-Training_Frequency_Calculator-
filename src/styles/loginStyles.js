@@ -34,6 +34,10 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
+  buttonDisabled: {
+    backgroundColor: "#cccccc",
+    opacity: 0.7,
+  },
   buttonText: {
     color: "#fff",
     fontSize: 16,
