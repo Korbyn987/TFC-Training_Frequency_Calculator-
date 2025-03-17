@@ -57,7 +57,12 @@ function TabNavigator() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Calculator" component={CalculatorScreen} />
+      <Tab.Screen
+        name="Calculator"
+        component={CalculatorScreen}
+        options={{ headerLeft: () => null }}
+      />{" "}
+      {/* Hides the back button */}
       <Tab.Screen name="Profile" component={ProfileScreen} />
       <Tab.Screen name="About" component={AboutScreen} />
     </Tab.Navigator>

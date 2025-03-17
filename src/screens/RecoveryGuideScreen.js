@@ -72,9 +72,13 @@ const RecoveryGuideScreen = () => {
   // Following navigation flow memory: redirect to Login if not authenticated
   React.useEffect(() => {
     if (!isAuthenticated) {
-      navigation.navigate("Login");
+      navigation.replace("Login");
     }
   }, [isAuthenticated, navigation]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const predefinedMuscleGroups = [
     "Biceps",
