@@ -9,19 +9,21 @@ import {
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { login } from "../redux/authSlice";
+import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../styles/loginStyles";
 
 // Use different URLs based on platform
 const API_URL = Platform.select({
-  ios: 'http://localhost:5001/api',  // iOS simulator
-  android: 'http://10.0.2.2:5001/api',  // Android emulator
-  default: 'http://localhost:5001/api',  // Web
+  ios: "http://localhost:5001/api", // iOS simulator
+  android: "http://10.0.2.2:5001/api", // Android emulator
+  default: "http://localhost:5001/api", // Web
 });
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
 
   const handleLogin = async () => {
@@ -44,22 +46,19 @@ const LoginScreen = ({ navigation }) => {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || "Login failed");
       }
 
       // Dispatch login action with user data
       dispatch(login({ username: data.username }));
-      
+
       // Navigate to Tabs immediately
       navigation.replace("Tabs");
-      
+
       // Show success message after navigation
-      Alert.alert(
-        "Success",
-        "Welcome back, " + data.username + "!"
-      );
+      Alert.alert("Success", "Welcome back, " + data.username + "!");
     } catch (error) {
       Alert.alert("Error", error.message || "Failed to login");
     } finally {
@@ -84,18 +83,30 @@ const LoginScreen = ({ navigation }) => {
 
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Password:</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Enter password"
-          secureTextEntry
-          editable={!isLoading}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Enter password"
+            secureTextEntry={!showPassword}
+            editable={!isLoading}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off" : "eye "}
+              size={24}
+              color="#666"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <TouchableOpacity 
-        style={[styles.button, isLoading && styles.buttonDisabled]} 
+      <TouchableOpacity
+        style={[styles.button, isLoading && styles.buttonDisabled]}
         onPress={handleLogin}
         disabled={isLoading}
       >

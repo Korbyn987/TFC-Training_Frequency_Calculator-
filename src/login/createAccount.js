@@ -9,12 +9,13 @@ import {
   Alert,
 } from "react-native";
 import { styles } from "../styles/createAccountStyles";
+import { Ionicons } from "@expo/vector-icons";
 
 // Use different URLs based on platform
 const API_URL = Platform.select({
-  ios: 'http://localhost:5001/api',  // iOS simulator
-  android: 'http://10.0.2.2:5001/api',  // Android emulator
-  default: 'http://localhost:5001/api',  // Web
+  ios: "http://localhost:5001/api", // iOS simulator
+  android: "http://10.0.2.2:5001/api", // Android emulator
+  default: "http://localhost:5001/api", // Web
 });
 
 const CreateAccount = ({ navigation }) => {
@@ -32,6 +33,8 @@ const CreateAccount = ({ navigation }) => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (field, value) => {
     setFormData({
@@ -81,7 +84,7 @@ const CreateAccount = ({ navigation }) => {
 
       // Navigate to Login immediately
       navigation.replace("Login");
-      
+
       // Show success message after navigation
       Alert.alert(
         "Account Created!",
@@ -127,24 +130,48 @@ const CreateAccount = ({ navigation }) => {
 
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Password:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter password"
-          value={formData.password}
-          onChangeText={(value) => handleChange("password", value)}
-          secureTextEntry
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter password"
+            value={formData.password}
+            onChangeText={(value) => handleChange("password", value)}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off" : "eye"}
+              size={24}
+              color="#666"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Confirm Password:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm password"
-          value={formData.confirmPassword}
-          onChangeText={(value) => handleChange("confirmPassword", value)}
-          secureTextEntry
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm password"
+            value={formData.confirmPassword}
+            onChangeText={(value) => handleChange("confirmPassword", value)}
+            secureTextEntry={!showConfirmPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+          >
+            <Ionicons
+              name={showConfirmPassword ? "eye-off" : "eye"}
+              size={24}
+              color="666"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <TouchableOpacity style={styles.button} onPress={handleSubmit}>
