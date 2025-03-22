@@ -1,15 +1,10 @@
-import pyodbc
+import sqlite3
 import getpass
 
 def connect_to_db():
     try:
-        # Connect to SQL Server using ODBC Driver 17
-        conn = pyodbc.connect(
-            'DRIVER={ODBC Driver 17 for SQL Server};'
-            'SERVER=localhost;'
-            'DATABASE=Training_Frequency_Calculator;'
-            'Trusted_Connection=yes;'
-        )
+        # Connect to SQLite database
+        conn = sqlite3.connect('tfc_database.db')
         return conn
     except Exception as e:
         print(f"Error connecting to database: {e}")
@@ -32,27 +27,31 @@ def register_user():
         try:
             cursor = conn.cursor()
             
-            # Get the next available ID
-            cursor.execute("SELECT ISNULL(MAX(id), 0) + 1 FROM TFC_login_table")
-            next_id = cursor.fetchone()[0]
+            # Create tables if they don't exist
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE,
+                    password TEXT,
+                    name TEXT,
+                    age TEXT,
+                    gender TEXT,
+                    weight TEXT,
+                    height TEXT
+                )
+            ''')
             
-            # Insert into login table
-            cursor.execute("""
-                INSERT INTO TFC_login_table (id, username, password)
-                VALUES (?, ?, ?)
-            """, (next_id, username, password))
-            
-            # Insert into user info table
-            cursor.execute("""
-                INSERT INTO TFC_user_info_table (id, name, age, gender, weight, height)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (next_id, name, age, gender, weight, height))
+            # Insert the new user
+            cursor.execute('''
+                INSERT INTO users (username, password, name, age, gender, weight, height)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (username, password, name, age, gender, weight, height))
             
             conn.commit()
-            print("\nUser registered successfully!")
+            print("\nRegistration successful!")
             
         except Exception as e:
-            print(f"Error registering user: {e}")
+            print(f"Error during registration: {e}")
             conn.rollback()
         finally:
             conn.close()
@@ -66,14 +65,16 @@ def login_user():
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT u.name, u.age, u.gender, u.weight, u.height
-                FROM TFC_login_table l
-                JOIN TFC_user_info_table u ON l.id = u.id
-                WHERE l.username = ? AND l.password = ?
-            """, (username, password))
+            
+            # Check credentials and get user info
+            cursor.execute('''
+                SELECT name, age, gender, weight, height
+                FROM users
+                WHERE username = ? AND password = ?
+            ''', (username, password))
             
             user_data = cursor.fetchone()
+            
             if user_data:
                 print("\nLogin successful!")
                 print(f"Welcome back, {user_data[0]}!")

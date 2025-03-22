@@ -16,12 +16,13 @@ GO
 CREATE TABLE TFC_login_table (
     id INTEGER PRIMARY KEY,
     username NVARCHAR(50),
-    password NVARCHAR(50)
+    password NVARCHAR(50),
+    email NVARCHAR(100)
 );
 GO
 
 -- Insert data into the table
-INSERT INTO TFC_login_table (id, username, password) VALUES (1, 'John Doe', 'password');
+INSERT INTO TFC_login_table (id, username, password, email) VALUES (1, 'John Doe', 'password', 'john.doe@example.com');
 GO
 
 -- Query all data from the table

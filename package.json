@@ -14,7 +14,6 @@
     "@babel/preset-env": "^7.26.9",
     "@babel/preset-react": "^7.26.3",
     "@expo/vector-icons": "^14.0.0",
-    "@expo/webpack-config": "^19.0.1",
     "@react-native-async-storage/async-storage": "1.21.0",
     "@react-navigation/bottom-tabs": "^7.2.1",
     "@react-navigation/native": "^7.0.14",
@@ -39,9 +38,12 @@
     "react-redux": "^9.1.0"
   },
   "devDependencies": {
+    "@expo/webpack-config": "^19.0.1",
     "@react-native-community/cli": "latest",
     "@react-native/metro-config": "^0.73.4",
-    "metro-react-native-babel-preset": "^0.77.0"
+    "metro-react-native-babel-preset": "^0.77.0",
+    "webpack": "^5.88.0",
+    "webpack-dev-server": "^4.15.1"
   },
   "repository": {
     "type": "git",
