@@ -1,17 +1,17 @@
-import React from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import React from "react";
+import { Text, View } from "react-native";
 import { Provider } from "react-redux";
-import { Ionicons } from "@expo/vector-icons";
-import { View, Text } from "react-native";
-import store from "./redux/store";
-import HomeScreen from "./screens/HomeScreen";
-import AboutScreen from "./screens/AboutScreen";
-import CalculatorScreen from "./screens/RecoveryGuideScreen";
-import ProfileScreen from "./screens/ProfileScreen";
-import LoginScreen from "./login/login";
 import CreateAccount from "./login/createAccount";
+import LoginScreen from "./login/login";
+import store from "./redux/store";
+import AboutScreen from "./screens/AboutScreen";
+import HomeScreen from "./screens/HomeScreen";
+import ProfileScreen from "./screens/ProfileScreen";
+import CalculatorScreen from "./screens/RecoveryGuideScreen";
 import ButtonStyles from "./styles/Button";
 
 const Stack = createStackNavigator();
@@ -44,7 +44,7 @@ function TabNavigator() {
                   ButtonStyles.tabBarText,
                   focused
                     ? ButtonStyles.tabBarActive
-                    : ButtonStyles.tabBarInactive,
+                    : ButtonStyles.tabBarInactive
                 ]}
               >
                 {route.name}
@@ -53,7 +53,7 @@ function TabNavigator() {
           );
         },
         tabBarActiveTintColor: "blue",
-        tabBarInactiveTintColor: "gray",
+        tabBarInactiveTintColor: "gray"
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
@@ -77,16 +77,16 @@ function App() {
           initialRouteName="Login"
           screenOptions={{
             headerShown: true,
-            headerLeft: null,  // Remove back button from all screens
+            headerLeft: null // Remove back button from all screens
           }}
         >
-          <Stack.Screen 
-            name="Login" 
+          <Stack.Screen
+            name="Login"
             component={LoginScreen}
             options={{
               headerShown: true,
               title: "Login",
-              gestureEnabled: false,  // Prevent swipe back
+              gestureEnabled: false // Prevent swipe back
             }}
           />
           <Stack.Screen
@@ -94,15 +94,15 @@ function App() {
             component={CreateAccount}
             options={{
               headerShown: true,
-              title: "Create Account",
+              title: "Create Account"
             }}
           />
-          <Stack.Screen 
-            name="Tabs" 
+          <Stack.Screen
+            name="Tabs"
             component={TabNavigator}
             options={{
               headerShown: false,
-              gestureEnabled: false,  // Prevent swipe back
+              gestureEnabled: false // Prevent swipe back
             }}
           />
         </Stack.Navigator>

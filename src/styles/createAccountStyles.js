@@ -3,23 +3,41 @@ import { StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    padding: 20,
     backgroundColor: "#F5FCFF",
   },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  formContainer: {
+    backgroundColor: "#FFFFFF",
+    padding: 20,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
     marginBottom: 30,
     textAlign: "center",
+    color: "#333",
   },
   inputContainer: {
-    marginBottom: 15,
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
-    marginBottom: 5,
+    marginBottom: 8,
     color: "#333",
+    fontWeight: "500",
   },
   input: {
     borderWidth: 1,
@@ -35,6 +53,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 8,
+    backgroundColor: "#fff",
   },
   passwordInput: {
     flex: 1,
@@ -51,20 +70,19 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 20,
   },
-  buttonDiabled: {
-    backgroundColor: "#99c9ff",
-    opacity: 0.7,
+  buttonDisabled: {
+    backgroundColor: "#999",
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
   },
-  linkContainer: {
-    marginTop: 15,
+  loginLink: {
+    marginTop: 20,
     alignItems: "center",
   },
-  linkText: {
+  loginLinkText: {
     color: "#007AFF",
     fontSize: 16,
   },

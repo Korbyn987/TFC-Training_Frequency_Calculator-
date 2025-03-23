@@ -26,135 +26,142 @@ def init_db():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
-        # Create login table
+        # Create users table with all fields
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS TFC_login_table (
+            CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
-            )
-        ''')
-        
-        # Create user info table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS TFC_user_info_table (
-                id INTEGER PRIMARY KEY,
+                username TEXT UNIQUE,
+                password TEXT,
+                email TEXT UNIQUE,
                 name TEXT,
-                age INTEGER,
+                age TEXT,
                 gender TEXT,
-                weight REAL,
-                height REAL,
-                FOREIGN KEY (id) REFERENCES TFC_login_table(id)
+                weight TEXT,
+                height TEXT
             )
         ''')
         
         conn.commit()
-        logger.info("Database initialized successfully")
     except Exception as e:
-        logger.error(f"Database initialization error: {str(e)}")
+        logger.error(f"Database initialization error: {e}")
     finally:
         conn.close()
 
 def connect_to_db():
     try:
         conn = sqlite3.connect(DB_PATH)
-        logger.info("Successfully connected to database")
         return conn
     except Exception as e:
-        logger.error(f"Database connection error: {str(e)}")
+        logger.error(f"Database connection error: {e}")
         return None
 
 @app.route('/api/register', methods=['POST'])
 def register():
     try:
-        logger.info("Received registration request")
-        data = request.json
-        logger.debug(f"Registration data: {data}")
+        data = request.get_json()
         
+        # Extract all required fields
         username = data.get('username')
         password = data.get('password')
+        email = data.get('email')
         name = data.get('name')
-        age = data.get('age')
+        age = str(data.get('age'))  # Convert to string for consistency
         gender = data.get('gender')
-        weight = data.get('weight')
-        height = data.get('height')
-
+        weight = str(data.get('weight'))  # Convert to string for consistency
+        height = str(data.get('height'))  # Convert to string for consistency
+        
+        # Validate required fields
+        if not all([username, password, email]):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
         conn = connect_to_db()
         if conn:
             try:
                 cursor = conn.cursor()
                 
-                # Check if username already exists
-                cursor.execute("SELECT username FROM TFC_login_table WHERE username = ?", (username,))
-                if cursor.fetchone():
-                    return jsonify({"error": "Username already exists"}), 400
-                
-                # Insert into login table
-                cursor.execute("""
-                    INSERT INTO TFC_login_table (username, password)
-                    VALUES (?, ?)
-                """, (username, password))
-                
-                user_id = cursor.lastrowid
-                
-                # Insert into user info table
-                cursor.execute("""
-                    INSERT INTO TFC_user_info_table (id, name, age, gender, weight, height)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (user_id, name, age, gender, weight, height))
+                # Insert new user
+                cursor.execute('''
+                    INSERT INTO users (username, password, email, name, age, gender, weight, height)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, password, email, name, age, gender, weight, height))
                 
                 conn.commit()
-                logger.info(f"User {username} registered successfully")
-                return jsonify({"message": "User registered successfully"}), 201
+                return jsonify({'message': 'Registration successful'}), 201
+                
+            except sqlite3.IntegrityError as e:
+                if 'username' in str(e):
+                    return jsonify({'error': 'Username already exists'}), 409
+                elif 'email' in str(e):
+                    return jsonify({'error': 'Email already exists'}), 409
+                return jsonify({'error': str(e)}), 409
                 
             except Exception as e:
-                conn.rollback()
-                logger.error(f"Database error during registration: {str(e)}")
-                return jsonify({"error": str(e)}), 400
+                logger.error(f"Registration error: {e}")
+                return jsonify({'error': 'Registration failed'}), 500
+                
             finally:
                 conn.close()
-        logger.error("Database connection failed")
-        return jsonify({"error": "Database connection failed"}), 500
+        
+        return jsonify({'error': 'Database connection failed'}), 500
+        
     except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
-        return jsonify({"error": str(e)}), 400
+        logger.error(f"Registration error: {e}")
+        return jsonify({'error': 'Invalid request'}), 400
 
 @app.route('/api/login', methods=['POST'])
 def login():
     try:
-        data = request.json
+        data = request.get_json()
         username = data.get('username')
         password = data.get('password')
-
+        
         if not username or not password:
-            return jsonify({'error': 'Username and password are required'}), 400
-
+            return jsonify({'error': 'Missing username or password'}), 400
+        
         conn = connect_to_db()
-        cursor = conn.cursor()
-
-        # Check if user exists and password matches
-        cursor.execute('SELECT * FROM TFC_login_table WHERE username = ? AND password = ?', (username, password))
-        user = cursor.fetchone()
-
-        if user is None:
-            return jsonify({'error': 'Invalid username or password'}), 401
-
-        # Return user data (excluding sensitive information)
-        return jsonify({
-            'username': username,
-            'message': 'Login successful'
-        }), 200
-
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, username, email, name, age, gender, weight, height
+                    FROM users
+                    WHERE username = ? AND password = ?
+                ''', (username, password))
+                
+                user = cursor.fetchone()
+                if user:
+                    return jsonify({
+                        'message': 'Login successful',
+                        'user': {
+                            'id': user[0],
+                            'username': user[1],
+                            'email': user[2],
+                            'name': user[3],
+                            'age': user[4],
+                            'gender': user[5],
+                            'weight': user[6],
+                            'height': user[7]
+                        }
+                    }), 200
+                else:
+                    return jsonify({'error': 'Invalid username or password'}), 401
+                    
+            except Exception as e:
+                logger.error(f"Login error: {e}")
+                return jsonify({'error': 'Login failed'}), 500
+                
+            finally:
+                conn.close()
+                
+        return jsonify({'error': 'Database connection failed'}), 500
+        
     except Exception as e:
-        logger.error(f"Error during login: {str(e)}")
-        return jsonify({'error': 'Login failed'}), 500
-
-    finally:
-        if 'conn' in locals():
-            conn.close()
+        logger.error(f"Login error: {e}")
+        return jsonify({'error': 'Invalid request'}), 400
 
 if __name__ == '__main__':
     logger.info("Starting Flask server...")
     # Initialize the database
     init_db()
-    app.run(debug=True, port=5001, host='0.0.0.0')
+    # Run the server
+    app.run(host='0.0.0.0', port=5001, debug=True)

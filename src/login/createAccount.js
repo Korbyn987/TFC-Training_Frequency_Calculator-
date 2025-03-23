@@ -1,21 +1,23 @@
+import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  View
 } from "react-native";
 import { styles } from "../styles/createAccountStyles";
-import { Ionicons } from "@expo/vector-icons";
 
 // Use different URLs based on platform
 const API_URL = Platform.select({
-  ios: "http://localhost:5001/api", // iOS simulator
-  android: "http://10.0.2.2:5001/api", // Android emulator
-  default: "http://localhost:5001/api", // Web
+  ios: "http://localhost:5001", // iOS simulator
+  android: "http://10.0.2.2:5001", // Android emulator
+  default: "http://localhost:5001" // Web
 });
 
 const CreateAccount = ({ navigation }) => {
@@ -24,12 +26,11 @@ const CreateAccount = ({ navigation }) => {
     email: "",
     password: "",
     confirmPassword: "",
-    // adding default values for required fields
     name: "",
-    age: 0,
-    gender: "Not specified",
-    weight: 0,
-    height: 0,
+    age: "",
+    gender: "",
+    weight: "",
+    height: ""
   });
 
   const [loading, setLoading] = useState(false);
@@ -39,60 +40,89 @@ const CreateAccount = ({ navigation }) => {
   const handleChange = (field, value) => {
     setFormData({
       ...formData,
-      [field]: value,
+      [field]: value
     });
   };
 
-  const handleSubmit = async () => {
-    // Basic validation
+  const validateForm = () => {
     if (
       !formData.username ||
       !formData.password ||
       !formData.email ||
-      !formData.confirmPassword
+      !formData.confirmPassword ||
+      !formData.name ||
+      !formData.age ||
+      !formData.gender ||
+      !formData.weight ||
+      !formData.height
     ) {
       Alert.alert("Error", "Please fill in all fields");
-      return;
+      return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
       Alert.alert("Error", "Passwords do not match");
+      return false;
+    }
+
+    if (formData.password.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters long");
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
       return;
     }
-    try {
-      setLoading(true);
 
-      const response = await fetch(`${API_URL}/register`, {
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/register`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           username: formData.username,
+          email: formData.email,
           password: formData.password,
-          name: formData.username, //using username as name initially
-          age: 0,
-          gender: "Not Specified",
-          weight: 0,
-          height: 0,
-        }),
+          name: formData.name,
+          age: formData.age,
+          gender: formData.gender,
+          weight: formData.weight,
+          height: formData.height
+        })
       });
+
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Registration failed");
+
+      if (response.ok) {
+        Alert.alert("Success", "Account created successfully! Please log in.", [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("Login")
+          }
+        ]);
+      } else {
+        const errorMessage = data.error || "Registration failed";
+        Alert.alert("Error", errorMessage);
       }
-
-      // Navigate to Login immediately
-      navigation.replace("Login");
-
-      // Show success message after navigation
-      Alert.alert(
-        "Account Created!",
-        "Your account has been created successfully. Please log in to continue."
-      );
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to create account");
-      console.log(error);
+      console.error("Registration error:", error);
+      Alert.alert(
+        "Error",
+        "Failed to create account. Please check your internet connection and try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -103,87 +133,165 @@ const CreateAccount = ({ navigation }) => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <Text style={styles.title}>Create Account</Text>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.formContainer}>
+          <Text style={styles.title}>Create Account</Text>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Username:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter username"
-          value={formData.username}
-          onChangeText={(value) => handleChange("username", value)}
-          autoCapitalize="none"
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Email:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter email"
-          value={formData.email}
-          onChangeText={(value) => handleChange("email", value)}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Password:</Text>
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter password"
-            value={formData.password}
-            onChangeText={(value) => handleChange("password", value)}
-            secureTextEntry={!showPassword}
-          />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons
-              name={showPassword ? "eye-off-outline" : "eye-outline"}
-              size={24}
-              color="#666"
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Username</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter username"
+              value={formData.username}
+              onChangeText={(text) => handleChange("username", text)}
+              autoCapitalize="none"
+              editable={!loading}
             />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter email"
+              value={formData.email}
+              onChangeText={(text) => handleChange("email", text)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter password"
+                value={formData.password}
+                onChangeText={(text) => handleChange("password", text)}
+                secureTextEntry={!showPassword}
+                editable={!loading}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+                disabled={loading}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={24}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Confirm Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Confirm password"
+                value={formData.confirmPassword}
+                onChangeText={(text) => handleChange("confirmPassword", text)}
+                secureTextEntry={!showConfirmPassword}
+                editable={!loading}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={loading}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? "eye-off" : "eye"}
+                  size={24}
+                  color="gray"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your full name"
+              value={formData.name}
+              onChangeText={(text) => handleChange("name", text)}
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Age</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your age"
+              value={formData.age}
+              onChangeText={(text) => handleChange("age", text)}
+              keyboardType="numeric"
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Gender</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Male/Female/Other"
+              value={formData.gender}
+              onChangeText={(text) => handleChange("gender", text)}
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Weight (lbs)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your weight"
+              value={formData.weight}
+              onChangeText={(text) => handleChange("weight", text)}
+              keyboardType="numeric"
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Height</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., 5'11&quot;"
+              value={formData.height}
+              onChangeText={(text) => handleChange("height", text)}
+              editable={!loading}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Create Account</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.loginLink}
+            onPress={() => navigation.navigate("Login")}
+            disabled={loading}
+          >
+            <Text style={styles.loginLinkText}>
+              Already have an account? Login here
+            </Text>
           </TouchableOpacity>
         </View>
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Confirm Password:</Text>
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm password"
-            value={formData.confirmPassword}
-            onChangeText={(value) => handleChange("confirmPassword", value)}
-            secureTextEntry={!showConfirmPassword}
-          />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-          >
-            <Ionicons
-              name={showConfirmPassword ? "eye-off" : "eye"}
-              size={24}
-              color="666"
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-        <Text style={styles.buttonText}>Create Account</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.linkContainer}
-        onPress={() => navigation.navigate("Login")}
-      >
-        <Text style={styles.linkText}>Already have an account? Login</Text>
-      </TouchableOpacity>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
