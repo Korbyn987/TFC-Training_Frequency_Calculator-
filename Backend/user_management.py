@@ -14,6 +14,7 @@ def register_user():
     print("\n=== User Registration ===")
     username = input("Enter username: ")
     password = getpass.getpass("Enter password: ")
+    email = input("Enter email: ")
     
     # Get user info
     name = input("Enter your full name: ")
@@ -33,6 +34,7 @@ def register_user():
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE,
                     password TEXT,
+                    email TEXT UNIQUE,
                     name TEXT,
                     age TEXT,
                     gender TEXT,
@@ -43,9 +45,9 @@ def register_user():
             
             # Insert the new user
             cursor.execute('''
-                INSERT INTO users (username, password, name, age, gender, weight, height)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (username, password, name, age, gender, weight, height))
+                INSERT INTO users (username, password, email, name, age, gender, weight, height)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (username, password, email, name, age, gender, weight, height))
             
             conn.commit()
             print("\nRegistration successful!")
@@ -68,7 +70,7 @@ def login_user():
             
             # Check credentials and get user info
             cursor.execute('''
-                SELECT name, age, gender, weight, height
+                SELECT name, email, age, gender, weight, height
                 FROM users
                 WHERE username = ? AND password = ?
             ''', (username, password))
@@ -78,11 +80,11 @@ def login_user():
             if user_data:
                 print("\nLogin successful!")
                 print(f"Welcome back, {user_data[0]}!")
-                print(f"Your profile:")
-                print(f"Age: {user_data[1]}")
-                print(f"Gender: {user_data[2]}")
-                print(f"Weight: {user_data[3]} lbs")
-                print(f"Height: {user_data[4]}")
+                print(f"Email: {user_data[1]}")
+                print(f"Age: {user_data[2]}")
+                print(f"Gender: {user_data[3]}")
+                print(f"Weight: {user_data[4]} lbs")
+                print(f"Height: {user_data[5]}")
             else:
                 print("\nInvalid username or password.")
                 
