@@ -9,15 +9,15 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { styles } from "../styles/createAccountStyles";
 
 // Use different URLs based on platform
 const API_URL = Platform.select({
-  ios: "http://localhost:5001", // iOS simulator
-  android: "http://10.0.2.2:5001", // Android emulator
-  default: "http://localhost:5001" // Web
+  ios: "http://localhost:5001/api", // iOS simulator
+  android: "http://10.0.2.2:5001/api", // Android emulator
+  default: "http://localhost:5001/api", // Web
 });
 
 const CreateAccount = ({ navigation }) => {
@@ -30,7 +30,7 @@ const CreateAccount = ({ navigation }) => {
     age: "",
     gender: "",
     weight: "",
-    height: ""
+    height: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -40,7 +40,7 @@ const CreateAccount = ({ navigation }) => {
   const handleChange = (field, value) => {
     setFormData({
       ...formData,
-      [field]: value
+      [field]: value,
     });
   };
 
@@ -90,7 +90,7 @@ const CreateAccount = ({ navigation }) => {
       const response = await fetch(`${API_URL}/api/register`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           username: formData.username,
@@ -100,8 +100,8 @@ const CreateAccount = ({ navigation }) => {
           age: formData.age,
           gender: formData.gender,
           weight: formData.weight,
-          height: formData.height
-        })
+          height: formData.height,
+        }),
       });
 
       const data = await response.json();
@@ -110,8 +110,8 @@ const CreateAccount = ({ navigation }) => {
         Alert.alert("Success", "Account created successfully! Please log in.", [
           {
             text: "OK",
-            onPress: () => navigation.navigate("Login")
-          }
+            onPress: () => navigation.navigate("Login"),
+          },
         ]);
       } else {
         const errorMessage = data.error || "Registration failed";
