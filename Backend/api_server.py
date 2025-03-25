@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import logging
 import os
@@ -14,7 +15,9 @@ CORS(app, resources={
     r"/api/*": {
         "origins": ["*"],  # Allow all origins for development
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
+
     }
 })
 
@@ -71,8 +74,25 @@ def register():
         height = str(data.get('height'))  # Convert to string for consistency
         
         # Validate required fields
-        if not all([username, password, email]):
-            return jsonify({'error': 'Missing required fields'}), 400
+        if not username:
+            return jsonify({'error': 'Username is required'}), 400
+        if not password:
+            return jsonify({'error': 'Password is required'}), 400
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+        if not name:
+            return jsonify({'error': 'Full name is required'}), 400
+        if not age:
+            return jsonify({'error': 'Age is required'}), 400
+        if not gender:
+            return jsonify({'error': 'Gender is required'}), 400
+        if not weight:
+            return jsonify({'error': 'Weight is required'}), 400
+        if not height:
+            return jsonify({'error': 'Height is required'}), 400
+
+        #Hash the password before storing 
+        hashed_password = generate_password_hash(password)
         
         conn = connect_to_db()
         if conn:
@@ -83,7 +103,7 @@ def register():
                 cursor.execute('''
                     INSERT INTO users (username, password, email, name, age, gender, weight, height)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (username, password, email, name, age, gender, weight, height))
+                ''', (username, hashed_password, email, name, age, gender, weight, height))
                 
                 conn.commit()
                 return jsonify({'message': 'Registration successful'}), 201
@@ -125,11 +145,11 @@ def login():
                 cursor.execute('''
                     SELECT id, username, email, name, age, gender, weight, height
                     FROM users
-                    WHERE username = ? AND password = ?
-                ''', (username, password))
+                    WHERE username = ? 
+                ''', (username,))
                 
                 user = cursor.fetchone()
-                if user:
+                if user and check_password_hash(user[8], password):
                     return jsonify({
                         'message': 'Login successful',
                         'user': {

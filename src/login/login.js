@@ -14,9 +14,9 @@ import { styles } from "../styles/loginStyles";
 
 // Use different URLs based on platform
 const API_URL = Platform.select({
-  ios: "http://localhost:5001/api", // iOS simulator
-  android: "http://10.0.2.2:5001/api", // Android emulator
-  default: "http://localhost:5001/api", // Web
+  ios: "http://localhost:5001", // iOS simulator
+  android: "http://10.0.2.2:5001", // Android emulator
+  default: "http://localhost:5001", // Web
 });
 
 const LoginScreen = ({ navigation }) => {
@@ -48,7 +48,13 @@ const LoginScreen = ({ navigation }) => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Login failed");
+        if (response.status === 401) {
+          throw new Error("Invalid username or password");
+        } else if (response.status === 400) {
+          throw new Error("Missing username or password");
+        } else {
+          throw new Error(data.error || "Login failed");
+        }
       }
 
       // Dispatch login action with user data

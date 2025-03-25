@@ -15,9 +15,9 @@ import { styles } from "../styles/createAccountStyles";
 
 // Use different URLs based on platform
 const API_URL = Platform.select({
-  ios: "http://localhost:5001/api", // iOS simulator
-  android: "http://10.0.2.2:5001/api", // Android emulator
-  default: "http://localhost:5001/api", // Web
+  ios: "http://localhost:5001", // iOS simulator
+  android: "http://10.0.2.2:5001", // Android emulator
+  default: "http://localhost:5001", // Web
 });
 
 const CreateAccount = ({ navigation }) => {
