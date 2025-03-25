@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 # Configure CORS to allow requests from your React Native app
 CORS(app, resources={
-    r"/api/*": {
+    r"/*": {
         "origins": ["*"],  # Allow all origins for development
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
