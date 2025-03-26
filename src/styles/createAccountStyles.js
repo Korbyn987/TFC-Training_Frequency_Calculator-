@@ -22,6 +22,9 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
   },
   title: {
     fontSize: 28,
@@ -32,6 +35,7 @@ export const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 20,
+    width: "100%",
   },
   label: {
     fontSize: 16,
@@ -46,6 +50,7 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     fontSize: 16,
     backgroundColor: "#fff",
+    width: "100%",
   },
   passwordContainer: {
     flexDirection: "row",
@@ -54,6 +59,7 @@ export const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderRadius: 8,
     backgroundColor: "#fff",
+    width: "100%",
   },
   passwordInput: {
     flex: 1,
@@ -62,6 +68,7 @@ export const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: 10,
+    cursor: "pointer",
   },
   button: {
     backgroundColor: "#007AFF",
@@ -69,9 +76,14 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     marginTop: 20,
+    width: "100%",
+    cursor: "pointer",
+    minHeight: 50,
+    justifyContent: "center",
   },
   buttonDisabled: {
     backgroundColor: "#999",
+    cursor: "not-allowed",
   },
   buttonText: {
     color: "#fff",
@@ -81,6 +93,7 @@ export const styles = StyleSheet.create({
   loginLink: {
     marginTop: 20,
     alignItems: "center",
+    cursor: "pointer",
   },
   loginLinkText: {
     color: "#007AFF",

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,11 +14,7 @@ import {
 import { styles } from "../styles/createAccountStyles";
 
 // Use different URLs based on platform
-const API_URL = Platform.select({
-  ios: "http://localhost:5001", // iOS simulator
-  android: "http://10.0.2.2:5001", // Android emulator
-  default: "http://localhost:5001", // Web
-});
+const API_URL = "http://127.0.0.1:5001"; // Use localhost IP address for better compatibility
 
 const CreateAccount = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -37,7 +33,12 @@ const CreateAccount = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  useEffect(() => {
+    console.log("CreateAccount component mounted");
+  }, []);
+
   const handleChange = (field, value) => {
+    console.log(`Field ${field} changed to:`, value);
     setFormData({
       ...formData,
       [field]: value,
@@ -45,6 +46,9 @@ const CreateAccount = ({ navigation }) => {
   };
 
   const validateForm = () => {
+    console.log("Validating form...");
+    console.log("Current form data:", formData);
+
     if (
       !formData.username ||
       !formData.password ||
@@ -56,72 +60,96 @@ const CreateAccount = ({ navigation }) => {
       !formData.weight ||
       !formData.height
     ) {
+      console.log("Form validation failed: missing fields");
       Alert.alert("Error", "Please fill in all fields");
       return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
+      console.log("Form validation failed: passwords don't match");
       Alert.alert("Error", "Passwords do not match");
       return false;
     }
 
     if (formData.password.length < 6) {
+      console.log("Form validation failed: password too short");
       Alert.alert("Error", "Password must be at least 6 characters long");
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
+      console.log("Form validation failed: invalid email");
       Alert.alert("Error", "Please enter a valid email address");
       return false;
     }
 
+    console.log("Form validation passed");
     return true;
   };
 
   const handleSubmit = async () => {
+    console.log("Submit button clicked");
+    
     if (!validateForm()) {
       return;
     }
 
     setLoading(true);
+    console.log("Submitting form data...");
+    console.log("API URL:", API_URL);
 
     try {
+      console.log("Making fetch request to:", `${API_URL}/api/register`);
+      const requestBody = {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        name: formData.name,
+        age: formData.age,
+        gender: formData.gender,
+        weight: formData.weight,
+        height: formData.height,
+      };
+      console.log("Request body:", JSON.stringify(requestBody));
+
       const response = await fetch(`${API_URL}/api/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
         },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-          age: formData.age,
-          gender: formData.gender,
-          weight: formData.weight,
-          height: formData.height,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log("Response status:", response.status);
       const data = await response.json();
+      console.log("Response data:", data);
 
       if (response.ok) {
-        Alert.alert("Success", "Account created successfully! Please log in.", [
-          {
-            text: "OK",
-            onPress: () => navigation.navigate("Login"),
-          },
-        ]);
+        Alert.alert(
+          "Success",
+          "Account created successfully! Please log in.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                console.log("Navigating to Login screen");
+                navigation.navigate("Login");
+              },
+            },
+          ]
+        );
       } else {
         const errorMessage = data.error || "Registration failed";
+        console.error("Registration failed:", errorMessage);
         Alert.alert("Error", errorMessage);
       }
     } catch (error) {
       console.error("Registration error:", error);
       Alert.alert(
         "Error",
-        "Failed to create account. Please check your internet connection and try again."
+        "Failed to create account. Please check your internet connection and try again. Error: " + error.message
       );
     } finally {
       setLoading(false);
@@ -271,7 +299,10 @@ const CreateAccount = ({ navigation }) => {
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSubmit}
+            onPress={() => {
+              console.log("Button pressed");
+              handleSubmit();
+            }}
             disabled={loading}
           >
             {loading ? (
