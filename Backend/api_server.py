@@ -132,6 +132,9 @@ def register():
 def login():
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
         username = data.get('username')
         password = data.get('password')
         
@@ -139,17 +142,24 @@ def login():
             return jsonify({'error': 'Missing username or password'}), 400
         
         conn = connect_to_db()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT id, username, email, name, age, gender, weight, height
-                    FROM users
-                    WHERE username = ? 
-                ''', (username,))
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, username, email, name, age, gender, weight, height, password
+                FROM users
+                WHERE username = ? 
+            ''', (username,))
+            
+            user = cursor.fetchone()
+            if user:
+                logger.info(f"Found user: {username}")
+                stored_password = user[8]
                 
-                user = cursor.fetchone()
-                if user and check_password_hash(user[8], password):
+                # First try to verify as hashed password
+                if check_password_hash(stored_password, password):
                     return jsonify({
                         'message': 'Login successful',
                         'user': {
@@ -163,21 +173,50 @@ def login():
                             'height': user[7]
                         }
                     }), 200
-                else:
-                    return jsonify({'error': 'Invalid username or password'}), 401
+                
+                # If that fails, check if it's stored as plain text
+                elif stored_password == password:
+                    # If it matches as plain text, update it to be hashed
+                    hashed_password = generate_password_hash(password)
+                    cursor.execute('''
+                        UPDATE users 
+                        SET password = ? 
+                        WHERE username = ?
+                    ''', (hashed_password, username))
+                    conn.commit()
+                    logger.info(f"Updated password to hashed for user: {username}")
                     
-            except Exception as e:
-                logger.error(f"Login error: {e}")
-                return jsonify({'error': 'Login failed'}), 500
+                    return jsonify({
+                        'message': 'Login successful',
+                        'user': {
+                            'id': user[0],
+                            'username': user[1],
+                            'email': user[2],
+                            'name': user[3],
+                            'age': user[4],
+                            'gender': user[5],
+                            'weight': user[6],
+                            'height': user[7]
+                        }
+                    }), 200
                 
-            finally:
-                conn.close()
+                else:
+                    logger.warning(f"Invalid password for user: {username}")
+                    return jsonify({'error': 'Invalid password'}), 401
+            else:
+                logger.warning(f"User not found: {username}")
+                return jsonify({'error': 'User not found'}), 401
                 
-        return jsonify({'error': 'Database connection failed'}), 500
-        
+        except Exception as e:
+            logger.error(f"Database query error: {str(e)}")
+            return jsonify({'error': f'Database error: {str(e)}'}), 500
+            
+        finally:
+            conn.close()
+            
     except Exception as e:
-        logger.error(f"Login error: {e}")
-        return jsonify({'error': 'Invalid request'}), 400
+        logger.error(f"Login error: {str(e)}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 if __name__ == '__main__':
     logger.info("Starting Flask server...")

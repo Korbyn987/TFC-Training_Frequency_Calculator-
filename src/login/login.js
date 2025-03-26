@@ -34,7 +34,7 @@ const LoginScreen = ({ navigation }) => {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -58,14 +58,15 @@ const LoginScreen = ({ navigation }) => {
       }
 
       // Dispatch login action with user data
-      dispatch(login({ username: data.username }));
+      dispatch(login({ username: data.user.username }));
 
       // Navigate to Tabs immediately
       navigation.replace("Tabs");
 
       // Show success message after navigation
-      Alert.alert("Success", "Welcome back, " + data.username + "!");
+      Alert.alert("Success", "Welcome back, " + data.user.username + "!");
     } catch (error) {
+      console.error("Login error: " + error);
       Alert.alert("Error", error.message || "Failed to login");
     } finally {
       setIsLoading(false);
