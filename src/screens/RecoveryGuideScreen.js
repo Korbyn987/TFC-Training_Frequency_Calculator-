@@ -128,9 +128,7 @@ const RecoveryGuideScreen = () => {
 
       {/* Grid header */}
       <View style={styles.gridHeader}>
-        <Text style={styles.headerCell}>Muscle Group</Text>
         <Text style={styles.headerCell}>Recovery Time</Text>
-        <Text style={styles.headerCell}>Status</Text>
       </View>
 
       {/* Grid Content */}
