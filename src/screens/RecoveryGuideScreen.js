@@ -3,60 +3,87 @@ import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
 import { styles } from "../styles/recoveryGuideStyles";
+import { CircularProgress } from "react-native-circular-progress";
 
-const calculateRecovery = (lastWorkout) => {
-  if (!lastWorkout) return 100; // If never worked, fully recovered
+const MUSCLE_RECOVERY_TIMES = {
+  Biceps: 48,
+  Triceps: 72,
+  Forearms: 48,
+  Chest: 72,
+  "Deltoid (front)": 48,
+  "Deltoid (side)": 48,
+  "Deltoid (rear)": 48,
+  "Upper/Middle Back": 72,
+  "Lower Back": 62,
+  Trapezius: 72,
+  Glutes: 62,
+  Calves: 48,
+  Quadriceps: 72,
+  Hamstrings: 72,
+  Core: 48,
+};
+
+const calculateRecovery = (lastWorkout, recoveryTime) => {
+  if (!lastWorkout) return { percentage: 100, timeLeft: 0 }; // If never worked, fully recovered aka no time left
 
   const now = new Date();
   const workoutDate = new Date(lastWorkout);
   const hoursPassed = (now - workoutDate) / (1000 * 60 * 60);
 
-  // Base recovery time (48 hours = 2 days)
-  const recoveryTime = 48;
+  const timeLeft = recoveryTime - hoursPassed;
 
   // Calculate recovery percentage (0-100)
   const recoveryPercentage = Math.min((hoursPassed / recoveryTime) * 100, 100);
-  return Math.round(recoveryPercentage);
+  return {
+    percentage: recoveryPercentage,
+    timeLeft: timeLeft > 0 ? timeLeft : 0,
+    hoursPassed,
+  };
 };
 
-const MuscleRecoveryMeter = ({ lastWorkout }) => {
-  const value = calculateRecovery(lastWorkout);
+const MuscleRecoveryMeter = ({ lastWorkout, recoveryTime }) => {
+  const { percentage, timeLeft } = calculateRecovery(lastWorkout, recoveryTime);
 
-  let color;
-  let zoneText = "";
-  if (value <= 33) {
-    color = "#FF4444"; // Red - Need more rest
-    zoneText = "Do not train";
-  } else if (value <= 50) {
-    color = "#FFBB33";
-    zoneText = "Caution!! Probably shouldn't train";
-  } else if (value <= 66) {
-    color = "#FFBB33"; // Yellow - Caution
-    zoneText = "Could train, but be careful";
-  } else {
-    color = "#00C851"; // Green - Ready to train
-    zoneText = "Safe to train";
-  }
+  // Calculate color gradient based on percentage
+  const getGradientColor = (percent) => {
+    if (percent <= 33) {
+      // Red to Orange
+      const r = 255;
+      const g = Math.floor(255 * (percent / 33));
+      return `rgb(${r}, ${g}, 0)`;
+    } else if (percent <= 66) {
+      // Orange to Yellow
+      const r = Math.floor(255 * (1 - (percent - 33) / 33));
+      const g = 255;
+      return `rgb(${r}, ${g}, 0)`;
+    } else {
+      // Yellow to Green
+      const r = 0;
+      const g = 255;
+      const b = Math.floor(255 * ((percent - 66) / 34));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+  };
 
   return (
     <View style={styles.meterContainer}>
-      <View style={[styles.meter, { backgroundColor: "#e0e0e0" }]}>
-        <View
-          style={[
-            styles.meterFill,
-            {
-              width: `${value}%`,
-              backgroundColor: color,
-            },
-          ]}
-        />
-      </View>
-      <Text style={styles.zoneText}>{zoneText}</Text>
-      {lastWorkout && (
-        <Text style={styles.lastWorkoutText}>
-          Last workout: {new Date(lastWorkout).toLocaleDateString()}
-        </Text>
-      )}
+      <CircularProgress
+        size={120}
+        width={12}
+        fill={percentage}
+        tintColor={getGradientColor(percentage)}
+        backgroundColor="#e0e0e0"
+        rotation={90}
+      >
+        {() => (
+          <View style={styles.meterTextContainer}>
+            <Text style={styles.timeText}>{Math.floor(timeLeft)}h</Text>
+            <Text style={styles.statusText}>
+              {percentage <= 33 ? "Rest" : percentage <= 66 ? "Caution" : "Go"}
+            </Text>
+          </View>
+        )}
+      </CircularProgress>
     </View>
   );
 };
@@ -80,21 +107,6 @@ const RecoveryGuideScreen = () => {
     return null;
   }
 
-  const predefinedMuscleGroups = [
-    "Biceps",
-    "Forearms",
-    "Quads",
-    "Hamstrings",
-    "Triceps",
-    "Abs",
-    "Shoulders",
-    "Traps",
-    "Back",
-    "Calves",
-    "Glutes",
-    "Chest",
-  ];
-
   const handleMusclePress = () => {
     if (!isAuthenticated) {
       navigation.navigate("Login");
@@ -114,30 +126,43 @@ const RecoveryGuideScreen = () => {
         </Text>
       </View>
 
-      <View style={styles.muscleList}>
-        {predefinedMuscleGroups.map((muscleName, index) => {
-          const muscleKey = muscleName.toLowerCase();
-          const muscleData = muscleStatus?.[muscleKey] || {};
+      {/* Grid header */}
+      <View style={styles.gridHeader}>
+        <Text style={styles.headerCell}>Muscle Group</Text>
+        <Text style={styles.headerCell}>Recovery Time</Text>
+        <Text style={styles.headerCell}>Status</Text>
+      </View>
 
-          return (
-            <TouchableOpacity
-              key={index}
-              style={styles.muscleItem}
-              onPress={handleMusclePress}
-              disabled={!isAuthenticated}
-            >
-              <Text style={styles.muscleName}>{muscleName}</Text>
-              <View style={styles.meterWrapper}>
-                <MuscleRecoveryMeter lastWorkout={muscleData.lastWorkout} />
-                {!isAuthenticated && (
-                  <Text style={styles.loginPrompt}>
-                    Login to track workouts
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+      {/* Grid Content */}
+      <View style={styles.muscleList}>
+        {Object.entries(MUSCLE_RECOVERY_TIMES).map(
+          ([muscleName, recoveryTime], index) => {
+            const muscleKey = muscleName.toLowerCase().replace(/[^a-z]/g, "");
+            const muscleData = muscleStatus?.[muscleKey] || {};
+
+            return (
+              <TouchableOpacity
+                key={index}
+                style={styles.gridRow}
+                onPress={handleMusclePress}
+                disabled={!isAuthenticated}
+              >
+                <View style={styles.gridCell}>
+                  <Text style={styles.muscleName}>{muscleName}</Text>
+                </View>
+                <View style={styles.gridCell}>
+                  <Text style={styles.recoveryTime}>{recoveryTime} hours</Text>
+                </View>
+                <View style={styles.gridCell}>
+                  <MuscleRecoveryMeter
+                    lastWorkout={muscleData.lastWorkout}
+                    recoveryTime={recoveryTime}
+                  />
+                </View>
+              </TouchableOpacity>
+            );
+          }
+        )}
       </View>
     </ScrollView>
   );
