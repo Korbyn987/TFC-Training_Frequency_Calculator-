@@ -32,6 +32,8 @@ export const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "bold",
     color: "#333",
+    gap: 2,
+    padding: 8,
   },
   muscleList: {
     gap: 12,

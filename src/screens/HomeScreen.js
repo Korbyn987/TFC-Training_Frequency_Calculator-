@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   Modal,
   TextInput,
   Alert,
+  Animated,
+  Easing,
+  RefreshControl,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -20,11 +24,19 @@ const HomeScreen = ({ navigation }) => {
   const [editMode, setEditMode] = useState(false);
   const [selectedMuscle, setSelectedMuscle] = useState(null);
   const [editDays, setEditDays] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [achievements, setAchievements] = useState([]);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
 
+  // Animation for muscle buttons
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     loadMuscleData();
+    loadStreak();
+    loadAchievements();
   }, []);
 
   const loadMuscleData = async () => {
@@ -44,12 +56,57 @@ const HomeScreen = ({ navigation }) => {
       Alert.alert("Error", "Failed to load muscle data");
     }
   };
+  const loadStreak = async () => {
+    try {
+      const savedStreak = await AsyncStorage.getItem("streak");
+      setStreak(savedStreak ? parseInt(savedStreak) : 0);
+    } catch (error) {
+      console.error("Failed to load streak", error);
+    }
+  };
+  const loadAchievements = async () => {
+    try {
+      const savedAchievements = await AsyncStorage.getItem("achievements");
+      setAchievements(savedAchievements ? JSON.parse(savedAchievements) : []);
+    } catch (error) {
+      console.error("Erorr loading achievements", error);
+    }
+  };
 
   const updateMuscle = async (muscle) => {
     try {
       const newData = { ...muscleData, [muscle]: 0 };
       setMuscleData(newData);
       await AsyncStorage.setItem("muscleData", JSON.stringify(newData));
+
+      // update streak
+      const now = new Date();
+      const lastDate = await AsyncStorage.getItem("lastTrainedDate");
+      if (!lastDate || now - new Date(lastDate) <= 24 * 60 * 60 * 1000) {
+        setStreak((prev) => prev + 1);
+        await AsyncStorage.setItem("streak", (streak + 1).toString());
+      } else {
+        setStreak(1);
+        await AsyncStorage.setItem("streak", "1");
+      }
+      await AsyncStorage.setItem("lastTrainedDate", now.toString());
+
+      // check for achievements
+      checkAchievements();
+
+      Animated.timing(scaleAnim, {
+        toValue: 1.2,
+        duration: 200,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start(() => {
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 4,
+          tension: 40,
+          useNativeDriver: true,
+        }).start();
+      });
     } catch (error) {
       Alert.alert("Error", "Failed to update muscle data");
     }
@@ -57,6 +114,19 @@ const HomeScreen = ({ navigation }) => {
 
   const handleEdit = (muscle) => {
     setSelectedMuscle(muscle);
+    Animated.timing(scaleAnim, {
+      toValue: 1.2,
+      duration: 200,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 4,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+    });
     setEditDays(muscleData[muscle].toString());
     setEditMode(true);
   };
@@ -102,9 +172,7 @@ const HomeScreen = ({ navigation }) => {
           Welcome to TFC your Training Frequency Calculator
         </Text>
         {isAuthenticated && user && (
-          <Text style={HomeStyles.welcomeUser}>
-            Welcome, {user.username}!
-          </Text>
+          <Text style={HomeStyles.welcomeUser}>Welcome, {user.username}!</Text>
         )}
       </View>
       <Text style={HomeStyles.subtitle}>Tap a muscle to reset its counter</Text>
