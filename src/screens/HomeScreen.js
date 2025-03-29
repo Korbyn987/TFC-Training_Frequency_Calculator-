@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/authSlice";
-import HomeStyles from "../styles/homeStyles";
+import { styles } from "../styles/homeStyles";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 
 const HomeScreen = ({ navigation }) => {
@@ -56,6 +56,7 @@ const HomeScreen = ({ navigation }) => {
       Alert.alert("Error", "Failed to load muscle data");
     }
   };
+
   const loadStreak = async () => {
     try {
       const savedStreak = await AsyncStorage.getItem("streak");
@@ -64,12 +65,13 @@ const HomeScreen = ({ navigation }) => {
       console.error("Failed to load streak", error);
     }
   };
+
   const loadAchievements = async () => {
     try {
       const savedAchievements = await AsyncStorage.getItem("achievements");
       setAchievements(savedAchievements ? JSON.parse(savedAchievements) : []);
     } catch (error) {
-      console.error("Erorr loading achievements", error);
+      console.error("Error loading achievements", error);
     }
   };
 
@@ -94,6 +96,7 @@ const HomeScreen = ({ navigation }) => {
       // check for achievements
       checkAchievements();
 
+      // Trigger animation
       Animated.timing(scaleAnim, {
         toValue: 1.2,
         duration: 200,
@@ -109,6 +112,41 @@ const HomeScreen = ({ navigation }) => {
       });
     } catch (error) {
       Alert.alert("Error", "Failed to update muscle data");
+    }
+  };
+
+  const checkAchievements = async () => {
+    const newAchievements = [...achievements];
+
+    // Check for streak achievements
+    if (streak >= 7 && !achievements.includes("weekStreak")) {
+      newAchievements.push("weekStreak");
+    }
+    if (streak >= 30 && !achievements.includes("monthStreak")) {
+      newAchievements.push("monthStreak");
+    }
+
+    // Check for muscle group achievements
+    const readyMuscles = Object.values(muscleData).filter(
+      (days) => days >= 48
+    ).length;
+    if (readyMuscles >= 5 && !achievements.includes("fiveReady")) {
+      newAchievements.push("fiveReady");
+    }
+    if (readyMuscles >= 10 && !achievements.includes("tenReady")) {
+      newAchievements.push("tenReady");
+    }
+
+    if (newAchievements.length !== achievements.length) {
+      setAchievements(newAchievements);
+      await AsyncStorage.setItem(
+        "achievements",
+        JSON.stringify(newAchievements)
+      );
+      Alert.alert(
+        "Achievement Unlocked!",
+        "You've unlocked a new achievement!"
+      );
     }
   };
 
@@ -146,115 +184,157 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  const renderMuscleItem = ({ item: muscle }) => (
-    <TouchableOpacity
-      style={HomeStyles.muscleItem}
-      onPress={() => updateMuscle(muscle)}
-      onLongPress={() => handleEdit(muscle)}
-    >
-      <Text style={HomeStyles.muscleName}>{muscle}</Text>
-      <View style={HomeStyles.daysContainer}>
-        <Text style={HomeStyles.daysText}>{muscleData[muscle] || 0} days</Text>
-        <TouchableOpacity
-          style={HomeStyles.editButton}
-          onPress={() => handleEdit(muscle)}
+  const renderMuscleItem = ({ item: muscle }) => {
+    const days = muscleData[muscle] || 0;
+    const status = days < 48 ? "rest" : days < 72 ? "caution" : "ready";
+
+    return (
+      <TouchableOpacity
+        style={styles.muscleItem}
+        onPress={() => updateMuscle(muscle)}
+        onLongPress={() => handleEdit(muscle)}
+      >
+        <Animated.View
+          style={{
+            transform: [{ scale: scaleAnim }],
+          }}
         >
-          <Ionicons name="pencil" size={20} color="black" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+          <View style={styles.muscleStatus(status)}>
+            <Text style={styles.muscleName}>{muscle}</Text>
+            <View style={styles.daysContainer}>
+              <Text style={styles.daysText}>{days} days</Text>
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => handleEdit(muscle)}
+              >
+                <Ionicons name="pencil" size={20} color="black" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <View style={HomeStyles.container}>
-      <View style={HomeStyles.header}>
-        <Text style={HomeStyles.title}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={async () => {
+            setIsRefreshing(true);
+            await loadMuscleData();
+            await loadStreak();
+            await loadAchievements();
+            setIsRefreshing(false);
+          }}
+        />
+      }
+    >
+      <View style={styles.header}>
+        <Text style={styles.title}>
           Welcome to TFC your Training Frequency Calculator
         </Text>
         {isAuthenticated && user && (
-          <Text style={HomeStyles.welcomeUser}>Welcome, {user.username}!</Text>
+          <Text style={styles.welcomeUser}>Welcome, {user.username}!</Text>
         )}
+
+        {/* Streak Counter */}
+        <View style={styles.streakContainer}>
+          <Ionicons name="trophy" size={24} color="#FFD700" />
+          <Text style={styles.streakText}>{streak} day streak!</Text>
+        </View>
+
+        {/* Quick Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>
+              {Object.values(muscleData).filter((days) => days >= 48).length}
+            </Text>
+            <Text style={styles.statLabel}>Ready Muscles</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>
+              {Object.values(muscleData).filter((days) => days < 48).length}
+            </Text>
+            <Text style={styles.statLabel}>Resting Muscles</Text>
+          </View>
+        </View>
       </View>
-      <Text style={HomeStyles.subtitle}>Tap a muscle to reset its counter</Text>
+
+      <Text style={styles.subtitle}>Tap a muscle to reset its counter</Text>
 
       <FlatList
         data={MUSCLE_GROUPS}
         renderItem={renderMuscleItem}
         keyExtractor={(item) => item}
-        style={HomeStyles.list}
+        style={styles.list}
+        contentContainerStyle={styles.listContainer}
       />
 
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={styles.quickActionItem}
+          onPress={() => {
+            const upperBody = [
+              "Biceps",
+              "Triceps",
+              "Chest",
+              "Shoulders",
+              "Traps",
+              "Back",
+            ];
+            upperBody.forEach((muscle) => updateMuscle(muscle));
+          }}
+        >
+          <Ionicons name="body" size={24} color="#4CAF50" />
+          <Text style={styles.quickActionText}>Upper Body</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickActionItem}
+          onPress={() => {
+            const lowerBody = ["Quads", "Hamstrings", "Glutes", "Calves"];
+            lowerBody.forEach((muscle) => updateMuscle(muscle));
+          }}
+        >
+          <Ionicons name="body" size={24} color="#2196F3" />
+          <Text style={styles.quickActionText}>Lower Body</Text>
+        </TouchableOpacity>
+      </View>
+
       <Modal visible={editMode} transparent={true} animationType="slide">
-        <View style={HomeStyles.modalContainer}>
-          <View style={HomeStyles.modalContent}>
-            <Text style={HomeStyles.modalTitle}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
               Edit Days for {selectedMuscle}
             </Text>
             <TextInput
-              style={HomeStyles.input}
+              style={styles.input}
               value={editDays}
               onChangeText={setEditDays}
               keyboardType="numeric"
               placeholder="Enter number of days"
             />
-            <View style={HomeStyles.modalButtons}>
+            <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[HomeStyles.modalButton, HomeStyles.cancelButton]}
+                style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setEditMode(false)}
               >
-                <Text style={HomeStyles.buttonText}>Cancel</Text>
+                <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[HomeStyles.modalButton, HomeStyles.saveButton]}
+                style={[styles.modalButton, styles.saveButton]}
                 onPress={saveEdit}
               >
-                <Text style={HomeStyles.buttonText}>Save</Text>
+                <Text style={styles.buttonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
-      <View style={HomeStyles.buttonContainer}>
-        {!isAuthenticated ? (
-          <>
-            <TouchableOpacity
-              style={HomeStyles.button}
-              onPress={() => navigation.navigate("Login")}
-            >
-              <Text style={HomeStyles.buttonText}>Login</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[HomeStyles.button, HomeStyles.secondaryButton]}
-              onPress={() => navigation.navigate("CreateAccount")}
-            >
-              <Text style={HomeStyles.buttonText}>Create Account</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity
-            style={[HomeStyles.button, HomeStyles.logoutButton]}
-            onPress={() => {
-              navigation.replace("Login");
-              dispatch(logout());
-              Alert.alert("Success", "You have been logged out successfully");
-            }}
-          >
-            <Text style={HomeStyles.buttonText}>Logout</Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={[HomeStyles.button, HomeStyles.outlineButton]}
-          onPress={() => navigation.navigate("About")}
-        >
-          <Text style={[HomeStyles.buttonText, HomeStyles.outlineText]}>
-            Learn More
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </ScrollView>
   );
 };
 
