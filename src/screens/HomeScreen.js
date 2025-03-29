@@ -27,11 +27,23 @@ const HomeScreen = ({ navigation }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [streak, setStreak] = useState(0);
   const [achievements, setAchievements] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
 
   // Animation for muscle buttons
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Define muscle groups
+  const UPPER_BODY = [
+    "Biceps",
+    "Triceps",
+    "Chest",
+    "Shoulders",
+    "Traps",
+    "Back",
+  ];
+  const LOWER_BODY = ["Quads", "Hamstrings", "Glutes", "Calves"];
 
   useEffect(() => {
     loadMuscleData();
@@ -57,29 +69,17 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  const loadStreak = async () => {
-    try {
-      const savedStreak = await AsyncStorage.getItem("streak");
-      setStreak(savedStreak ? parseInt(savedStreak) : 0);
-    } catch (error) {
-      console.error("Failed to load streak", error);
-    }
-  };
-
-  const loadAchievements = async () => {
-    try {
-      const savedAchievements = await AsyncStorage.getItem("achievements");
-      setAchievements(savedAchievements ? JSON.parse(savedAchievements) : []);
-    } catch (error) {
-      console.error("Error loading achievements", error);
-    }
-  };
-
   const updateMuscle = async (muscle) => {
     try {
       const newData = { ...muscleData, [muscle]: 0 };
       setMuscleData(newData);
       await AsyncStorage.setItem("muscleData", JSON.stringify(newData));
+
+      // Update the recovery timer for this muscle
+      await AsyncStorage.setItem(
+        `recoveryTimer_${muscle}`,
+        new Date().toString()
+      );
 
       // update streak
       const now = new Date();
@@ -112,6 +112,24 @@ const HomeScreen = ({ navigation }) => {
       });
     } catch (error) {
       Alert.alert("Error", "Failed to update muscle data");
+    }
+  };
+
+  const loadStreak = async () => {
+    try {
+      const savedStreak = await AsyncStorage.getItem("streak");
+      setStreak(savedStreak ? parseInt(savedStreak) : 0);
+    } catch (error) {
+      console.error("Failed to load streak", error);
+    }
+  };
+
+  const loadAchievements = async () => {
+    try {
+      const savedAchievements = await AsyncStorage.getItem("achievements");
+      setAchievements(savedAchievements ? JSON.parse(savedAchievements) : []);
+    } catch (error) {
+      console.error("Error loading achievements", error);
     }
   };
 
@@ -266,7 +284,13 @@ const HomeScreen = ({ navigation }) => {
       <Text style={styles.subtitle}>Tap a muscle to reset its counter</Text>
 
       <FlatList
-        data={MUSCLE_GROUPS}
+        data={
+          selectedGroup === null
+            ? MUSCLE_GROUPS
+            : selectedGroup === "upper"
+            ? UPPER_BODY
+            : LOWER_BODY
+        }
         renderItem={renderMuscleItem}
         keyExtractor={(item) => item}
         style={styles.list}
@@ -276,33 +300,51 @@ const HomeScreen = ({ navigation }) => {
       {/* Quick Actions */}
       <View style={styles.quickActions}>
         <TouchableOpacity
-          style={styles.quickActionItem}
+          style={[
+            styles.quickActionItem,
+            selectedGroup === "upper" && styles.selectedGroup,
+          ]}
           onPress={() => {
-            const upperBody = [
-              "Biceps",
-              "Triceps",
-              "Chest",
-              "Shoulders",
-              "Traps",
-              "Back",
-            ];
-            upperBody.forEach((muscle) => updateMuscle(muscle));
+            setSelectedGroup("upper");
+            UPPER_BODY.forEach((muscle) => updateMuscle(muscle));
           }}
         >
           <Ionicons name="body" size={24} color="#4CAF50" />
           <Text style={styles.quickActionText}>Upper Body</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.quickActionItem}
+          style={[
+            styles.quickActionItem,
+            selectedGroup === "lower" && styles.selectedGroup,
+          ]}
           onPress={() => {
-            const lowerBody = ["Quads", "Hamstrings", "Glutes", "Calves"];
-            lowerBody.forEach((muscle) => updateMuscle(muscle));
+            setSelectedGroup("lower");
+            LOWER_BODY.forEach((muscle) => updateMuscle(muscle));
           }}
         >
           <Ionicons name="body" size={24} color="#2196F3" />
           <Text style={styles.quickActionText}>Lower Body</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Reset button to show all muscles */}
+      {selectedGroup !== null && (
+        <TouchableOpacity
+          style={[
+            styles.button,
+            styles.secondaryButton,
+            {
+              position: "absolute",
+              bottom: 16,
+              left: 16,
+              right: 16,
+            },
+          ]}
+          onPress={() => setSelectedGroup(null)}
+        >
+          <Text style={styles.buttonText}>Show All Muscles</Text>
+        </TouchableOpacity>
+      )}
 
       <Modal visible={editMode} transparent={true} animationType="slide">
         <View style={styles.modalContainer}>

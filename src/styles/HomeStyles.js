@@ -128,6 +128,11 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
   },
+  selectedGroup: {
+    backgroundColor: "#e3f2fd",
+    borderWidth: 2,
+    borderColor: "#2196F3",
+  },
   quickActionText: {
     fontSize: 16,
     color: "#333",
@@ -203,5 +208,11 @@ export const styles = StyleSheet.create({
   },
   outlineText: {
     color: "#4CAF50",
+  },
+  resetButton: {
+    backgroundColor: "#ff9800",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
   },
 });
