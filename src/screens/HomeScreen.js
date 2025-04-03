@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/authSlice";
-import { styles } from "../styles/homeStyles";
+import { styles } from "../styles/HomeStyles";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 
 const HomeScreen = ({ navigation }) => {
@@ -28,6 +28,8 @@ const HomeScreen = ({ navigation }) => {
   const [streak, setStreak] = useState(0);
   const [achievements, setAchievements] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [workoutInProgress, setWorkoutInProgress] = useState(false);
+  const [trainedMuscles, setTrainedMuscles] = useState([]);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
 
@@ -69,6 +71,12 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
+  const startWorkout = () => {
+    setWorkoutInProgress(true);
+    setTrainedMuscles([]);
+    navigation.navigate("WorkoutTracking");
+  };
+
   const updateMuscle = async (muscle) => {
     try {
       const newData = { ...muscleData, [muscle]: 0 };
@@ -81,20 +89,10 @@ const HomeScreen = ({ navigation }) => {
         new Date().toString()
       );
 
-      // update streak
-      const now = new Date();
-      const lastDate = await AsyncStorage.getItem("lastTrainedDate");
-      if (!lastDate || now - new Date(lastDate) <= 24 * 60 * 60 * 1000) {
-        setStreak((prev) => prev + 1);
-        await AsyncStorage.setItem("streak", (streak + 1).toString());
-      } else {
-        setStreak(1);
-        await AsyncStorage.setItem("streak", "1");
+      // Track trained muscles for this workout
+      if (!trainedMuscles.includes(muscle)) {
+        setTrainedMuscles([...trainedMuscles, muscle]);
       }
-      await AsyncStorage.setItem("lastTrainedDate", now.toString());
-
-      // check for achievements
-      checkAchievements();
 
       // Trigger animation
       Animated.timing(scaleAnim, {
@@ -112,6 +110,46 @@ const HomeScreen = ({ navigation }) => {
       });
     } catch (error) {
       Alert.alert("Error", "Failed to update muscle data");
+    }
+  };
+
+  const endWorkout = async () => {
+    try {
+      if (trainedMuscles.length === 0) {
+        Alert.alert(
+          "No Muscles Trained",
+          "Please train at least one muscle before ending your workout"
+        );
+        return;
+      }
+
+      const now = new Date();
+      const lastDate = await AsyncStorage.getItem("lastTrainedDate");
+
+      if (!lastDate || now - new Date(lastDate) <= 24 * 60 * 60 * 1000) {
+        setStreak((prev) => prev + 1);
+        await AsyncStorage.setItem("streak", (streak + 1).toString());
+      } else {
+        setStreak(1);
+        await AsyncStorage.setItem("streak", "1");
+      }
+
+      await AsyncStorage.setItem("lastTrainedDate", now.toString());
+      await AsyncStorage.setItem("trainedMuscles", JSON.stringify([]));
+
+      // Reset workout state
+      setWorkoutInProgress(false);
+      setTrainedMuscles([]);
+
+      // Check for achievements
+      checkAchievements();
+
+      Alert.alert(
+        "Workout Complete!",
+        `Great job! Your streak is now ${streak} days. Keep it up!`
+      );
+    } catch (error) {
+      Alert.alert("Error", "Failed to end workout");
     }
   };
 
@@ -299,6 +337,22 @@ const HomeScreen = ({ navigation }) => {
 
       {/* Quick Actions */}
       <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={[styles.quickActionItem, styles.startWorkoutButton]}
+          onPress={startWorkout}
+          disabled={workoutInProgress}
+        >
+          <Ionicons name="play-circle" size={24} color="#2196F3" />
+          <Text style={styles.quickActionText}>Start Workout</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.quickActionItem, styles.endWorkoutButton]}
+          onPress={endWorkout}
+          disabled={!workoutInProgress || trainedMuscles.length === 0}
+        >
+          <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+          <Text style={styles.quickActionText}>End Workout</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[
             styles.quickActionItem,
