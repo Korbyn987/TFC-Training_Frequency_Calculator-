@@ -50,6 +50,105 @@ const HomeScreen = ({ navigation }) => {
   ];
   const LOWER_BODY = ["Quads", "Hamstrings", "Glutes", "Calves"];
 
+  // Function to determine muscle status based on days
+  const getStatus = (days) => {
+    if (days <= 1) {
+      return "red"; // Do not train
+    } else if (days <= 3) {
+      return "yellow"; // Caution
+    } else {
+      return "green"; // Safe to train
+    }
+  };
+
+  // Function to load streak from AsyncStorage
+  const loadStreak = async () => {
+    try {
+      const savedStreak = await AsyncStorage.getItem("streak");
+      if (savedStreak !== null) {
+        setStreak(parseInt(savedStreak));
+      } else {
+        setStreak(0);
+      }
+    } catch (error) {
+      console.error("Error loading streak:", error);
+      setStreak(0);
+    }
+  };
+
+  // Function to save streak to AsyncStorage
+  const saveStreak = async (value) => {
+    try {
+      await AsyncStorage.setItem("streak", value.toString());
+    } catch (error) {
+      console.error("Error saving streak:", error);
+    }
+  };
+
+  // Function to update streak when a workout is completed
+  const updateStreak = async () => {
+    const today = new Date().toISOString().split("T")[0];
+    const lastWorkout = await AsyncStorage.getItem("lastWorkout");
+
+    if (lastWorkout === today) {
+      // Workout already completed today
+      return;
+    }
+
+    setStreak((prevStreak) => {
+      const newStreak = prevStreak + 1;
+      saveStreak(newStreak);
+      AsyncStorage.setItem("lastWorkout", today);
+      return newStreak;
+    });
+
+    // Check for achievements
+    checkAchievements();
+  };
+
+  // Function to load achievements
+  const loadAchievements = async () => {
+    try {
+      const savedAchievements = await AsyncStorage.getItem("achievements");
+      if (savedAchievements !== null) {
+        setAchievements(JSON.parse(savedAchievements));
+      }
+    } catch (error) {
+      console.error("Error loading achievements:", error);
+      setAchievements([]);
+    }
+  };
+
+  // Function to check for new achievements
+  const checkAchievements = async () => {
+    const currentStreak = await AsyncStorage.getItem("streak");
+    const savedAchievements = await AsyncStorage.getItem("achievements");
+    const prevAchievements = savedAchievements
+      ? JSON.parse(savedAchievements)
+      : [];
+
+    const newAchievements = [];
+
+    // Check for streak achievements
+    if (currentStreak >= 7 && !prevAchievements.includes("week")) {
+      newAchievements.push("week");
+    }
+    if (currentStreak >= 30 && !prevAchievements.includes("month")) {
+      newAchievements.push("month");
+    }
+    if (currentStreak >= 90 && !prevAchievements.includes("quarter")) {
+      newAchievements.push("quarter");
+    }
+
+    if (newAchievements.length > 0) {
+      setAchievements([...prevAchievements, ...newAchievements]);
+      await AsyncStorage.setItem(
+        "achievements",
+        JSON.stringify([...prevAchievements, ...newAchievements])
+      );
+    }
+  };
+
   useEffect(() => {
     loadMuscleData();
     loadStreak();
@@ -205,18 +304,26 @@ const HomeScreen = ({ navigation }) => {
     setSelectedMuscle(null);
   };
 
-  const renderMuscleItem = (muscle) => {
+  const renderMuscleItem = ({ item: muscle }) => {
+    const days = muscleData[muscle] || 0;
+    const status = getStatus(days);
     return (
       <TouchableOpacity
-        style={styles.muscleItem}
+        style={styles.muscleButton}
         onPress={() => {
-          if (workoutInProgress) {
-            addMuscleToSelection(muscle);
+          if (editMode) {
+            setEditMode(false);
+            setSelectedMuscle(muscle);
+            setEditDays(days.toString());
           } else {
-            updateMuscle(muscle);
+            handleMusclePress(muscle);
           }
         }}
-        onLongPress={() => handleEdit(muscle)}
+        onLongPress={() => {
+          setEditMode(true);
+          setSelectedMuscle(muscle);
+          setEditDays(days.toString());
+        }}
       >
         <Animated.View
           style={{
