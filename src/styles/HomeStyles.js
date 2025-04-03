@@ -100,11 +100,12 @@ export const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: status === "ready"
-      ? "rgba(107, 70, 193, 0.4)"
-      : status === "caution"
-      ? "rgba(128, 90, 213, 0.4)"
-      : "rgba(85, 60, 154, 0.4)",
+    borderColor:
+      status === "ready"
+        ? "rgba(107, 70, 193, 0.4)"
+        : status === "caution"
+        ? "rgba(128, 90, 213, 0.4)"
+        : "rgba(85, 60, 154, 0.4)",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -245,5 +246,87 @@ export const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     marginBottom: 12,
+  },
+  // Workout Menu Styles
+  workoutMenu: {
+    backgroundColor: "#1f222b", // Darker background for menu
+    borderRadius: 16,
+    padding: 16,
+    marginVertical: 8,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  menuHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  menuTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#ffffff",
+  },
+  menuCloseButton: {
+    padding: 8,
+  },
+  menuCloseText: {
+    fontSize: 20,
+    color: "#6b46c1", // Purple accent
+  },
+  muscleGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  muscleButton: {
+    backgroundColor: "#2a2e39",
+    padding: 12,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  muscleButtonText: {
+    color: "#ffffff",
+    textAlign: "center",
+  },
+  selectedMuscleButton: {
+    backgroundColor: "#6b46c1",
+  },
+  selectedMuscleButtonText: {
+    color: "#ffffff",
+    fontWeight: "bold",
+  },
+  startWorkoutButton: {
+    backgroundColor: "#6b46c1",
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 24,
+  },
+  startWorkoutButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  streakContainer: {
+    backgroundColor: "#2a2e39",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    alignItems: "center",
+  },
+  streakText: {
+    color: "#ffffff",
+    fontSize: 16,
+  },
+  streakNumber: {
+    color: "#6b46c1",
+    fontSize: 24,
+    fontWeight: "bold",
   },
 });

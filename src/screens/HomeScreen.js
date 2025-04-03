@@ -18,6 +18,8 @@ import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/authSlice";
 import { styles } from "../styles/HomeStyles";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
+import WorkoutBanner from "../components/workoutBanner";
+import WorkoutSelectionModal from "../components/workoutSelectionModal";
 
 const HomeScreen = ({ navigation }) => {
   const [muscleData, setMuscleData] = useState({});
@@ -30,6 +32,7 @@ const HomeScreen = ({ navigation }) => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [trainedMuscles, setTrainedMuscles] = useState([]);
+  const [selectedMuscles, setSelectedMuscles] = useState([]);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
 
@@ -73,8 +76,18 @@ const HomeScreen = ({ navigation }) => {
 
   const startWorkout = () => {
     setWorkoutInProgress(true);
-    setTrainedMuscles([]);
+    setSelectedMuscles([]);
     navigation.navigate("WorkoutTracking");
+  };
+
+  const addMuscleToSelection = (muscle) => {
+    if (!selectedMuscles.includes(muscle)) {
+      setSelectedMuscles([...selectedMuscles, muscle]);
+    }
+  };
+
+  const removeMuscleFromSelection = (muscle) => {
+    setSelectedMuscles(selectedMuscles.filter((m) => m !== muscle));
   };
 
   const updateMuscle = async (muscle) => {
@@ -125,14 +138,23 @@ const HomeScreen = ({ navigation }) => {
 
       const now = new Date();
       const lastDate = await AsyncStorage.getItem("lastTrainedDate");
+      let newStreak = 1;
 
-      if (!lastDate || now - new Date(lastDate) <= 24 * 60 * 60 * 1000) {
-        setStreak((prev) => prev + 1);
-        await AsyncStorage.setItem("streak", (streak + 1).toString());
-      } else {
-        setStreak(1);
-        await AsyncStorage.setItem("streak", "1");
+      if (lastDate) {
+        const lastDateObj = new Date(lastDate);
+        const daysSinceLastWorkout = Math.floor(
+          (now - lastDateObj) / (24 * 60 * 60 * 1000)
+        );
+
+        if (daysSinceLastWorkout < 2) {
+          newStreak = streak + 1;
+        } else if (daysSinceLastWorkout >= 2) {
+          newStreak = 1;
+        }
       }
+
+      setStreak(newStreak);
+      await AsyncStorage.setItem("streak", newStreak.toString());
 
       await AsyncStorage.setItem("lastTrainedDate", now.toString());
       await AsyncStorage.setItem("trainedMuscles", JSON.stringify([]));
@@ -140,89 +162,25 @@ const HomeScreen = ({ navigation }) => {
       // Reset workout state
       setWorkoutInProgress(false);
       setTrainedMuscles([]);
+      setSelectedMuscles([]);
 
       // Check for achievements
       checkAchievements();
 
       Alert.alert(
         "Workout Complete!",
-        `Great job! Your streak is now ${streak} days. Keep it up!`
+        `Great job! Your streak is now ${newStreak} days. Keep it up!`
       );
     } catch (error) {
       Alert.alert("Error", "Failed to end workout");
     }
   };
 
-  const loadStreak = async () => {
-    try {
-      const savedStreak = await AsyncStorage.getItem("streak");
-      setStreak(savedStreak ? parseInt(savedStreak) : 0);
-    } catch (error) {
-      console.error("Failed to load streak", error);
-    }
-  };
-
-  const loadAchievements = async () => {
-    try {
-      const savedAchievements = await AsyncStorage.getItem("achievements");
-      setAchievements(savedAchievements ? JSON.parse(savedAchievements) : []);
-    } catch (error) {
-      console.error("Error loading achievements", error);
-    }
-  };
-
-  const checkAchievements = async () => {
-    const newAchievements = [...achievements];
-
-    // Check for streak achievements
-    if (streak >= 7 && !achievements.includes("weekStreak")) {
-      newAchievements.push("weekStreak");
-    }
-    if (streak >= 30 && !achievements.includes("monthStreak")) {
-      newAchievements.push("monthStreak");
-    }
-
-    // Check for muscle group achievements
-    const readyMuscles = Object.values(muscleData).filter(
-      (days) => days >= 48
-    ).length;
-    if (readyMuscles >= 5 && !achievements.includes("fiveReady")) {
-      newAchievements.push("fiveReady");
-    }
-    if (readyMuscles >= 10 && !achievements.includes("tenReady")) {
-      newAchievements.push("tenReady");
-    }
-
-    if (newAchievements.length !== achievements.length) {
-      setAchievements(newAchievements);
-      await AsyncStorage.setItem(
-        "achievements",
-        JSON.stringify(newAchievements)
-      );
-      Alert.alert(
-        "Achievement Unlocked!",
-        "You've unlocked a new achievement!"
-      );
-    }
-  };
-
   const handleEdit = (muscle) => {
-    setSelectedMuscle(muscle);
-    Animated.timing(scaleAnim, {
-      toValue: 1.2,
-      duration: 200,
-      easing: Easing.inOut(Easing.ease),
-      useNativeDriver: true,
-    }).start(() => {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 4,
-        tension: 40,
-        useNativeDriver: true,
-      }).start();
-    });
+    setEditMode(true);
     setEditDays(muscleData[muscle].toString());
     setEditMode(true);
+    setSelectedMuscle(muscle);
   };
 
   const saveEdit = async () => {
@@ -230,24 +188,34 @@ const HomeScreen = ({ navigation }) => {
       Alert.alert("Error", "Please enter a valid number");
       return;
     }
+
     try {
       const newData = { ...muscleData, [selectedMuscle]: parseInt(editDays) };
       setMuscleData(newData);
       await AsyncStorage.setItem("muscleData", JSON.stringify(newData));
       setEditMode(false);
+      setSelectedMuscle(null);
     } catch (error) {
       Alert.alert("Error", "Failed to save changes");
     }
   };
 
-  const renderMuscleItem = ({ item: muscle }) => {
-    const days = muscleData[muscle] || 0;
-    const status = days < 48 ? "rest" : days < 72 ? "caution" : "ready";
+  const cancelEdit = () => {
+    setEditMode(false);
+    setSelectedMuscle(null);
+  };
 
+  const renderMuscleItem = (muscle) => {
     return (
       <TouchableOpacity
         style={styles.muscleItem}
-        onPress={() => updateMuscle(muscle)}
+        onPress={() => {
+          if (workoutInProgress) {
+            addMuscleToSelection(muscle);
+          } else {
+            updateMuscle(muscle);
+          }
+        }}
         onLongPress={() => handleEdit(muscle)}
       >
         <Animated.View
@@ -272,6 +240,27 @@ const HomeScreen = ({ navigation }) => {
     );
   };
 
+  const renderMuscleSelectionBanner = () => {
+    if (!workoutInProgress) return null;
+
+    return (
+      <View style={styles.muscleSelectionBanner}>
+        <Text style={styles.bannerTitle}>Selected Muscles:</Text>
+        <View style={styles.selectedMusclesContainer}>
+          {selectedMuscles.map((muscle, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.selectedMuscleChip}
+              onPress={() => removeMuscleFromSelection(muscle)}
+            >
+              <Text style={styles.chipText}>{muscle}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -288,6 +277,7 @@ const HomeScreen = ({ navigation }) => {
         />
       }
     >
+      {renderMuscleSelectionBanner()}
       <View style={styles.header}>
         <Text style={styles.title}>
           Welcome to TFC your Training Frequency Calculator
@@ -389,7 +379,7 @@ const HomeScreen = ({ navigation }) => {
             styles.secondaryButton,
             {
               position: "absolute",
-              bottom: 16,
+              bottom: 12,
               left: 16,
               right: 16,
             },
