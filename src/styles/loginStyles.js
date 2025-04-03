@@ -1,69 +1,68 @@
 import { StyleSheet } from "react-native";
+import { theme } from "./themes";
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    padding: 20,
-    backgroundColor: "#F5FCFF",
+    backgroundColor: theme.colors.background,
+    padding: theme.spacing.md,
+  },
+  card: {
+    backgroundColor: theme.colors.backgroundLight,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.small,
+  },
+  header: {
+    marginBottom: theme.spacing.lg,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
+    ...theme.typography.h1,
+    color: theme.colors.text,
     textAlign: "center",
+    marginBottom: theme.spacing.sm,
+  },
+  subtitle: {
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+    marginBottom: theme.spacing.lg,
   },
   inputContainer: {
-    marginBottom: 15,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 5,
+    marginBottom: theme.spacing.md,
   },
   input: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 10,
-    borderRadius: 5,
-    fontSize: 16,
-  },
-  passwordContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-  },
-  passwordInput: {
-    flex: 1,
-    padding: 12,
-    fontSize: 16,
-  },
-  eyeIcon: {
-    padding: 10,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    color: theme.colors.text,
+    fontSize: theme.typography.body.fontSize,
   },
   button: {
-    backgroundColor: "#007AFF",
-    padding: 15,
-    borderRadius: 5,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
     alignItems: "center",
-    marginTop: 10,
-  },
-  buttonDisabled: {
-    backgroundColor: "#cccccc",
-    opacity: 0.7,
+    marginVertical: theme.spacing.sm,
+    ...theme.shadows.small,
   },
   buttonText: {
-    color: "#fff",
-    fontSize: 16,
+    color: theme.colors.text,
+    fontSize: theme.typography.body.fontSize,
     fontWeight: "600",
   },
-  linkContainer: {
-    marginTop: 15,
-    alignItems: "center",
+  forgotPassword: {
+    color: theme.colors.primaryLight,
+    textAlign: "center",
+    marginTop: theme.spacing.md,
   },
-  linkText: {
-    color: "#007AFF",
-    fontSize: 16,
+  errorText: {
+    color: theme.colors.error,
+    textAlign: "center",
+    marginTop: theme.spacing.sm,
   },
 });

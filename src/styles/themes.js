@@ -1,51 +1,54 @@
 export const theme = {
   colors: {
-    // Primary colors
-    primary: "#6b46c1", // Deep purple
-    primaryDark: "#553c9a", // Darker purple
+    primary: "#6b46c1", // Main purple
     primaryLight: "#805ad5", // Lighter purple
-
-    // Background colors
-    backgroundDark: "rgb(23, 25, 35)", // Dark background
-    backgroundLight: "rgb(30, 32, 42)", // Lighter background
-
-    // Text colors
-    textPrimary: "#ffffff", // White text
-    textSecondary: "rgba(255, 255, 255, 0.8)", // Semi-transparent white
-
-    // Status colors
-    error: "#e53e3e", // Red error
-    success: "#38a169", // Green success
-    ready: "#38a169", // Green ready
-    caution: "#e53e3e", // Red caution
-    notReady: "#9b2c2c", // Darker red not ready
-
-    // Accent colors
-    accent: "#680fbf", // Purple accent
-
-    // Interactive elements
-    hover: "#3B5998", // Rich indigo
-    active: "#1E3A8A", // Deep space blue
-    disabled: "#64748B", // Gray disabled state
+    primaryDark: "#553c9a", // Darker purple
+    background: "#171923", // Dark background
+    backgroundLight: "rgba(30, 32, 42, 0.9)", // Lighter background
+    text: "#ffffff",
+    textSecondary: "rgba(255, 255, 255, 0.8)",
+    border: "rgba(107, 70, 193, 0.2)",
+    error: "#c53030",
+    success: "#38a169",
   },
   spacing: {
-    small: 8,
-    medium: 16,
-    large: 24,
-    xLarge: 32,
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
   },
-  fonts: {
-    regular: "Arial",
-    bold: "Arial-Bold",
+  borderRadius: {
+    sm: 8,
+    md: 12,
+    lg: 20,
   },
-  animations: {
-    buttonPress: {
-      duration: 150,
-      easing: "ease-in-out",
+  typography: {
+    h1: {
+      fontSize: 28,
+      fontWeight: "bold",
+      letterSpacing: 2,
     },
-    modalAppear: {
-      duration: 200,
-      easing: "ease-out",
+    h2: {
+      fontSize: 24,
+      fontWeight: "bold",
+      letterSpacing: 1,
+    },
+    body: {
+      fontSize: 16,
+      letterSpacing: 0.5,
+    },
+  },
+  shadows: {
+    small: {
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
     },
   },
 };

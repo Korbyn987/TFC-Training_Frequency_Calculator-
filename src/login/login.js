@@ -60,7 +60,7 @@ const LoginScreen = ({ navigation }) => {
       // Dispatch login action with user data
       dispatch(login({ username: data.user.username }));
 
-      // Navigate to Tabs immediately
+      // Navigate to Tabs immediately after successful login
       navigation.replace("Tabs");
 
       // Show success message after navigation

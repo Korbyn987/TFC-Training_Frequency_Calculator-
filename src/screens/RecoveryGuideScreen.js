@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useSelector } from "react-redux";
 import { useNavigation } from "@react-navigation/native";
 import { styles } from "../styles/recoveryGuideStyles";
-import { CircularProgress } from "react-native-circular-progress";
+import CircularProgress from 'react-native-circular-progress-indicator';
 
 const MUSCLE_RECOVERY_TIMES = {
   Biceps: 48,
@@ -47,43 +47,36 @@ const MuscleRecoveryMeter = ({ lastWorkout, recoveryTime }) => {
   // Calculate color gradient based on percentage
   const getGradientColor = (percent) => {
     if (percent <= 33) {
-      // Red to Orange
-      const r = 255;
-      const g = Math.floor(255 * (percent / 33));
-      return `rgb(${r}, ${g}, 0)`;
+      return '#553c9a'; // Darker purple for low recovery
     } else if (percent <= 66) {
-      // Orange to Yellow
-      const r = Math.floor(255 * (1 - (percent - 33) / 33));
-      const g = 255;
-      return `rgb(${r}, ${g}, 0)`;
+      return '#6b46c1'; // Primary purple for medium recovery
     } else {
-      // Yellow to Green
-      const r = 0;
-      const g = 255;
-      const b = Math.floor(255 * ((percent - 66) / 34));
-      return `rgb(${r}, ${g}, ${b})`;
+      return '#805ad5'; // Lighter purple for high recovery
     }
   };
 
   return (
     <View style={styles.meterContainer}>
-      <CircularProgress
-        size={120}
-        width={12}
-        fill={percentage}
-        tintColor={getGradientColor(percentage)}
-        backgroundColor="#e0e0e0"
-        rotation={90}
-      >
-        {() => (
-          <View style={styles.meterTextContainer}>
-            <Text style={styles.timeText}>{Math.floor(timeLeft)}h</Text>
-            <Text style={styles.statusText}>
-              {percentage <= 33 ? "Rest" : percentage <= 66 ? "Caution" : "Go"}
-            </Text>
-          </View>
-        )}
-      </CircularProgress>
+      <View style={styles.progressRing}>
+        <CircularProgress
+          value={percentage}
+          radius={30}
+          duration={500}
+          progressValueColor={'#FFFFFF'}
+          activeStrokeColor={getGradientColor(percentage)}
+          inActiveStrokeColor={'rgba(107, 70, 193, 0.2)'}
+          inActiveStrokeWidth={6}
+          activeStrokeWidth={8}
+        />
+      </View>
+      <View style={styles.meterTextContainer}>
+        <Text style={styles.timeText}>
+          {timeLeft > 0 ? `${Math.ceil(timeLeft)}h` : 'Ready!'}
+        </Text>
+        <Text style={styles.statusText}>
+          {percentage < 100 ? 'Recovering' : 'Recovered'}
+        </Text>
+      </View>
     </View>
   );
 };
@@ -91,10 +84,7 @@ const MuscleRecoveryMeter = ({ lastWorkout, recoveryTime }) => {
 const RecoveryGuideScreen = () => {
   const navigation = useNavigation();
   const isAuthenticated = useSelector((state) => state.auth?.isAuthenticated);
-  const muscleStatus = useSelector(
-    (state) => state.workout?.muscleStatus || {}
-  );
-  const workouts = useSelector((state) => state.workout?.workouts || []);
+  const lastWorkouts = useSelector((state) => state.workouts?.lastWorkouts || {});
 
   // Following navigation flow memory: redirect to Login if not authenticated
   React.useEffect(() => {
@@ -107,60 +97,42 @@ const RecoveryGuideScreen = () => {
     return null;
   }
 
-  const handleMusclePress = () => {
-    if (!isAuthenticated) {
-      navigation.navigate("Login");
-      return;
-    }
-    // In the future, we can add interaction for authenticated users
-  };
-
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Recovery Guide</Text>
         <Text style={styles.subtitle}>
-          {isAuthenticated
-            ? "Monitor your muscle recovery status to optimize your training"
-            : "Please log in to access the Recovery Guide"}
+          Track your muscle recovery times and optimize your training
         </Text>
       </View>
 
-      {/* Grid header */}
       <View style={styles.gridHeader}>
-        <Text style={styles.headerCell}>Recovery Time</Text>
+        <Text style={styles.headerCell}>Muscle Group</Text>
+        <Text style={styles.headerCell}>Recovery</Text>
+        <Text style={styles.headerCell}>Status</Text>
       </View>
 
-      {/* Grid Content */}
       <View style={styles.muscleList}>
-        {Object.entries(MUSCLE_RECOVERY_TIMES).map(
-          ([muscleName, recoveryTime], index) => {
-            const muscleKey = muscleName.toLowerCase().replace(/[^a-z]/g, "");
-            const muscleData = muscleStatus?.[muscleKey] || {};
-
-            return (
-              <TouchableOpacity
-                key={index}
-                style={styles.gridRow}
-                onPress={handleMusclePress}
-                disabled={!isAuthenticated}
-              >
-                <View style={styles.gridCell}>
-                  <Text style={styles.muscleName}>{muscleName}</Text>
-                </View>
-                <View style={styles.gridCell}>
-                  <Text style={styles.recoveryTime}>{recoveryTime} hours</Text>
-                </View>
-                <View style={styles.gridCell}>
-                  <MuscleRecoveryMeter
-                    lastWorkout={muscleData.lastWorkout}
-                    recoveryTime={recoveryTime}
-                  />
-                </View>
-              </TouchableOpacity>
-            );
-          }
-        )}
+        {Object.entries(MUSCLE_RECOVERY_TIMES).map(([muscle, hours]) => (
+          <View key={muscle} style={styles.gridRow}>
+            <View style={styles.gridCell}>
+              <Text style={styles.muscleName}>{muscle}</Text>
+            </View>
+            <View style={styles.gridCell}>
+              <Text style={styles.recoveryTime}>{hours}h</Text>
+            </View>
+            <View style={styles.gridCell}>
+              {isAuthenticated ? (
+                <MuscleRecoveryMeter
+                  lastWorkout={lastWorkouts[muscle]}
+                  recoveryTime={hours}
+                />
+              ) : (
+                <Text style={styles.loginPrompt}>Login to track</Text>
+              )}
+            </View>
+          </View>
+        ))}
       </View>
     </ScrollView>
   );
