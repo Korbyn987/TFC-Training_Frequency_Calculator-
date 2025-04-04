@@ -20,6 +20,8 @@ import { styles } from "../styles/HomeStyles";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 import WorkoutBanner from "../components/workoutBanner";
 import WorkoutSelectionModal from "../components/workoutSelectionModal";
+import { useNavigation } from '@react-navigation/native';
+import ButtonStyles from '../styles/Button';
 
 const HomeScreen = ({ navigation }) => {
   const [muscleData, setMuscleData] = useState({});
@@ -154,6 +156,41 @@ const HomeScreen = ({ navigation }) => {
     loadStreak();
     loadAchievements();
   }, []);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: 'row' }}>
+          {isAuthenticated ? (
+            <>
+              <TouchableOpacity
+                style={[ButtonStyles.headerButton, { marginRight: 8 }]}
+                onPress={() => navigation.navigate('Calculator')}
+              >
+                <Text style={ButtonStyles.headerButtonText}>Calculator</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[ButtonStyles.headerButton, { backgroundColor: '#553c9a' }]} 
+                onPress={() => {
+                  dispatch(logout());
+                  navigation.replace('Login');
+                }}
+              >
+                <Text style={ButtonStyles.headerButtonText}>Logout</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={ButtonStyles.headerButton}
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={ButtonStyles.headerButtonText}>Login</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ),
+    });
+  }, [navigation, isAuthenticated]);
 
   const loadMuscleData = async () => {
     try {

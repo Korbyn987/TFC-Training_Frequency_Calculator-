@@ -1,68 +1,86 @@
-import { StyleSheet } from "react-native";
-import { theme } from "./themes";
+import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.md,
+    backgroundColor: '#171923',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
-  card: {
-    backgroundColor: theme.colors.backgroundLight,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
+  loginBox: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: 'rgba(30, 32, 42, 0.9)',
+    borderRadius: 12,
+    padding: 24,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...theme.shadows.small,
-  },
-  header: {
-    marginBottom: theme.spacing.lg,
+    borderColor: 'rgba(107, 70, 193, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   title: {
-    ...theme.typography.h1,
-    color: theme.colors.text,
-    textAlign: "center",
-    marginBottom: theme.spacing.sm,
-  },
-  subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-    textAlign: "center",
-    marginBottom: theme.spacing.lg,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   inputContainer: {
-    marginBottom: theme.spacing.md,
+    marginBottom: 16,
+  },
+  label: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 6,
+    fontSize: 14,
   },
   input: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    color: theme.colors.text,
-    fontSize: theme.typography.body.fontSize,
+    borderColor: 'rgba(107, 70, 193, 0.2)',
+    borderRadius: 8,
+    padding: 10,
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
+  passwordContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 12,
+    height: '100%',
+    justifyContent: 'center',
   },
   button: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    alignItems: "center",
-    marginVertical: theme.spacing.sm,
-    ...theme.shadows.small,
+    backgroundColor: '#6b46c1',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
-    color: theme.colors.text,
-    fontSize: theme.typography.body.fontSize,
-    fontWeight: "600",
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  forgotPassword: {
-    color: theme.colors.primaryLight,
-    textAlign: "center",
-    marginTop: theme.spacing.md,
+  linkContainer: {
+    marginTop: 16,
+    alignItems: 'center',
   },
-  errorText: {
-    color: theme.colors.error,
-    textAlign: "center",
-    marginTop: theme.spacing.sm,
+  linkText: {
+    color: '#6b46c1',
+    fontSize: 14,
   },
 });

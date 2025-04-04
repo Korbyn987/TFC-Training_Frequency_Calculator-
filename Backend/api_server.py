@@ -17,11 +17,14 @@ CORS(app, resources={
             "http://localhost:19007",
             "http://127.0.0.1:19007",
             "http://localhost:19006",
-            "http://127.0.0.1:19006"
+            "http://127.0.0.1:19006",
+            "http://localhost:5001",
+            "http://127.0.0.1:5001",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000"
         ],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization", "Accept"],
-        "supports_credentials": True
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
     }
 })
 
@@ -158,11 +161,11 @@ def login():
             logger.error(error_msg)
             return jsonify({'error': error_msg}), 400
             
-        username = data.get('username')
+        identifier = data.get('identifier')
         password = data.get('password')
         
-        if not username or not password:
-            error_msg = "Missing username or password"
+        if not identifier or not password:
+            error_msg = "Please enter your username/email and password"
             logger.error(error_msg)
             return jsonify({'error': error_msg}), 400
         
@@ -174,18 +177,19 @@ def login():
             
         try:
             cursor = conn.cursor()
+            # Check for both username and email
             cursor.execute('''
                 SELECT id, username, email, name, age, gender, weight, height, password
                 FROM users
-                WHERE username = ? 
-            ''', (username,))
+                WHERE username = ? OR email = ?
+            ''', (identifier, identifier))
             
             user = cursor.fetchone()
             if user:
-                logger.info(f"Found user: {username}")
+                logger.info(f"Found user with identifier: {identifier}")
                 stored_password = user[8]
                 
-                # First try to verify as hashed password
+                # Verify password
                 if check_password_hash(stored_password, password):
                     return jsonify({
                         'message': 'Login successful',
@@ -200,52 +204,26 @@ def login():
                             'height': user[7]
                         }
                     }), 200
-                
-                # If that fails, check if it's stored as plain text
-                elif stored_password == password:
-                    # If it matches as plain text, update it to be hashed
-                    hashed_password = generate_password_hash(password)
-                    cursor.execute('''
-                        UPDATE users 
-                        SET password = ? 
-                        WHERE username = ?
-                    ''', (hashed_password, username))
-                    conn.commit()
-                    logger.info(f"Updated password to hashed for user: {username}")
-                    
-                    return jsonify({
-                        'message': 'Login successful',
-                        'user': {
-                            'id': user[0],
-                            'username': user[1],
-                            'email': user[2],
-                            'name': user[3],
-                            'age': user[4],
-                            'gender': user[5],
-                            'weight': user[6],
-                            'height': user[7]
-                        }
-                    }), 200
-                
                 else:
-                    logger.warning(f"Invalid password for user: {username}")
-                    return jsonify({'error': 'Invalid password'}), 401
+                    error_msg = "Invalid password"
+                    logger.error(error_msg)
+                    return jsonify({'error': error_msg}), 401
             else:
-                logger.warning(f"User not found: {username}")
-                return jsonify({'error': 'User not found'}), 401
+                error_msg = "User not found"
+                logger.error(error_msg)
+                return jsonify({'error': error_msg}), 401
                 
-        except Exception as e:
-            error_msg = f"Database query error: {str(e)}"
+        except sqlite3.Error as e:
+            error_msg = f"Database error: {str(e)}"
             logger.error(error_msg)
             return jsonify({'error': error_msg}), 500
-            
         finally:
             conn.close()
             
     except Exception as e:
-        error_msg = f"Login error: {str(e)}"
+        error_msg = f"Server error: {str(e)}"
         logger.error(error_msg)
-        return jsonify({'error': error_msg}), 400
+        return jsonify({'error': error_msg}), 500
 
 if __name__ == '__main__':
     logger.info("Starting Flask server...")

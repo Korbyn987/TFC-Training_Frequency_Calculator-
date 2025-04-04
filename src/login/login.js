@@ -20,14 +20,14 @@ const API_URL = Platform.select({
 });
 
 const LoginScreen = ({ navigation }) => {
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
 
   const handleLogin = async () => {
-    if (!username || !password) {
+    if (!identifier || !password) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
@@ -40,7 +40,7 @@ const LoginScreen = ({ navigation }) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username,
+          identifier,
           password,
         }),
       });
@@ -49,9 +49,9 @@ const LoginScreen = ({ navigation }) => {
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error("Invalid username or password");
+          throw new Error("Invalid username/email or password");
         } else if (response.status === 400) {
-          throw new Error("Missing username or password");
+          throw new Error("Please enter your username/email and password");
         } else {
           throw new Error(data.error || "Login failed");
         }
@@ -75,60 +75,66 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Username:</Text>
-        <TextInput
-          style={styles.input}
-          value={username}
-          onChangeText={setUsername}
-          placeholder="Enter username"
-          autoCapitalize="none"
-          editable={!isLoading}
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Password:</Text>
-        <View style={styles.passwordContainer}>
+      <View style={styles.loginBox}>
+        <Text style={styles.title}>Login</Text>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Username or Email</Text>
           <TextInput
             style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Enter password"
-            secureTextEntry={!showPassword}
+            value={identifier}
+            onChangeText={setIdentifier}
+            placeholder="Enter username or email"
+            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+            autoCapitalize="none"
+            autoComplete="username"
             editable={!isLoading}
           />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons
-              name={showPassword ? "eye-off-outline" : "eye-outline"}
-              size={24}
-              color="#666"
-            />
-          </TouchableOpacity>
         </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Password</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={[styles.input, { paddingRight: 40 }]}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter password"
+              placeholderTextColor="rgba(255, 255, 255, 0.4)"
+              secureTextEntry={!showPassword}
+              autoComplete="current-password"
+              editable={!isLoading}
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={24}
+                color="rgba(255, 255, 255, 0.6)"
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.button, isLoading && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>
+            {isLoading ? "Logging in..." : "Login"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.linkContainer}
+          onPress={() => navigation.navigate("CreateAccount")}
+          disabled={isLoading}
+        >
+          <Text style={styles.linkText}>Don't have an account? Create one</Text>
+        </TouchableOpacity>
       </View>
-
-      <TouchableOpacity
-        style={[styles.button, isLoading && styles.buttonDisabled]}
-        onPress={handleLogin}
-        disabled={isLoading}
-      >
-        <Text style={styles.buttonText}>
-          {isLoading ? "Logging in..." : "Login"}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.linkContainer}
-        onPress={() => navigation.navigate("CreateAccount")}
-        disabled={isLoading}
-      >
-        <Text style={styles.linkText}>Don't have an account? Create one</Text>
-      </TouchableOpacity>
     </View>
   );
 };
