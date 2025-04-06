@@ -10,6 +10,7 @@ import {
 import { useDispatch } from "react-redux";
 import { login } from "../redux/authSlice";
 import { Ionicons } from "@expo/vector-icons";
+import ButtonStyles from "../styles/Button";
 import { styles } from "../styles/loginStyles";
 
 // Use different URLs based on platform
@@ -118,12 +119,21 @@ const LoginScreen = ({ navigation }) => {
         </View>
 
         <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
+          style={[ButtonStyles.button, isLoading && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={isLoading}
         >
-          <Text style={styles.buttonText}>
+          <Text style={ButtonStyles.text}>
             {isLoading ? "Logging in..." : "Login"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.forgotPasswordLink}
+          onPress={() => navigation.navigate("Recovery")}
+        >
+          <Text style={styles.forgotPasswordText}>
+            Forgot Username or Password?
           </Text>
         </TouchableOpacity>
 

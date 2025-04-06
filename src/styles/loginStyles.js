@@ -83,4 +83,21 @@ export const styles = StyleSheet.create({
     color: '#6b46c1',
     fontSize: 14,
   },
+  forgotPasswordLink: {
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  forgotPasswordText: {
+    color: '#4a90e2',
+    fontSize: 14,
+    textDecorationLine: 'underline',
+  },
+  createAccountLink: {
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  createAccountText: {
+    color: '#666',
+    fontSize: 14,
+  },
 });

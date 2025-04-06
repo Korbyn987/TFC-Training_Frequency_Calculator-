@@ -12,6 +12,8 @@ import AboutScreen from "./screens/AboutScreen";
 import HomeScreen from "./screens/HomeScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import CalculatorScreen from "./screens/RecoveryGuideScreen";
+import RecoveryScreen from "./screens/RecoveryScreen";
+import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import ButtonStyles from "./styles/Button";
 
 const Stack = createStackNavigator();
@@ -95,6 +97,22 @@ function App() {
             options={{
               headerShown: true,
               title: "Create Account"
+            }}
+          />
+          <Stack.Screen
+            name="Recovery"
+            component={RecoveryScreen}
+            options={{
+              headerShown: true,
+              title: "Account Recovery"
+            }}
+          />
+          <Stack.Screen
+            name="ResetPassword"
+            component={ResetPasswordScreen}
+            options={{
+              headerShown: true,
+              title: "Reset Password"
             }}
           />
           <Stack.Screen

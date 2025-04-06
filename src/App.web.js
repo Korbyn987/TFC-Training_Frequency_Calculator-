@@ -1,10 +1,9 @@
 import React from "react";
 import { View, Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Provider } from "react-redux";
-import { Ionicons } from "@expo/vector-icons";
 import store from "./redux/store";
 import HomeScreen from "./screens/HomeScreen";
 import AboutScreen from "./screens/AboutScreen";
@@ -12,9 +11,12 @@ import CalculatorScreen from "./screens/RecoveryGuideScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import LoginScreen from "./login/login";
 import CreateAccount from "./login/createAccount";
+import RecoveryScreen from "./screens/RecoveryScreen";
+import ResetPasswordScreen from "./screens/ResetPasswordScreen";
+import { Ionicons } from "@expo/vector-icons";
 import ButtonStyles from "./styles/Button";
 
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
@@ -100,15 +102,19 @@ const App = () => {
         <Stack.Navigator
           initialRouteName="Login"
           screenOptions={{
-            headerShown: true,
-            animation: "slide_from_right",
+            headerStyle: {
+              backgroundColor: "#6b46c1",
+            },
+            headerTintColor: "#fff",
+            headerTitleStyle: {
+              fontWeight: "bold",
+            },
           }}
         >
           <Stack.Screen
             name="Login"
             component={LoginScreen}
             options={{
-              headerShown: true,
               title: "Login",
             }}
           />
@@ -116,8 +122,21 @@ const App = () => {
             name="CreateAccount"
             component={CreateAccount}
             options={{
-              headerShown: true,
               title: "Create Account",
+            }}
+          />
+          <Stack.Screen
+            name="Recovery"
+            component={RecoveryScreen}
+            options={{
+              title: "Account Recovery",
+            }}
+          />
+          <Stack.Screen
+            name="ResetPassword"
+            component={ResetPasswordScreen}
+            options={{
+              title: "Reset Password",
             }}
           />
           <Stack.Screen
