@@ -10,6 +10,7 @@ const WorkoutSelectionModal = ({
   onClose,
   onMuscleSelect,
   selectedMuscles,
+  startWorkout,
 }) => {
   const { isAuthenticated } = useSelector((state) => state.auth);
 
@@ -26,18 +27,30 @@ const WorkoutSelectionModal = ({
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.header}>
-            <Text style={styles.title}>Select Muscles for Workouts</Text>
+            <Text style={styles.title}>Select Muscles for Workout</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#6b46c1" />
             </TouchableOpacity>
           </View>
+
+          <View style={styles.selectedMusclesContainer}>
+            <Text style={styles.selectedMusclesTitle}>Selected Muscles:</Text>
+            <View style={styles.selectedMusclesList}>
+              {selectedMuscles.map((muscle, index) => (
+                <View key={index} style={styles.selectedMuscleChip}>
+                  <Text style={styles.chipText}>{muscle}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
           <View style={styles.muscleGrid}>
             {MUSCLE_GROUPS.map((muscle) => (
               <TouchableOpacity
                 key={muscle}
                 style={[
                   styles.muscleButton,
-                  selectedMuscles.include(muscle) &&
+                  selectedMuscles.includes(muscle) &&
                     styles.selectedMuscleButton,
                 ]}
                 onPress={() => onMuscleSelect(muscle)}
@@ -53,6 +66,22 @@ const WorkoutSelectionModal = ({
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton]}
+              onPress={onClose}
+            >
+              <Text style={styles.buttonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.startButton]}
+              onPress={startWorkout}
+              disabled={selectedMuscles.length === 0}
+            >
+              <Text style={styles.buttonText}>Start Workout</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

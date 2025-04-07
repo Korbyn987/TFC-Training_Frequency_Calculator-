@@ -20,8 +20,8 @@ import { styles } from "../styles/HomeStyles";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 import WorkoutBanner from "../components/workoutBanner";
 import WorkoutSelectionModal from "../components/workoutSelectionModal";
-import { useNavigation } from '@react-navigation/native';
-import ButtonStyles from '../styles/Button';
+import { useNavigation } from "@react-navigation/native";
+import ButtonStyles from "../styles/Button";
 
 const HomeScreen = ({ navigation }) => {
   const [muscleData, setMuscleData] = useState({});
@@ -35,6 +35,7 @@ const HomeScreen = ({ navigation }) => {
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [trainedMuscles, setTrainedMuscles] = useState([]);
   const [selectedMuscles, setSelectedMuscles] = useState([]);
+  const [isWorkoutModalVisible, setIsWorkoutModalVisible] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
 
@@ -160,20 +161,23 @@ const HomeScreen = ({ navigation }) => {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: "row" }}>
           {isAuthenticated ? (
             <>
               <TouchableOpacity
                 style={[ButtonStyles.headerButton, { marginRight: 8 }]}
-                onPress={() => navigation.navigate('Calculator')}
+                onPress={() => navigation.navigate("Calculator")}
               >
                 <Text style={ButtonStyles.headerButtonText}>Calculator</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[ButtonStyles.headerButton, { backgroundColor: '#553c9a' }]} 
+                style={[
+                  ButtonStyles.headerButton,
+                  { backgroundColor: "#553c9a" },
+                ]}
                 onPress={() => {
                   dispatch(logout());
-                  navigation.replace('Login');
+                  navigation.replace("Login");
                 }}
               >
                 <Text style={ButtonStyles.headerButtonText}>Logout</Text>
@@ -182,7 +186,7 @@ const HomeScreen = ({ navigation }) => {
           ) : (
             <TouchableOpacity
               style={ButtonStyles.headerButton}
-              onPress={() => navigation.navigate('Login')}
+              onPress={() => navigation.navigate("Login")}
             >
               <Text style={ButtonStyles.headerButtonText}>Login</Text>
             </TouchableOpacity>
@@ -210,106 +214,78 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  const startWorkout = () => {
-    setWorkoutInProgress(true);
-    setSelectedMuscles([]);
-    navigation.navigate("WorkoutTracking");
-  };
-
-  const addMuscleToSelection = (muscle) => {
-    if (!selectedMuscles.includes(muscle)) {
-      setSelectedMuscles([...selectedMuscles, muscle]);
-    }
-  };
-
-  const removeMuscleFromSelection = (muscle) => {
-    setSelectedMuscles(selectedMuscles.filter((m) => m !== muscle));
-  };
-
-  const updateMuscle = async (muscle) => {
-    try {
-      const newData = { ...muscleData, [muscle]: 0 };
-      setMuscleData(newData);
-      await AsyncStorage.setItem("muscleData", JSON.stringify(newData));
-
-      // Update the recovery timer for this muscle
-      await AsyncStorage.setItem(
-        `recoveryTimer_${muscle}`,
-        new Date().toString()
+  const startWorkout = async () => {
+    if (selectedMuscles.length === 0) {
+      Alert.alert(
+        "Select Muscles",
+        "Please select at least one muscle group to train"
       );
+      return;
+    }
 
-      // Track trained muscles for this workout
-      if (!trainedMuscles.includes(muscle)) {
-        setTrainedMuscles([...trainedMuscles, muscle]);
-      }
-
-      // Trigger animation
-      Animated.timing(scaleAnim, {
-        toValue: 1.2,
-        duration: 200,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }).start(() => {
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 4,
-          tension: 40,
-          useNativeDriver: true,
-        }).start();
-      });
+    // Save the selected muscles to AsyncStorage
+    try {
+      await AsyncStorage.setItem(
+        "currentWorkout",
+        JSON.stringify({
+          muscles: selectedMuscles,
+          startTime: new Date().toISOString(),
+        })
+      );
+      setWorkoutInProgress(true);
+      setIsWorkoutModalVisible(false);
+      setSelectedMuscles([]);
     } catch (error) {
-      Alert.alert("Error", "Failed to update muscle data");
+      console.error("Error starting workout:", error);
+      Alert.alert("Error", "Failed to start workout");
     }
   };
 
   const endWorkout = async () => {
     try {
-      if (trainedMuscles.length === 0) {
-        Alert.alert(
-          "No Muscles Trained",
-          "Please train at least one muscle before ending your workout"
-        );
-        return;
+      const currentWorkout = await AsyncStorage.getItem("currentWorkout");
+      if (!currentWorkout) {
+        throw new Error("No active workout found");
       }
 
-      const now = new Date();
-      const lastDate = await AsyncStorage.getItem("lastTrainedDate");
-      let newStreak = 1;
+      // Update muscle recovery data
+      const updatedMuscleData = { ...muscleData };
+      const workoutData = JSON.parse(currentWorkout);
 
-      if (lastDate) {
-        const lastDateObj = new Date(lastDate);
-        const daysSinceLastWorkout = Math.floor(
-          (now - lastDateObj) / (24 * 60 * 60 * 1000)
-        );
+      workoutData.muscles.forEach((muscle) => {
+        updatedMuscleData[muscle] = {
+          lastTrained: new Date().toISOString(),
+          status: "red",
+        };
+      });
 
-        if (daysSinceLastWorkout < 2) {
-          newStreak = streak + 1;
-        } else if (daysSinceLastWorkout >= 2) {
-          newStreak = 1;
-        }
-      }
-
-      setStreak(newStreak);
-      await AsyncStorage.setItem("streak", newStreak.toString());
-
-      await AsyncStorage.setItem("lastTrainedDate", now.toString());
-      await AsyncStorage.setItem("trainedMuscles", JSON.stringify([]));
-
-      // Reset workout state
-      setWorkoutInProgress(false);
-      setTrainedMuscles([]);
-      setSelectedMuscles([]);
-
-      // Check for achievements
-      checkAchievements();
-
-      Alert.alert(
-        "Workout Complete!",
-        `Great job! Your streak is now ${newStreak} days. Keep it up!`
+      await AsyncStorage.setItem(
+        "muscleData",
+        JSON.stringify(updatedMuscleData)
       );
+      setMuscleData(updatedMuscleData);
+
+      // Update streak
+      await updateStreak();
+
+      // Clear current workout
+      await AsyncStorage.removeItem("currentWorkout");
+      setWorkoutInProgress(false);
+
+      Alert.alert("Workout Complete!", "Your streak has been updated");
     } catch (error) {
+      console.error("Error ending workout:", error);
       Alert.alert("Error", "Failed to end workout");
     }
+  };
+
+  const handleMuscleSelect = (muscle) => {
+    setSelectedMuscles((prev) => {
+      const newSelection = prev.includes(muscle)
+        ? prev.filter((m) => m !== muscle)
+        : [...prev, muscle];
+      return newSelection;
+    });
   };
 
   const handleEdit = (muscle) => {
@@ -353,7 +329,7 @@ const HomeScreen = ({ navigation }) => {
             setSelectedMuscle(muscle);
             setEditDays(days.toString());
           } else {
-            handleMusclePress(muscle);
+            handleMuscleSelect(muscle);
           }
         }}
         onLongPress={() => {
@@ -395,7 +371,7 @@ const HomeScreen = ({ navigation }) => {
             <TouchableOpacity
               key={index}
               style={styles.selectedMuscleChip}
-              onPress={() => removeMuscleFromSelection(muscle)}
+              onPress={() => handleMuscleSelect(muscle)}
             >
               <Text style={styles.chipText}>{muscle}</Text>
             </TouchableOpacity>
@@ -473,8 +449,7 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={[styles.quickActionItem, styles.startWorkoutButton]}
-          onPress={startWorkout}
-          disabled={workoutInProgress}
+          onPress={() => setIsWorkoutModalVisible(true)}
         >
           <Ionicons name="play-circle" size={24} color="#2196F3" />
           <Text style={styles.quickActionText}>Start Workout</Text>
@@ -482,7 +457,7 @@ const HomeScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[styles.quickActionItem, styles.endWorkoutButton]}
           onPress={endWorkout}
-          disabled={!workoutInProgress || trainedMuscles.length === 0}
+          disabled={!workoutInProgress || selectedMuscles.length === 0}
         >
           <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
           <Text style={styles.quickActionText}>End Workout</Text>
@@ -494,7 +469,7 @@ const HomeScreen = ({ navigation }) => {
           ]}
           onPress={() => {
             setSelectedGroup("upper");
-            UPPER_BODY.forEach((muscle) => updateMuscle(muscle));
+            UPPER_BODY.forEach((muscle) => handleMuscleSelect(muscle));
           }}
         >
           <Ionicons name="body" size={24} color="#4CAF50" />
@@ -507,7 +482,7 @@ const HomeScreen = ({ navigation }) => {
           ]}
           onPress={() => {
             setSelectedGroup("lower");
-            LOWER_BODY.forEach((muscle) => updateMuscle(muscle));
+            LOWER_BODY.forEach((muscle) => handleMuscleSelect(muscle));
           }}
         >
           <Ionicons name="body" size={24} color="#2196F3" />
@@ -532,6 +507,25 @@ const HomeScreen = ({ navigation }) => {
         >
           <Text style={styles.buttonText}>Show All Muscles</Text>
         </TouchableOpacity>
+      )}
+
+      <WorkoutSelectionModal
+        visible={isWorkoutModalVisible}
+        onClose={() => setIsWorkoutModalVisible(false)}
+        onMuscleSelect={handleMuscleSelect}
+        selectedMuscles={selectedMuscles}
+      />
+
+      {workoutInProgress && (
+        <View style={styles.workoutInProgressContainer}>
+          <Text style={styles.workoutInProgressText}>Workout in Progress</Text>
+          <TouchableOpacity
+            style={styles.endWorkoutButton}
+            onPress={endWorkout}
+          >
+            <Text style={styles.endWorkoutButtonText}>End Workout</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       <Modal visible={editMode} transparent={true} animationType="slide">
