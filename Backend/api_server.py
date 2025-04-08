@@ -357,7 +357,7 @@ def forgot_password():
             conn.commit()
 
             # Generate reset link
-            reset_link = f"{FRONTEND_URL}/ResetPassword?token={token}"
+            reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
             
             # Send email with reset link
             html_content = get_password_reset_template(reset_link)

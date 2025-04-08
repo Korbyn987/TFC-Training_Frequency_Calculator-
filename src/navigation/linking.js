@@ -5,16 +5,16 @@ export const linking = {
       Login: 'Login',
       CreateAccount: 'CreateAccount',
       Recovery: 'Recovery',
-      ResetPassword: {
-        path: 'ResetPassword',
+      'reset-password': {
+        path: 'reset-password',
         parse: {
-          token: (token) => token,
+          token: token => token,
         },
       },
-      Tabs: {
+      Main: {
         screens: {
           Home: 'Home',
-          Calculator: 'Calculator',
+          'Recovery Guide': 'recovery-guide',
           Profile: 'Profile',
           About: 'About',
         },

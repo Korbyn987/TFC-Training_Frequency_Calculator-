@@ -10,7 +10,6 @@ const ResetPasswordScreen = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const navigation = useNavigation();
-  const route = useRoute();
 
   // Get token from URL query parameters
   useEffect(() => {
@@ -18,8 +17,11 @@ const ResetPasswordScreen = () => {
     const token = params.get('token');
     if (!token) {
       setError('Invalid reset link. Please request a new password reset.');
+      setTimeout(() => {
+        navigation.navigate('Login');
+      }, 3000);
     }
-  }, []);
+  }, [navigation]);
 
   const handleSubmit = async () => {
     try {
@@ -29,14 +31,14 @@ const ResetPasswordScreen = () => {
       const params = new URLSearchParams(window.location.search);
       const token = params.get('token');
 
-      // Validate inputs
-      if (!newPassword || !confirmPassword) {
-        setError('Please fill in all fields');
+      if (!token) {
+        setError('Invalid reset link. Please request a new password reset.');
         return;
       }
 
-      if (newPassword.length < 8) {
-        setError('Password must be at least 8 characters long');
+      // Validate inputs
+      if (!newPassword || !confirmPassword) {
+        setError('Please fill in all fields');
         return;
       }
 
@@ -45,67 +47,57 @@ const ResetPasswordScreen = () => {
         return;
       }
 
-      if (!token) {
-        setError('Invalid reset link. Please request a new password reset.');
+      if (newPassword.length < 8) {
+        setError('Password must be at least 8 characters long');
         return;
       }
 
       // Call API to reset password
-      await authService.resetPassword(token, newPassword);
-
-      // Show success message and clear form
-      setSuccess(true);
-      setNewPassword('');
-      setConfirmPassword('');
-
-      // Navigate to login after 2 seconds
-      setTimeout(() => {
-        navigation.navigate('Login');
-      }, 2000);
-
-    } catch (error) {
-      console.error('Reset password error:', error);
-      setError(error.response?.data?.error || 'Failed to reset password. Please try again.');
+      const response = await authService.resetPassword(token, newPassword);
+      
+      if (response.success) {
+        setSuccess(true);
+        setTimeout(() => {
+          navigation.navigate('Login');
+        }, 2000);
+      } else {
+        setError(response.error || 'Failed to reset password');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Reset Your Password</Text>
+      <Text style={styles.title}>Reset Password</Text>
       
-      {!success ? (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder="New Password"
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm Password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {success ? <Text style={styles.success}>Password reset successful! Redirecting to login...</Text> : null}
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+      <TextInput
+        style={styles.input}
+        placeholder="New Password"
+        secureTextEntry
+        value={newPassword}
+        onChangeText={setNewPassword}
+      />
 
-          <TouchableOpacity
-            style={ButtonStyles.primaryButton}
-            onPress={handleSubmit}
-          >
-            <Text style={ButtonStyles.buttonText}>Reset Password</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <View style={styles.successContainer}>
-          <Text style={styles.success}>
-            Password reset successful! Redirecting to login...
-          </Text>
-        </View>
-      )}
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm New Password"
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+      />
+
+      <TouchableOpacity 
+        style={[ButtonStyles.button, success ? styles.disabledButton : null]}
+        onPress={handleSubmit}
+        disabled={success}
+      >
+        <Text style={ButtonStyles.buttonText}>Reset Password</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -113,42 +105,38 @@ const ResetPasswordScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#171923',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 30,
-    color: '#6b46c1',
+    marginBottom: 20,
+    color: '#fff',
   },
   input: {
     width: '100%',
-    maxWidth: 400,
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    fontSize: 16,
+    maxWidth: 300,
+    height: 40,
+    backgroundColor: '#fff',
+    borderRadius: 5,
+    marginBottom: 10,
+    paddingHorizontal: 10,
   },
   error: {
-    color: '#e53e3e',
-    marginBottom: 15,
+    color: '#fc8181',
+    marginBottom: 10,
     textAlign: 'center',
-    maxWidth: 400,
-  },
-  successContainer: {
-    alignItems: 'center',
-    maxWidth: 400,
   },
   success: {
-    color: '#38a169',
-    fontSize: 18,
+    color: '#68d391',
+    marginBottom: 10,
     textAlign: 'center',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 

@@ -15,6 +15,7 @@ import CreateAccount from "./login/createAccount";
 import RecoveryScreen from "./screens/RecoveryScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import LogoutButton from './components/LogoutButton';
+import { linking } from './navigation/linking';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -50,34 +51,10 @@ const MainTabs = () => {
         tabBarInactiveTintColor: "gray",
       })}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen}
-        options={{
-          title: "TFC Home"
-        }}
-      />
-      <Tab.Screen 
-        name="Recovery Guide" 
-        component={RecoveryGuideScreen}
-        options={{
-          title: "Recovery Guide"
-        }}
-      />
-      <Tab.Screen 
-        name="Profile" 
-        component={ProfileScreen}
-        options={{
-          title: "My Profile"
-        }}
-      />
-      <Tab.Screen 
-        name="About" 
-        component={AboutScreen}
-        options={{
-          title: "About TFC"
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Recovery Guide" component={RecoveryGuideScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="About" component={AboutScreen} />
     </Tab.Navigator>
   );
 };
@@ -85,7 +62,7 @@ const MainTabs = () => {
 const App = () => {
   return (
     <Provider store={store}>
-      <NavigationContainer>
+      <NavigationContainer linking={linking}>
         <Stack.Navigator
           screenOptions={{
             headerShown: false
@@ -95,7 +72,7 @@ const App = () => {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="CreateAccount" component={CreateAccount} />
           <Stack.Screen name="Recovery" component={RecoveryScreen} />
-          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+          <Stack.Screen name="reset-password" component={ResetPasswordScreen} />
           <Stack.Screen name="Main" component={MainTabs} />
         </Stack.Navigator>
       </NavigationContainer>
