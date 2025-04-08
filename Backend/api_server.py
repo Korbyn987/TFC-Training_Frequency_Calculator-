@@ -1,22 +1,23 @@
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
-import logging
 import os
+import logging
 import secrets
 from datetime import datetime, timedelta
-import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from email_templates import get_username_recovery_template, get_password_reset_template
+import smtplib
+from email_templates import get_password_reset_template, get_username_recovery_template
 from dotenv import load_dotenv
+import bcrypt
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -38,66 +39,21 @@ CORS(app, resources={
     }
 })
 
-# Email configuration
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 465
-SMTP_USERNAME = os.getenv("SMTP_USERNAME")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:19006")
-
-# Log email configuration
-logger.info(f"Email Configuration:")
-logger.info(f"SMTP_SERVER: {SMTP_SERVER}")
-logger.info(f"SMTP_PORT: {SMTP_PORT}")
-logger.info(f"SMTP_USERNAME: {SMTP_USERNAME}")
-logger.info(f"SMTP_PASSWORD: {'[SET]' if SMTP_PASSWORD else '[NOT SET]'}")
-logger.info(f"FRONTEND_URL: {FRONTEND_URL}")
-
-if not SMTP_USERNAME or not SMTP_PASSWORD:
-    logger.warning("Email credentials not set. Please configure SMTP_USERNAME and SMTP_PASSWORD in .env file")
-
-# Database setup
+# Configuration
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tfc_database.db')
-logger.info(f"Using database at: {DB_PATH}")
+SMTP_SERVER = 'smtp.gmail.com'
+SMTP_PORT = 465
+SMTP_USERNAME = 'trainingfrequencycalculator@gmail.com'
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+FRONTEND_URL = 'http://localhost:19006'
 
-def send_email(to_email, subject, html_content):
+def connect_to_db():
     try:
-        logger.info(f"Attempting to send email to {to_email}")
-        logger.info(f"Using SMTP settings - Server: {SMTP_SERVER}, Port: {SMTP_PORT}")
-        logger.info(f"Using email: {SMTP_USERNAME}")
-
-        msg = MIMEMultipart()
-        msg['From'] = SMTP_USERNAME
-        msg['To'] = to_email
-        msg['Subject'] = subject
-
-        msg.attach(MIMEText(html_content, 'html'))
-
-        logger.info("Connecting to SMTP server with SSL...")
-        server = smtplib.SMTP_SSL(SMTP_SERVER, 465)  # Use SSL on port 465
-        server.set_debuglevel(1)  # Add debug info
-        
-        logger.info("Attempting login...")
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        
-        logger.info("Sending message...")
-        server.send_message(msg)
-        
-        logger.info("Closing connection...")
-        server.quit()
-        
-        logger.info("Email sent successfully!")
-        return True
-    except smtplib.SMTPAuthenticationError as e:
-        logger.error(f"SMTP Authentication Error: {str(e)}")
-        logger.error("Please check your email and app password")
-        return False
-    except smtplib.SMTPException as e:
-        logger.error(f"SMTP Error: {str(e)}")
-        return False
-    except Exception as e:
-        logger.error(f"Error sending email: {str(e)}")
-        return False
+        conn = sqlite3.connect(DB_PATH)
+        return conn
+    except sqlite3.Error as e:
+        logger.error(f"Database connection error: {str(e)}")
+        return None
 
 def init_db():
     try:
@@ -129,18 +85,20 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
         ''')
-
+        
         # Debug: Insert a test user if none exists
         cursor.execute('SELECT COUNT(*) FROM users')
         user_count = cursor.fetchone()[0]
         
         if user_count == 0:
             logger.info("No users found in database. Creating test user...")
-            test_password = generate_password_hash("test123")
+            test_password = generate_password_hash('test123')
             cursor.execute('''
-                INSERT INTO users (username, password, email)
-                VALUES (?, ?, ?)
-            ''', ('testuser', test_password, 'trainingfrequencycalculator@gmail.com'))
+                INSERT INTO users (username, password, email, name, age, gender, weight, height)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', ('testuser', test_password, 'trainingfrequencycalculator@gmail.com', '', '', '', '', ''))
+            conn.commit()
+            logger.info("Test user created successfully")
         
         conn.commit()
         logger.info("Database initialized successfully")
@@ -158,170 +116,162 @@ def init_db():
         if conn:
             conn.close()
 
-def connect_to_db():
+def generate_password_hash(password):
+    """Generate a bcrypt password hash"""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+def check_password_hash(password_hash, password):
+    """Check if the password matches the hash"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        return conn
+        return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
     except Exception as e:
-        logger.error(f"Error connecting to database: {e}")
-        return None
+        logger.error(f"Error checking password: {str(e)}")
+        return False
+
+def send_email(to_email, subject, html_content):
+    try:
+        logger.info(f"Attempting to send email to {to_email}")
+        logger.info(f"Subject: {subject}")
+        logger.info(f"Content: {html_content}")
+
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_USERNAME
+        msg['To'] = to_email
+        msg['Subject'] = subject
+
+        # Add HTML content
+        msg.attach(MIMEText(html_content, 'html'))
+
+        # Connect to SMTP server and send email
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+            logger.info("Email sent successfully")
+            return True
+    except Exception as e:
+        logger.error(f"Error sending email: {str(e)}")
+        return False
 
 @app.route('/api/register', methods=['POST'])
 def register():
     try:
-        logger.info("Received registration request")
         data = request.get_json()
-        logger.debug(f"Registration data received: {data}")
-        
-        # Extract all required fields
         username = data.get('username')
         password = data.get('password')
         email = data.get('email')
-        name = data.get('name')
-        age = str(data.get('age'))  # Convert to string for consistency
-        gender = data.get('gender')
-        weight = str(data.get('weight'))  # Convert to string for consistency
-        height = str(data.get('height'))  # Convert to string for consistency
-        
-        # Validate required fields
-        required_fields = {
-            'username': username,
-            'password': password,
-            'email': email,
-            'name': name,
-            'age': age,
-            'gender': gender,
-            'weight': weight,
-            'height': height
-        }
-        
-        for field, value in required_fields.items():
-            if not value:
-                error_msg = f"{field} is required"
-                logger.error(error_msg)
-                return jsonify({'error': error_msg}), 400
+        name = data.get('name', '')
+        age = data.get('age', '')
+        gender = data.get('gender', '')
+        weight = data.get('weight', '')
+        height = data.get('height', '')
 
-        #Hash the password before storing 
+        # Validate required fields
+        if not all([username, password, email]):
+            return jsonify({'error': 'Username, password, and email are required'}), 400
+
+        # Hash the password
         hashed_password = generate_password_hash(password)
-        
+
         conn = connect_to_db()
-        if conn:
-            try:
-                cursor = conn.cursor()
-                
-                # Insert new user
-                cursor.execute('''
-                    INSERT INTO users (username, password, email, name, age, gender, weight, height)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (username, hashed_password, email, name, age, gender, weight, height))
-                
-                conn.commit()
-                logger.info(f"User {username} registered successfully")
-                return jsonify({'message': 'Registration successful'}), 201
-                
-            except sqlite3.IntegrityError as e:
-                error_msg = ''
-                if 'username' in str(e):
-                    error_msg = 'Username already exists'
-                elif 'email' in str(e):
-                    error_msg = 'Email already exists'
-                else:
-                    error_msg = str(e)
-                logger.error(f"Registration integrity error: {error_msg}")
-                return jsonify({'error': error_msg}), 409
-                
-            except Exception as e:
-                error_msg = f"Registration failed: {str(e)}"
-                logger.error(error_msg)
-                return jsonify({'error': error_msg}), 500
-                
-            finally:
-                conn.close()
-        
-        error_msg = "Database connection failed"
-        logger.error(error_msg)
-        return jsonify({'error': error_msg}), 500
-        
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO users (username, password, email, name, age, gender, weight, height)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (username, hashed_password, email, name, age, gender, weight, height))
+            conn.commit()
+
+            # Get the created user
+            cursor.execute('SELECT id, username, email FROM users WHERE username = ?', (username,))
+            user = cursor.fetchone()
+            
+            return jsonify({
+                'message': 'Registration successful',
+                'user': {
+                    'id': user[0],
+                    'username': user[1],
+                    'email': user[2]
+                }
+            })
+
+        except sqlite3.IntegrityError as e:
+            if "UNIQUE constraint failed: users.username" in str(e):
+                return jsonify({'error': 'Username already exists'}), 409
+            elif "UNIQUE constraint failed: users.email" in str(e):
+                return jsonify({'error': 'Email already exists'}), 409
+            else:
+                return jsonify({'error': f'Registration failed: {str(e)}'}), 500
+        except Exception as e:
+            return jsonify({'error': f'Registration failed: {str(e)}'}), 500
+        finally:
+            conn.close()
+
     except Exception as e:
-        error_msg = f"Invalid request: {str(e)}"
-        logger.error(error_msg)
-        return jsonify({'error': error_msg}), 400
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/login', methods=['POST'])
 def login():
     try:
-        logger.info("Received login request")
         data = request.get_json()
-        logger.debug(f"Login data received: {data}")
-        
-        if not data:
-            error_msg = "No data provided"
-            logger.error(error_msg)
-            return jsonify({'error': error_msg}), 400
-            
-        identifier = data.get('identifier')
+        identifier = data.get('identifier')  # Can be username or email
         password = data.get('password')
-        
+
+        logger.info(f"Login attempt with identifier: {identifier}")
+
         if not identifier or not password:
-            error_msg = "Please enter your username/email and password"
-            logger.error(error_msg)
-            return jsonify({'error': error_msg}), 400
-        
+            return jsonify({'error': 'Username/email and password are required'}), 400
+
         conn = connect_to_db()
         if not conn:
-            error_msg = "Database connection failed"
-            logger.error(error_msg)
-            return jsonify({'error': error_msg}), 500
-            
+            return jsonify({'error': 'Database connection failed'}), 500
+
         try:
             cursor = conn.cursor()
-            # Check for both username and email
+            # Check if identifier is email or username
             cursor.execute('''
-                SELECT id, username, email, name, age, gender, weight, height, password
-                FROM users
+                SELECT id, username, password, email 
+                FROM users 
                 WHERE username = ? OR email = ?
             ''', (identifier, identifier))
             
             user = cursor.fetchone()
-            if user:
-                logger.info(f"Found user with identifier: {identifier}")
-                stored_password = user[8]
-                
-                # Verify password
-                if check_password_hash(stored_password, password):
-                    return jsonify({
-                        'message': 'Login successful',
-                        'user': {
-                            'id': user[0],
-                            'username': user[1],
-                            'email': user[2],
-                            'name': user[3],
-                            'age': user[4],
-                            'gender': user[5],
-                            'weight': user[6],
-                            'height': user[7]
-                        }
-                    }), 200
-                else:
-                    error_msg = "Invalid password"
-                    logger.error(error_msg)
-                    return jsonify({'error': error_msg}), 401
+            
+            if not user:
+                logger.error(f"No user found for identifier: {identifier}")
+                return jsonify({'error': 'Invalid credentials'}), 401
+
+            user_id, username, stored_password, email = user
+            logger.info(f"Found user: {username}")
+            logger.info(f"Stored password hash: {stored_password}")
+            logger.info(f"Checking password...")
+
+            if check_password_hash(stored_password, password):
+                logger.info("Password check successful")
+                return jsonify({
+                    'message': 'Login successful',
+                    'user': {
+                        'id': user_id,
+                        'username': username,
+                        'email': email
+                    }
+                })
             else:
-                error_msg = "User not found"
-                logger.error(error_msg)
-                return jsonify({'error': error_msg}), 401
-                
+                logger.error("Password check failed")
+                return jsonify({'error': 'Invalid credentials'}), 401
+
         except sqlite3.Error as e:
-            error_msg = f"Database error: {str(e)}"
-            logger.error(error_msg)
-            return jsonify({'error': error_msg}), 500
+            logger.error(f"Database error during login: {str(e)}")
+            return jsonify({'error': 'Database error'}), 500
         finally:
             conn.close()
-            
+
     except Exception as e:
-        error_msg = f"Server error: {str(e)}"
-        logger.error(error_msg)
-        return jsonify({'error': error_msg}), 500
+        logger.error(f"Login error: {str(e)}")
+        return jsonify({'error': 'Server error'}), 500
 
 @app.route('/api/auth/recover-username', methods=['POST'])
 def recover_username():
@@ -407,20 +357,24 @@ def forgot_password():
             conn.commit()
 
             # Generate reset link
-            reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
+            reset_link = f"{FRONTEND_URL}/ResetPassword?token={token}"
             
             # Send email with reset link
             html_content = get_password_reset_template(reset_link)
             if send_email(email, "Password Reset Instructions", html_content):
-                return jsonify({'message': f'Password reset instructions sent to {email}'})
+                return jsonify({'message': f'Password reset instructions have been sent to {email}'})
             else:
                 return jsonify({'error': 'Failed to send email'}), 500
         else:
-            return jsonify({'error': 'No account found with this email'}), 404
+            # For security reasons, don't reveal that the email doesn't exist
+            return jsonify({'message': f'If an account exists with {email}, you will receive password reset instructions'})
 
     except Exception as e:
         logger.error(f"Error in forgot_password: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/api/auth/reset-password', methods=['POST'])
 def reset_password():
@@ -432,18 +386,29 @@ def reset_password():
         if not token or not new_password:
             return jsonify({'error': 'Token and new password are required'}), 400
 
-        # In a real application, you would:
-        # 1. Verify the token is valid and not expired
-        # 2. Get the user ID from the token
-        # For demo purposes, we'll parse our simple token
-        try:
-            # Parse our demo token format
-            user_id = int(token.split('_')[2])
-        except (IndexError, ValueError):
-            return jsonify({'error': 'Invalid token'}), 400
-
         conn = connect_to_db()
         cursor = conn.cursor()
+
+        # First check if token exists and is valid
+        cursor.execute('''
+            SELECT user_id, expiration 
+            FROM password_reset_tokens 
+            WHERE token = ?
+        ''', (token,))
+        
+        token_data = cursor.fetchone()
+        if not token_data:
+            return jsonify({'error': 'Invalid or expired token'}), 400
+
+        user_id, expiration = token_data
+        expiration_date = datetime.fromisoformat(expiration)
+
+        # Check if token has expired
+        if datetime.now() > expiration_date:
+            # Clean up expired token
+            cursor.execute('DELETE FROM password_reset_tokens WHERE token = ?', (token,))
+            conn.commit()
+            return jsonify({'error': 'Token has expired'}), 400
 
         # Update the password
         hashed_password = generate_password_hash(new_password)
@@ -451,6 +416,9 @@ def reset_password():
             'UPDATE users SET password = ? WHERE id = ?',
             (hashed_password, user_id)
         )
+
+        # Clean up used token
+        cursor.execute('DELETE FROM password_reset_tokens WHERE token = ?', (token,))
         conn.commit()
 
         if cursor.rowcount > 0:
@@ -461,10 +429,23 @@ def reset_password():
     except Exception as e:
         logger.error(f"Error in reset_password: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    finally:
+        if conn:
+            conn.close()
+
+# Initialize database
+init_db()
 
 if __name__ == '__main__':
+    # Log configuration
+    logger.info("Email Configuration:")
+    logger.info(f"SMTP_SERVER: {SMTP_SERVER}")
+    logger.info(f"SMTP_PORT: {SMTP_PORT}")
+    logger.info(f"SMTP_USERNAME: {SMTP_USERNAME}")
+    logger.info(f"SMTP_PASSWORD: {'[SET]' if SMTP_PASSWORD else '[NOT SET]'}")
+    logger.info(f"FRONTEND_URL: {FRONTEND_URL}")
+    logger.info(f"Using database at: {DB_PATH}")
+    
+    # Start server
     logger.info("Starting Flask server...")
-    # Initialize the database
-    init_db()
-    # Run the server on port 5001
     app.run(host='0.0.0.0', port=5001, debug=True)

@@ -1,68 +1,57 @@
-import { Platform } from 'react-native';
+import axios from 'axios';
 
 // Use different URLs based on platform
-const API_URL = Platform.select({
-  ios: "http://localhost:5001", // iOS simulator
-  android: "http://10.0.2.2:5001", // Android emulator
-  default: "http://localhost:5001", // Web
-});
+const API_URL = 'http://localhost:5001/api';
 
-export const forgotPassword = async (email) => {
+const login = async (identifier, password) => {
   try {
-    const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to send password reset email');
-    }
-    return data;
+    console.log('Attempting login with:', { identifier, password });
+    const response = await axios.post(`${API_URL}/login`, { identifier, password });
+    console.log('Login response:', response.data);
+    return response.data;
   } catch (error) {
-    throw error.message || error;
+    console.error('Login error:', error.response?.data || error.message);
+    throw error;
   }
 };
 
-export const resetPassword = async (token, newPassword) => {
-  try {
-    const response = await fetch(`${API_URL}/api/auth/reset-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token, newPassword }),
-    });
+const logout = () => {
+  // Clear any auth tokens or user data from local storage if needed
+  localStorage.removeItem('user');
+  return Promise.resolve();
+};
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to reset password');
-    }
-    return data;
+const createAccount = async (username, password, email) => {
+  try {
+    const response = await axios.post(`${API_URL}/register`, { username, password, email });
+    return response.data;
   } catch (error) {
-    throw error.message || error;
+    throw error;
   }
 };
 
-export const recoverUsername = async (email) => {
+const forgotPassword = async (email) => {
   try {
-    const response = await fetch(`${API_URL}/api/auth/recover-username`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to recover username');
-    }
-    return data;
+    const response = await axios.post(`${API_URL}/auth/forgot-password`, { email });
+    return response.data;
   } catch (error) {
-    throw error.message || error;
+    throw error;
   }
+};
+
+const resetPassword = async (token, newPassword) => {
+  try {
+    const response = await axios.post(`${API_URL}/auth/reset-password`, { token, newPassword });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const authService = {
+  login,
+  logout,
+  createAccount,
+  forgotPassword,
+  resetPassword,
 };

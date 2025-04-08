@@ -1,35 +1,43 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { forgotPassword, recoverUsername } from '../services/authService';
-import { setRecoveryStatus, setRecoveryError, clearRecoveryState } from '../redux/authSlice';
+import { authService } from '../services/authService';
 import ButtonStyles from '../styles/Button';
 
 const RecoveryScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [mode, setMode] = useState('password'); // 'password' or 'username'
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const dispatch = useDispatch();
   const { recoveryStatus, recoveryError } = useSelector((state) => state.auth);
 
-  const handleRecovery = async () => {
-    if (!email) {
-      Alert.alert('Error', 'Please enter your email address');
-      return;
-    }
-
+  const handleSubmit = async () => {
     try {
-      dispatch(clearRecoveryState());
-      
+      setError('');
+      setSuccess('');
+
+      if (!email) {
+        setError('Please enter your email address');
+        return;
+      }
+
       if (mode === 'password') {
-        await forgotPassword(email);
-        dispatch(setRecoveryStatus('Password reset instructions sent to your email'));
+        await authService.forgotPassword(email);
+        setSuccess('Password reset instructions sent to your email');
       } else {
-        await recoverUsername(email);
-        dispatch(setRecoveryStatus('Username sent to your email'));
+        await authService.recoverUsername(email);
+        setSuccess('Username sent to your email');
       }
     } catch (error) {
-      dispatch(setRecoveryError(error.toString()));
+      setError(error.response?.data?.error || 'Recovery request failed');
     }
+  };
+
+  const toggleMode = () => {
+    setMode(mode === 'password' ? 'username' : 'password');
+    setError('');
+    setSuccess('');
   };
 
   return (
@@ -63,10 +71,12 @@ const RecoveryScreen = ({ navigation }) => {
 
       {recoveryStatus && <Text style={styles.successText}>{recoveryStatus}</Text>}
       {recoveryError && <Text style={styles.errorText}>{recoveryError}</Text>}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {success ? <Text style={styles.success}>{success}</Text> : null}
 
       <TouchableOpacity
         style={ButtonStyles.button}
-        onPress={handleRecovery}
+        onPress={handleSubmit}
       >
         <Text style={ButtonStyles.text}>
           {mode === 'password' ? 'Reset Password' : 'Recover Username'}
@@ -117,6 +127,16 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'red',
     marginBottom: 10,
+  },
+  error: {
+    color: '#e53e3e',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  success: {
+    color: '#38a169',
+    marginBottom: 15,
+    textAlign: 'center',
   },
   backButton: {
     marginTop: 20,

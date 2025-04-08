@@ -1,74 +1,59 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  Platform,
-} from "react-native";
-import { useDispatch } from "react-redux";
-import { login } from "../redux/authSlice";
-import { Ionicons } from "@expo/vector-icons";
-import ButtonStyles from "../styles/Button";
-import { styles } from "../styles/loginStyles";
-
-// Use different URLs based on platform
-const API_URL = Platform.select({
-  ios: "http://localhost:5001", // iOS simulator
-  android: "http://10.0.2.2:5001", // Android emulator
-  default: "http://localhost:5001", // Web
-});
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useDispatch } from 'react-redux';
+import { authService } from '../services/authService';
+import { setUser } from '../redux/userSlice';
+import ButtonStyles from '../styles/Button';
+import { Ionicons } from '@expo/vector-icons';
+import { styles } from '../styles/loginStyles';
 
 const LoginScreen = ({ navigation }) => {
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
 
+  const handleForgotPassword = () => {
+    navigation.navigate('Recovery');
+  };
+
+  const handleCreateAccount = () => {
+    navigation.navigate('CreateAccount');
+  };
+
+  const showAlert = (title, message) => {
+    if (Platform.OS === 'web') {
+      alert(message);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const handleLogin = async () => {
     if (!identifier || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+      setError('Please fill in all fields');
       return;
     }
 
+    setError('');
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          identifier,
-          password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Invalid username/email or password");
-        } else if (response.status === 400) {
-          throw new Error("Please enter your username/email and password");
-        } else {
-          throw new Error(data.error || "Login failed");
-        }
-      }
+      const response = await authService.login(identifier, password);
 
       // Dispatch login action with user data
-      dispatch(login({ username: data.user.username }));
+      dispatch(setUser(response.user));
 
-      // Navigate to Tabs immediately after successful login
-      navigation.replace("Tabs");
+      // Navigate to main app
+      navigation.replace('Tabs');
 
       // Show success message after navigation
-      Alert.alert("Success", "Welcome back, " + data.user.username + "!");
+      showAlert("Success", "Welcome back, " + response.user.username + "!");
     } catch (error) {
-      console.error("Login error: " + error);
-      Alert.alert("Error", error.message || "Failed to login");
+      setError(error.response?.data?.error || 'Login failed. Please try again.');
+      showAlert("Error", error.message || "Failed to login");
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +62,12 @@ const LoginScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.loginBox}>
-        <Text style={styles.title}>Login</Text>
+        <Text style={styles.title}>Welcome Back</Text>
+        
+        {error ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : null}
+
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Username or Email</Text>
           <TextInput
@@ -85,9 +75,8 @@ const LoginScreen = ({ navigation }) => {
             value={identifier}
             onChangeText={setIdentifier}
             placeholder="Enter username or email"
-            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+            placeholderTextColor="#666"
             autoCapitalize="none"
-            autoComplete="username"
             editable={!isLoading}
           />
         </View>
@@ -100,9 +89,9 @@ const LoginScreen = ({ navigation }) => {
               value={password}
               onChangeText={setPassword}
               placeholder="Enter password"
-              placeholderTextColor="rgba(255, 255, 255, 0.4)"
+              placeholderTextColor="#666"
               secureTextEntry={!showPassword}
-              autoComplete="current-password"
+              autoCapitalize="none"
               editable={!isLoading}
             />
             <TouchableOpacity
@@ -110,39 +99,38 @@ const LoginScreen = ({ navigation }) => {
               onPress={() => setShowPassword(!showPassword)}
             >
               <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                name={showPassword ? "eye-off" : "eye"}
                 size={24}
-                color="rgba(255, 255, 255, 0.6)"
+                color="rgba(255, 255, 255, 0.7)"
               />
             </TouchableOpacity>
           </View>
         </View>
 
         <TouchableOpacity
-          style={[ButtonStyles.button, isLoading && styles.buttonDisabled]}
+          style={[ButtonStyles.button, isLoading && ButtonStyles.buttonDisabled]}
           onPress={handleLogin}
           disabled={isLoading}
         >
           <Text style={ButtonStyles.text}>
-            {isLoading ? "Logging in..." : "Login"}
+            {isLoading ? 'Logging in...' : 'Login'}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.forgotPasswordLink}
-          onPress={() => navigation.navigate("Recovery")}
-        >
-          <Text style={styles.forgotPasswordText}>
-            Forgot Username or Password?
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.linkContainer}
-          onPress={() => navigation.navigate("CreateAccount")}
+          style={[ButtonStyles.outlineButton, styles.forgotButton]}
+          onPress={handleForgotPassword}
           disabled={isLoading}
         >
-          <Text style={styles.linkText}>Don't have an account? Create one</Text>
+          <Text style={ButtonStyles.outlineText}>Forgot Password?</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[ButtonStyles.outlineButton]}
+          onPress={handleCreateAccount}
+          disabled={isLoading}
+        >
+          <Text style={ButtonStyles.outlineText}>Create Account</Text>
         </TouchableOpacity>
       </View>
     </View>

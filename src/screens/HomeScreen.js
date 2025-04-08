@@ -180,10 +180,7 @@ const HomeScreen = ({ navigation }) => {
                   ButtonStyles.headerButton,
                   { backgroundColor: "#553c9a" },
                 ]}
-                onPress={() => {
-                  dispatch(logout());
-                  navigation.replace("Login");
-                }}
+                onPress={handleLogout}
               >
                 <Text style={ButtonStyles.headerButtonText}>Logout</Text>
               </TouchableOpacity>
@@ -398,6 +395,19 @@ const HomeScreen = ({ navigation }) => {
     );
   };
 
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.clear();
+      dispatch(logout());
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -422,30 +432,37 @@ const HomeScreen = ({ navigation }) => {
         {isAuthenticated && user && (
           <Text style={styles.welcomeUser}>Welcome, {user.username}!</Text>
         )}
-
-        {/* Streak Counter */}
-        <View style={styles.streakContainer}>
-          <Ionicons name="trophy" size={24} color="#FFD700" />
-          <Text style={styles.streakText}>{streak} day streak!</Text>
-        </View>
-
-        {/* Quick Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>
-              {Object.values(muscleData).filter((days) => days >= 48).length}
-            </Text>
-            <Text style={styles.statLabel}>Ready Muscles</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>
-              {Object.values(muscleData).filter((days) => days < 48).length}
-            </Text>
-            <Text style={styles.statLabel}>Resting Muscles</Text>
-          </View>
-        </View>
+        {isAuthenticated && (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
+      {/* Streak Counter */}
+      <View style={styles.streakContainer}>
+        <Ionicons name="trophy" size={24} color="#FFD700" />
+        <Text style={styles.streakText}>{streak} day streak!</Text>
+      </View>
+
+      {/* Quick Stats */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>
+            {Object.values(muscleData).filter((days) => days >= 48).length}
+          </Text>
+          <Text style={styles.statLabel}>Ready Muscles</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statNumber}>
+            {Object.values(muscleData).filter((days) => days < 48).length}
+          </Text>
+          <Text style={styles.statLabel}>Resting Muscles</Text>
+        </View>
+      </View>
       <Text style={styles.subtitle}>Tap a muscle to reset its counter</Text>
 
       <FlatList
