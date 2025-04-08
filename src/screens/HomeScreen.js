@@ -25,21 +25,23 @@ import ButtonStyles from "../styles/Button";
 
 const HomeScreen = ({ navigation }) => {
   const [muscleData, setMuscleData] = useState({});
+  const [selectedMuscles, setSelectedMuscles] = useState([]);
+  const [isWorkoutModalVisible, setIsWorkoutModalVisible] = useState(false);
+  const [workoutTimer, setWorkoutTimer] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [workoutHistory, setWorkoutHistory] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedMuscle, setSelectedMuscle] = useState(null);
   const [editDays, setEditDays] = useState("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [streak, setStreak] = useState(0);
   const [achievements, setAchievements] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const [trainedMuscles, setTrainedMuscles] = useState([]);
-  const [selectedMuscles, setSelectedMuscles] = useState([]);
-  const [isWorkoutModalVisible, setIsWorkoutModalVisible] = useState(false);
+  const [workoutInProgress, setWorkoutInProgress] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
-
-  // Animation for muscle buttons
+  const workoutTimerRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Define muscle groups
@@ -51,7 +53,10 @@ const HomeScreen = ({ navigation }) => {
     "Traps",
     "Back",
   ];
-  const LOWER_BODY = ["Quads", "Hamstrings", "Glutes", "Calves"];
+
+  const LOWER_BODY = ["Quads", "Hamstrings", "Calves", "Glutes"];
+
+  const MUSCLE_GROUPS = [...UPPER_BODY, ...LOWER_BODY];
 
   // Function to determine muscle status based on days
   const getStatus = (days) => {
@@ -214,84 +219,68 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  const startWorkout = async () => {
-    if (selectedMuscles.length === 0) {
-      Alert.alert(
-        "Select Muscles",
-        "Please select at least one muscle group to train"
-      );
-      return;
-    }
-
-    // Save the selected muscles to AsyncStorage
-    try {
-      await AsyncStorage.setItem(
-        "currentWorkout",
-        JSON.stringify({
-          muscles: selectedMuscles,
-          startTime: new Date().toISOString(),
-        })
-      );
-      setWorkoutInProgress(true);
-      setIsWorkoutModalVisible(false);
-      setSelectedMuscles([]);
-    } catch (error) {
-      console.error("Error starting workout:", error);
-      Alert.alert("Error", "Failed to start workout");
-    }
-  };
-
-  const endWorkout = async () => {
-    try {
-      const currentWorkout = await AsyncStorage.getItem("currentWorkout");
-      if (!currentWorkout) {
-        throw new Error("No active workout found");
-      }
-
-      // Update muscle recovery data
-      const updatedMuscleData = { ...muscleData };
-      const workoutData = JSON.parse(currentWorkout);
-
-      workoutData.muscles.forEach((muscle) => {
-        updatedMuscleData[muscle] = {
-          lastTrained: new Date().toISOString(),
-          status: "red",
-        };
-      });
-
-      await AsyncStorage.setItem(
-        "muscleData",
-        JSON.stringify(updatedMuscleData)
-      );
-      setMuscleData(updatedMuscleData);
-
-      // Update streak
-      await updateStreak();
-
-      // Clear current workout
-      await AsyncStorage.removeItem("currentWorkout");
-      setWorkoutInProgress(false);
-
-      Alert.alert("Workout Complete!", "Your streak has been updated");
-    } catch (error) {
-      console.error("Error ending workout:", error);
-      Alert.alert("Error", "Failed to end workout");
-    }
-  };
-
   const handleMuscleSelect = (muscle) => {
     setSelectedMuscles((prev) => {
-      const newSelection = prev.includes(muscle)
-        ? prev.filter((m) => m !== muscle)
-        : [...prev, muscle];
-      return newSelection;
+      // If the muscle is already selected, remove it
+      if (prev.includes(muscle)) {
+        return prev.filter((m) => m !== muscle);
+      }
+      // Otherwise, add it to the selection
+      return [...prev, muscle];
     });
+  };
+
+  const clearMuscle = (muscle) => {
+    setSelectedMuscles((prev) => prev.filter((m) => m !== muscle));
+  };
+
+  const clearAllMuscles = () => {
+    setSelectedMuscles([]);
+  };
+
+  const startWorkout = () => {
+    if (selectedMuscles.length === 0) {
+      Alert.alert("Error", "Please select at least one muscle group to train");
+      return;
+    }
+    setIsWorkoutModalVisible(false);
+    setWorkoutInProgress(true);
+    setIsTimerRunning(true);
+    setWorkoutTimer(0);
+
+    // Store the workout in history
+    const workoutData = {
+      muscles: selectedMuscles,
+      startTime: new Date().toISOString(),
+      duration: 0,
+      userId: user?.id,
+    };
+    setWorkoutHistory([...workoutHistory, workoutData]);
+  };
+
+  const endWorkout = () => {
+    setIsTimerRunning(false);
+    setWorkoutInProgress(false);
+
+    // Update the last workout time for selected muscles
+    const currentTime = new Date().getTime();
+    const updatedMuscleData = { ...muscleData };
+    selectedMuscles.forEach((muscle) => {
+      updatedMuscleData[muscle] = currentTime;
+    });
+    setMuscleData(updatedMuscleData);
+
+    // Update the workout history with duration
+    const lastWorkout = workoutHistory[workoutHistory.length - 1];
+    if (lastWorkout) {
+      lastWorkout.duration = workoutTimer;
+      setWorkoutHistory([...workoutHistory.slice(0, -1), lastWorkout]);
+    }
   };
 
   const handleEdit = (muscle) => {
     setEditMode(true);
     setEditDays(muscleData[muscle].toString());
-    setEditMode(true);
     setSelectedMuscle(muscle);
   };
 
@@ -316,6 +305,28 @@ const HomeScreen = ({ navigation }) => {
     setEditMode(false);
     setSelectedMuscle(null);
   };
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+  };
+
+  useEffect(() => {
+    if (isTimerRunning) {
+      workoutTimerRef.current = setInterval(() => {
+        setWorkoutTimer((prev) => prev + 1);
+      }, 1000);
+    } else if (workoutTimerRef.current) {
+      clearInterval(workoutTimerRef.current);
+    }
+
+    return () => {
+      if (workoutTimerRef.current) {
+        clearInterval(workoutTimerRef.current);
+      }
+    };
+  }, [isTimerRunning]);
 
   const renderMuscleItem = ({ item: muscle }) => {
     const days = muscleData[muscle] || 0;
@@ -371,12 +382,18 @@ const HomeScreen = ({ navigation }) => {
             <TouchableOpacity
               key={index}
               style={styles.selectedMuscleChip}
-              onPress={() => handleMuscleSelect(muscle)}
+              onPress={() => clearMuscle(muscle)}
             >
               <Text style={styles.chipText}>{muscle}</Text>
             </TouchableOpacity>
           ))}
         </View>
+        <TouchableOpacity
+          style={styles.clearAllButton}
+          onPress={clearAllMuscles}
+        >
+          <Text style={styles.clearAllText}>Clear All</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -514,6 +531,10 @@ const HomeScreen = ({ navigation }) => {
         onClose={() => setIsWorkoutModalVisible(false)}
         onMuscleSelect={handleMuscleSelect}
         selectedMuscles={selectedMuscles}
+        startWorkout={startWorkout}
+        endWorkout={endWorkout}
+        workoutTimer={workoutTimer}
+        isWorkoutInProgress={workoutInProgress}
       />
 
       {workoutInProgress && (
