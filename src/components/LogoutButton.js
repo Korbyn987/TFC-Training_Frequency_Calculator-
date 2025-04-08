@@ -1,32 +1,25 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
-import { authService } from '../services/authService';
 import { logoutUser } from '../redux/userSlice';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 const LogoutButton = () => {
-  const navigation = useNavigation();
   const dispatch = useDispatch();
+  const navigation = useNavigation();
 
-  const handleLogout = async () => {
-    try {
-      await authService.logout();
-      dispatch(logoutUser());
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Logout' }],
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const handleLogout = () => {
+    dispatch(logoutUser());
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
   };
 
   return (
-    <TouchableOpacity
-      style={styles.button}
-      onPress={handleLogout}
-    >
+    <TouchableOpacity style={styles.button} onPress={handleLogout}>
+      <Ionicons name="log-out-outline" size={24} color="#fff" />
       <Text style={styles.text}>Logout</Text>
     </TouchableOpacity>
   );
@@ -34,12 +27,16 @@ const LogoutButton = () => {
 
 const styles = StyleSheet.create({
   button: {
-    marginRight: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
   },
   text: {
     color: '#fff',
+    marginLeft: 8,
     fontSize: 16,
-    fontWeight: '500',
   },
 });
 

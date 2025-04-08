@@ -8,13 +8,14 @@ import ButtonStyles from '../styles/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { styles } from '../styles/loginStyles';
 
-const LoginScreen = ({ navigation }) => {
+const LoginScreen = () => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
+  const navigation = useNavigation();
 
   const handleForgotPassword = () => {
     navigation.navigate('Recovery');
@@ -47,7 +48,10 @@ const LoginScreen = ({ navigation }) => {
       dispatch(setUser(response.user));
 
       // Navigate to main app
-      navigation.replace('Tabs');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
 
       // Show success message after navigation
       showAlert("Success", "Welcome back, " + response.user.username + "!");
