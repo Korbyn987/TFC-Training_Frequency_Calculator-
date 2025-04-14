@@ -23,13 +23,14 @@ import WorkoutSelectionModal from "../components/workoutSelectionModal";
 import { useNavigation } from "@react-navigation/native";
 import ButtonStyles from "../styles/Button";
 
-const HomeScreen = () => {
-  const navigation = useNavigation();
+const HomeScreen = ({ route, navigation }) => {
+  const { username } = route.params || {};
   const [muscleData, setMuscleData] = useState({});
   const [selectedMuscles, setSelectedMuscles] = useState([]);
   const [isWorkoutModalVisible, setIsWorkoutModalVisible] = useState(false);
   const [workoutTimer, setWorkoutTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [showWorkoutBanner, setShowWorkoutBanner] = useState(false);
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -40,7 +41,6 @@ const HomeScreen = () => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [trainedMuscles, setTrainedMuscles] = useState([]);
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
-  const [showWorkoutBanner, setShowWorkoutBanner] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const workoutTimerRef = useRef(null);

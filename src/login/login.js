@@ -50,7 +50,12 @@ const LoginScreen = () => {
       // Navigate to main app
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Home' }],
+        routes: [
+          {
+            name: 'Main',
+            params: { screen: 'HomeTab', params: { username: response.user.username } }
+          }
+        ],
       });
 
       // Show success message after navigation

@@ -20,6 +20,55 @@ import ConfigureWorkoutScreen from "./screens/ConfigureWorkoutScreen";
 import ButtonStyles from "./styles/Button";
 
 const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
+
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === "HomeTab") {
+            iconName = focused ? "home" : "home-outline";
+          } else if (route.name === "Calculator") {
+            iconName = focused ? "calculator" : "calculator-outline";
+          } else if (route.name === "Profile") {
+            iconName = focused ? "person" : "person-outline";
+          } else if (route.name === "About") {
+            iconName = focused ? "information-circle" : "information-circle-outline";
+          }
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: "#6b46c1",
+        tabBarInactiveTintColor: "gray",
+      })}
+    >
+      <Tab.Screen 
+        name="HomeTab" 
+        component={HomeScreen}
+        options={{ 
+          title: "Home",
+          headerShown: false
+        }}
+      />
+      <Tab.Screen 
+        name="Calculator" 
+        component={CalculatorScreen}
+        options={{ headerShown: false }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <Tab.Screen 
+        name="About" 
+        component={AboutScreen}
+        options={{ headerShown: false }}
+      />
+    </Tab.Navigator>
+  );
+}
 
 function App() {
   return (
@@ -52,24 +101,9 @@ function App() {
             options={{ title: "Reset Password" }}
           />
           <Stack.Screen
-            name="Home"
-            component={HomeScreen}
-            options={{ title: "Home" }}
-          />
-          <Stack.Screen
-            name="Calculator"
-            component={CalculatorScreen}
-            options={{ title: "Calculator" }}
-          />
-          <Stack.Screen
-            name="Profile"
-            component={ProfileScreen}
-            options={{ title: "Profile" }}
-          />
-          <Stack.Screen
-            name="About"
-            component={AboutScreen}
-            options={{ title: "About" }}
+            name="Main"
+            component={MainTabs}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="WorkoutOptionsScreen"
