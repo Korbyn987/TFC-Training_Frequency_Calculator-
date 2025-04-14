@@ -8,7 +8,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: "#fff",
+    backgroundColor: "#171923",
     borderRadius: 20,
     padding: 20,
     width: "90%",
@@ -21,12 +21,17 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#333",
+    color: "#ffffff",
+    textAlign: "center",
+    marginVertical: 32,
+    letterSpacing: 1,
   },
   closeButton: {
-    padding: 5,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   workoutInProgressContainer: {
     alignItems: "center",
@@ -104,11 +109,41 @@ export const styles = StyleSheet.create({
     marginTop: 20,
     gap: 10,
   },
-  button: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  button: {
+    width: "45%",
+    height: 120,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  leftButton: {
+    backgroundColor: "#6b46c1",
+  },
+  rightButton: {
+    backgroundColor: "#805AD5",
+  },
+  buttonText: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  buttonSubText: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 14,
+    textAlign: "center",
   },
   cancelButton: {
     backgroundColor: "#f0f0f0",
@@ -121,7 +156,7 @@ export const styles = StyleSheet.create({
   endButton: {
     backgroundColor: "#dc3545",
   },
-  buttonText: {
+  endButtonText: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#fff",

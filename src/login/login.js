@@ -50,7 +50,7 @@ const LoginScreen = () => {
       // Navigate to main app
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Main' }],
+        routes: [{ name: 'Home' }],
       });
 
       // Show success message after navigation

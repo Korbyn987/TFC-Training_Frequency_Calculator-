@@ -23,7 +23,8 @@ import WorkoutSelectionModal from "../components/workoutSelectionModal";
 import { useNavigation } from "@react-navigation/native";
 import ButtonStyles from "../styles/Button";
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = () => {
+  const navigation = useNavigation();
   const [muscleData, setMuscleData] = useState({});
   const [selectedMuscles, setSelectedMuscles] = useState([]);
   const [isWorkoutModalVisible, setIsWorkoutModalVisible] = useState(false);
@@ -39,6 +40,7 @@ const HomeScreen = ({ navigation }) => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [trainedMuscles, setTrainedMuscles] = useState([]);
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
+  const [showWorkoutBanner, setShowWorkoutBanner] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const workoutTimerRef = useRef(null);
@@ -236,6 +238,7 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const startWorkout = () => {
+    console.log("Start Workout button pressed");
     if (selectedMuscles.length === 0) {
       Alert.alert("Error", "Please select at least one muscle group to train");
       return;
@@ -256,6 +259,7 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const endWorkout = () => {
+    console.log("End Workout button pressed");
     setIsTimerRunning(false);
     setWorkoutInProgress(false);
 
@@ -408,6 +412,24 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
+  const handleStartWorkout = () => {
+    console.log("Start Workout button pressed");
+    setIsWorkoutModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsWorkoutModalVisible(false);
+  };
+
+  const handleMuscleSelectModal = (muscles) => {
+    setSelectedMuscles(muscles);
+  };
+
+  const handleMuscleRemove = (muscle) => {
+    console.log("Removing muscle:", muscle);
+    setSelectedMuscles(prev => prev.filter(m => m !== muscle));
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -424,7 +446,24 @@ const HomeScreen = ({ navigation }) => {
         />
       }
     >
+      {showWorkoutBanner && (
+        <WorkoutBanner
+          selectedMuscles={selectedMuscles}
+          onMuscleRemove={handleMuscleRemove}
+          onEndWorkout={handleEndWorkout}
+        />
+      )}
       {renderMuscleSelectionBanner()}
+      <WorkoutSelectionModal
+        visible={isWorkoutModalVisible}
+        onClose={handleCloseModal}
+        onMuscleSelect={handleMuscleSelectModal}
+        selectedMuscles={selectedMuscles}
+        startWorkout={startWorkout}
+        endWorkout={endWorkout}
+        workoutTimer={workoutTimer}
+        isWorkoutInProgress={workoutInProgress}
+      />
       <View style={styles.header}>
         <Text style={styles.title}>
           Welcome to TFC your Training Frequency Calculator
@@ -482,15 +521,18 @@ const HomeScreen = ({ navigation }) => {
       {/* Quick Actions */}
       <View style={styles.quickActions}>
         <TouchableOpacity
-          style={[styles.quickActionItem, styles.startWorkoutButton]}
-          onPress={() => setIsWorkoutModalVisible(true)}
+          style={styles.startWorkoutButton}
+          onPress={handleStartWorkout}
         >
-          <Ionicons name="play-circle" size={24} color="#2196F3" />
-          <Text style={styles.quickActionText}>Start Workout</Text>
+          <Ionicons name="barbell-outline" size={24} color="#ffffff" />
+          <Text style={styles.buttonText}>Start Workout</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.quickActionItem, styles.endWorkoutButton]}
-          onPress={endWorkout}
+          onPress={() => {
+            console.log("Button pressed");
+            endWorkout();
+          }}
           disabled={!workoutInProgress || selectedMuscles.length === 0}
         >
           <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
@@ -543,23 +585,15 @@ const HomeScreen = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      <WorkoutSelectionModal
-        visible={isWorkoutModalVisible}
-        onClose={() => setIsWorkoutModalVisible(false)}
-        onMuscleSelect={handleMuscleSelect}
-        selectedMuscles={selectedMuscles}
-        startWorkout={startWorkout}
-        endWorkout={endWorkout}
-        workoutTimer={workoutTimer}
-        isWorkoutInProgress={workoutInProgress}
-      />
-
       {workoutInProgress && (
         <View style={styles.workoutInProgressContainer}>
           <Text style={styles.workoutInProgressText}>Workout in Progress</Text>
           <TouchableOpacity
             style={styles.endWorkoutButton}
-            onPress={endWorkout}
+            onPress={() => {
+              console.log("Button pressed");
+              endWorkout();
+            }}
           >
             <Text style={styles.endWorkoutButtonText}>End Workout</Text>
           </TouchableOpacity>
