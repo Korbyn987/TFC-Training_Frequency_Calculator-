@@ -4,149 +4,198 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  ScrollView,
+  TextInput,
   StyleSheet,
+  ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { MUSCLE_GROUPS } from '../constants/muscleGroups';
+import { getExercises, getMuscleGroups, initDatabase } from '../database/database';
 
 const AddExerciseScreen = ({ navigation }) => {
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [exercises, setExercises] = useState([]);
   const [selectedExercises, setSelectedExercises] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeGroup, setActiveGroup] = useState('All');
+  const [muscleGroups, setMuscleGroups] = useState([]);
+  const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Fetch exercises for the selected category
   useEffect(() => {
-    if (selectedCategory) {
-      fetchExercises(selectedCategory);
-    }
-  }, [selectedCategory]);
+    loadData();
+  }, []);
 
-  const fetchExercises = async (category) => {
-    setLoading(true);
+  useEffect(() => {
+    if (!loading) {
+      loadExercises();
+    }
+  }, [activeGroup, loading]);
+
+  const loadData = async () => {
     try {
-      // TODO: Replace with actual API call to your SQL database
-      // For now, using mock data
-      const mockExercises = [
-        { id: 1, name: 'Bench Press', description: 'Classic chest exercise' },
-        { id: 2, name: 'Push-ups', description: 'Bodyweight chest exercise' },
-        // Add more mock exercises here
-      ];
-      setExercises(mockExercises);
-    } catch (error) {
-      console.error('Error fetching exercises:', error);
+      setLoading(true);
+      setError(null);
+
+      // Initialize database
+      const dbInitialized = await initDatabase();
+      if (!dbInitialized) {
+        throw new Error('Failed to initialize database');
+      }
+
+      // Load muscle groups
+      const groups = await getMuscleGroups();
+      setMuscleGroups(groups);
+
+      // Load initial exercises
+      await loadExercises();
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load exercises. Please try again.');
+      Alert.alert('Error', 'Failed to load exercises. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleExercise = (exercise) => {
+  const loadExercises = async () => {
+    try {
+      setError(null);
+      const exerciseData = await getExercises(activeGroup === 'All' ? null : activeGroup);
+      setExercises(exerciseData);
+    } catch (err) {
+      console.error('Error loading exercises:', err);
+      setError('Failed to load exercises for this group.');
+      Alert.alert('Error', 'Failed to load exercises for this group.');
+    }
+  };
+
+  const handleSelectExercise = (exercise) => {
     setSelectedExercises(prev => {
-      const isSelected = prev.some(e => e.id === exercise.id);
-      if (isSelected) {
+      if (prev.find(e => e.id === exercise.id)) {
         return prev.filter(e => e.id !== exercise.id);
-      } else {
-        return [...prev, exercise];
       }
+      return [...prev, exercise];
     });
   };
 
-  const renderCategoryItem = ({ item }) => (
+  const handleSaveExercises = () => {
+    navigation.navigate('ConfigureWorkout', {
+      exercises: selectedExercises,
+    });
+  };
+
+  const filteredExercises = () => {
+    const query = searchQuery.toLowerCase();
+    return exercises.filter(exercise => 
+      exercise.name.toLowerCase().includes(query)
+    );
+  };
+
+  const renderMuscleGroupButton = (group) => (
     <TouchableOpacity
+      key={group ? group.id : 'all'}
       style={[
-        styles.categoryItem,
-        selectedCategory === item && styles.categoryItemSelected
+        styles.groupButton,
+        activeGroup === (group ? group.name : 'All') && styles.activeGroupButton,
       ]}
-      onPress={() => setSelectedCategory(item)}
+      onPress={() => setActiveGroup(group ? group.name : 'All')}
     >
       <Text style={[
-        styles.categoryText,
-        selectedCategory === item && styles.categoryTextSelected
+        styles.groupButtonText,
+        activeGroup === (group ? group.name : 'All') && styles.activeGroupButtonText,
       ]}>
-        {item}
+        {group ? group.name : 'All'}
       </Text>
     </TouchableOpacity>
   );
 
-  const renderExerciseItem = ({ item }) => {
-    const isSelected = selectedExercises.some(e => e.id === item.id);
-    
-    return (
-      <TouchableOpacity
-        style={[styles.exerciseItem, isSelected && styles.exerciseItemSelected]}
-        onPress={() => toggleExercise(item)}
-      >
-        <View style={styles.exerciseContent}>
-          <Text style={styles.exerciseName}>{item.name}</Text>
+  const renderExerciseItem = ({ item }) => (
+    <TouchableOpacity
+      style={[
+        styles.exerciseItem,
+        selectedExercises.find(e => e.id === item.id) && styles.selectedExerciseItem,
+      ]}
+      onPress={() => handleSelectExercise(item)}
+    >
+      <View style={styles.exerciseContent}>
+        <Text style={[
+          styles.exerciseText,
+          selectedExercises.find(e => e.id === item.id) && styles.selectedExerciseText,
+        ]}>
+          {item.name}
+        </Text>
+        {item.description && (
           <Text style={styles.exerciseDescription}>{item.description}</Text>
-        </View>
-        <Ionicons
-          name={isSelected ? "checkmark-circle" : "add-circle-outline"}
-          size={24}
-          color={isSelected ? "#6b46c1" : "#ffffff"}
-        />
-      </TouchableOpacity>
+        )}
+      </View>
+      {selectedExercises.find(e => e.id === item.id) && (
+        <Ionicons name="checkmark-circle" size={24} color="#6b46c1" />
+      )}
+    </TouchableOpacity>
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6b46c1" />
+      </View>
     );
-  };
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search exercises..."
+          placeholderTextColor="#666"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.categoriesContainer}
+        style={styles.groupsContainer}
       >
-        {MUSCLE_GROUPS.map((category) => (
-          <TouchableOpacity
-            key={category}
-            style={[
-              styles.categoryItem,
-              selectedCategory === category && styles.categoryItemSelected
-            ]}
-            onPress={() => setSelectedCategory(category)}
-          >
-            <Text style={[
-              styles.categoryText,
-              selectedCategory === category && styles.categoryTextSelected
-            ]}>
-              {category}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {renderMuscleGroupButton(null)}
+        {muscleGroups.map(group => renderMuscleGroupButton(group))}
       </ScrollView>
 
-      <View style={styles.exercisesContainer}>
-        {loading ? (
-          <ActivityIndicator size="large" color="#6b46c1" />
-        ) : (
-          <FlatList
-            data={exercises}
-            renderItem={renderExerciseItem}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={styles.exercisesList}
-          />
-        )}
-      </View>
+      <FlatList
+        data={filteredExercises()}
+        renderItem={renderExerciseItem}
+        keyExtractor={item => item.id.toString()}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+      />
 
-      {selectedExercises.length > 0 && (
-        <View style={styles.bottomBar}>
-          <Text style={styles.selectedCount}>
-            {selectedExercises.length} exercise{selectedExercises.length !== 1 ? 's' : ''} selected
-          </Text>
-          <TouchableOpacity
-            style={styles.continueButton}
-            onPress={() => {
-              // TODO: Navigate to next screen with selected exercises
-              navigation.navigate('ConfigureWorkout', { exercises: selectedExercises });
-            }}
-          >
-            <Text style={styles.continueButtonText}>Continue</Text>
-            <Ionicons name="arrow-forward" size={24} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
-      )}
+      <TouchableOpacity
+        style={[
+          styles.saveButton,
+          selectedExercises.length === 0 && styles.disabledButton,
+        ]}
+        onPress={handleSaveExercises}
+        disabled={selectedExercises.length === 0}
+      >
+        <Text style={styles.saveButtonText}>
+          Add {selectedExercises.length} Exercise{selectedExercises.length !== 1 ? 's' : ''}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -156,90 +205,125 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#171923',
   },
-  categoriesContainer: {
-    maxHeight: 60,
-    paddingHorizontal: 16,
-    marginVertical: 8,
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#171923',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  categoryItem: {
-    paddingHorizontal: 20,
+  errorContainer: {
+    flex: 1,
+    backgroundColor: '#171923',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: '#fc8181',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#6b46c1',
+    paddingHorizontal: 24,
     paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2D3748',
+    margin: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  searchIcon: {
     marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 48,
+    color: '#fff',
+    fontSize: 16,
+  },
+  groupsContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  groupButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#2D3748',
+    marginRight: 8,
   },
-  categoryItemSelected: {
+  activeGroupButton: {
     backgroundColor: '#6b46c1',
   },
-  categoryText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+  groupButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
-  categoryTextSelected: {
-    color: '#ffffff',
+  activeGroupButtonText: {
+    fontWeight: 'bold',
   },
-  exercisesContainer: {
+  list: {
     flex: 1,
-    paddingHorizontal: 16,
   },
-  exercisesList: {
-    paddingTop: 8,
+  listContent: {
+    padding: 16,
   },
   exerciseItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#2D3748',
     padding: 16,
+    borderRadius: 8,
     marginBottom: 8,
-    borderRadius: 12,
-    backgroundColor: '#2D3748',
-  },
-  exerciseItemSelected: {
-    backgroundColor: '#2D3748',
-    borderColor: '#6b46c1',
-    borderWidth: 2,
   },
   exerciseContent: {
     flex: 1,
     marginRight: 16,
   },
-  exerciseName: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
+  selectedExerciseItem: {
+    backgroundColor: '#2D3748',
+    borderColor: '#6b46c1',
+    borderWidth: 2,
+  },
+  exerciseText: {
+    color: '#fff',
+    fontSize: 16,
   },
   exerciseDescription: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: '#A0AEC0',
     fontSize: 14,
+    marginTop: 4,
   },
-  bottomBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#1A202C',
-    borderTopWidth: 1,
-    borderTopColor: '#2D3748',
+  selectedExerciseText: {
+    fontWeight: 'bold',
   },
-  selectedCount: {
-    color: '#ffffff',
-    fontSize: 16,
-  },
-  continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  saveButton: {
     backgroundColor: '#6b46c1',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    margin: 16,
+    padding: 16,
     borderRadius: 8,
+    alignItems: 'center',
   },
-  continueButtonText: {
-    color: '#ffffff',
+  disabledButton: {
+    backgroundColor: '#4A5568',
+  },
+  saveButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-    marginRight: 8,
   },
 });
 

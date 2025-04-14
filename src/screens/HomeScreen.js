@@ -457,12 +457,6 @@ const HomeScreen = ({ route, navigation }) => {
       <WorkoutSelectionModal
         visible={isWorkoutModalVisible}
         onClose={handleCloseModal}
-        onMuscleSelect={handleMuscleSelectModal}
-        selectedMuscles={selectedMuscles}
-        startWorkout={startWorkout}
-        endWorkout={endWorkout}
-        workoutTimer={workoutTimer}
-        isWorkoutInProgress={workoutInProgress}
       />
       <View style={styles.header}>
         <Text style={styles.title}>

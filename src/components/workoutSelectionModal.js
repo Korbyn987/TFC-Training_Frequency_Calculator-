@@ -1,60 +1,70 @@
-import React from "react";
-import { View, Text, TouchableOpacity, Modal } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-import { styles } from "../styles/workoutSelectionModalStyles";
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Modal } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { styles } from '../styles/workoutSelectionModalStyles';
+import MuscleGroupSelectionModal from './MuscleGroupSelectionModal';
 
 const WorkoutSelectionModal = ({ visible, onClose }) => {
   const navigation = useNavigation();
+  const [isMuscleGroupModalVisible, setIsMuscleGroupModalVisible] = useState(false);
 
   const handleAddExercise = () => {
-    onClose();
-    navigation.navigate("AddExercise");
+    setIsMuscleGroupModalVisible(true);
   };
 
   const handleSelectRoutine = () => {
     onClose();
-    navigation.navigate("SelectRoutine");
+    navigation.navigate('SelectRoutine');
+  };
+
+  const handleMuscleGroupSelect = (muscleGroup) => {
+    setIsMuscleGroupModalVisible(false);
+    onClose();
+    navigation.navigate('AddExercise', { muscleGroup });
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Choose Your Workout</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.buttonContainer}>
+    <>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={visible}
+        onRequestClose={onClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Choose Workout Type</Text>
+            
             <TouchableOpacity
-              style={[styles.button, styles.leftButton]}
+              style={styles.modalButton}
               onPress={handleAddExercise}
             >
-              <Ionicons name="add-circle-outline" size={40} color="#ffffff" />
-              <Text style={styles.buttonText}>Add Exercise</Text>
-              <Text style={styles.buttonSubText}>Create a custom workout</Text>
+              <Text style={styles.modalButtonText}>Add Exercise</Text>
             </TouchableOpacity>
-
+            
             <TouchableOpacity
-              style={[styles.button, styles.rightButton]}
+              style={styles.modalButton}
               onPress={handleSelectRoutine}
             >
-              <Ionicons name="list-outline" size={40} color="#ffffff" />
-              <Text style={styles.buttonText}>Select Routine</Text>
-              <Text style={styles.buttonSubText}>Choose from saved routines</Text>
+              <Text style={styles.modalButtonText}>Select Routine</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={onClose}
+            >
+              <Text style={styles.closeButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <MuscleGroupSelectionModal
+        visible={isMuscleGroupModalVisible}
+        onClose={() => setIsMuscleGroupModalVisible(false)}
+        onSelectMuscleGroup={handleMuscleGroupSelect}
+      />
+    </>
   );
 };
 

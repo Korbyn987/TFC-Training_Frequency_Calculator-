@@ -53,7 +53,13 @@ const LoginScreen = () => {
         routes: [
           {
             name: 'Main',
-            params: { screen: 'HomeTab', params: { username: response.user.username } }
+            params: { 
+              screen: 'Home',
+              params: {
+                screen: 'HomeScreen',
+                params: { username: response.user.username }
+              }
+            }
           }
         ],
       });

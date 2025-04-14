@@ -1,18 +1,48 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: "#171923",
-    borderRadius: 20,
+    backgroundColor: '#171923',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 20,
-    width: "90%",
-    maxHeight: "90%",
+    minHeight: 300,
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButton: {
+    backgroundColor: '#2D3748',
+    padding: 16,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  closeButton: {
+    backgroundColor: '#4A5568',
+    padding: 16,
+    borderRadius: 10,
+    marginTop: 8,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   header: {
     flexDirection: "row",
@@ -23,15 +53,10 @@ export const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#ffffff",
+    color: "#fff",
     textAlign: "center",
     marginVertical: 32,
     letterSpacing: 1,
-  },
-  closeButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   workoutInProgressContainer: {
     alignItems: "center",
@@ -114,11 +139,13 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
+    marginTop: 10,
   },
   button: {
-    width: "45%",
-    height: 120,
+    width: "48%",
+    height: 160,
     borderRadius: 12,
+    padding: 16,
     justifyContent: "center",
     alignItems: "center",
     elevation: 3,
@@ -134,16 +161,17 @@ export const styles = StyleSheet.create({
     backgroundColor: "#805AD5",
   },
   buttonText: {
-    color: "#ffffff",
+    color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    marginTop: 12,
+    textAlign: "center",
   },
   buttonSubText: {
     color: "rgba(255, 255, 255, 0.8)",
     fontSize: 14,
     textAlign: "center",
+    marginTop: 4,
   },
   cancelButton: {
     backgroundColor: "#f0f0f0",
@@ -162,3 +190,5 @@ export const styles = StyleSheet.create({
     color: "#fff",
   },
 });
+
+export { styles };
