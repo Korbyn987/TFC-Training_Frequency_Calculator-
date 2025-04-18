@@ -20,7 +20,7 @@ const WorkoutSelectionModal = ({ visible, onClose }) => {
   const handleMuscleGroupSelect = (muscleGroup) => {
     setIsMuscleGroupModalVisible(false);
     onClose();
-    navigation.navigate('AddExercise', { muscleGroup });
+    navigation.navigate('AddExercise', { muscleGroup: muscleGroup.name, muscleGroupId: muscleGroup.id });
   };
 
   return (
