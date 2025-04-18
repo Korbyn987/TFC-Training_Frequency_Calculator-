@@ -1,32 +1,40 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useDispatch } from 'react-redux';
-import { authService } from '../services/authService';
-import { setUser } from '../redux/userSlice';
-import ButtonStyles from '../styles/Button';
-import { Ionicons } from '@expo/vector-icons';
-import { styles } from '../styles/loginStyles';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Platform,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { useDispatch } from "react-redux";
+import { authService } from "../services/authService";
+import { setUser } from "../redux/userSlice";
+import ButtonStyles from "../styles/Button";
+import { Ionicons } from "@expo/vector-icons";
+import { styles } from "../styles/loginStyles";
 
 const LoginScreen = () => {
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const navigation = useNavigation();
 
   const handleForgotPassword = () => {
-    navigation.navigate('Recovery');
+    navigation.navigate("Recovery");
   };
 
   const handleCreateAccount = () => {
-    navigation.navigate('CreateAccount');
+    navigation.navigate("CreateAccount");
   };
 
   const showAlert = (title, message) => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       alert(message);
     } else {
       Alert.alert(title, message);
@@ -35,11 +43,11 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     if (!identifier || !password) {
-      setError('Please fill in all fields');
+      setError("Please fill in all fields");
       return;
     }
 
-    setError('');
+    setError("");
     setIsLoading(true);
     try {
       const response = await authService.login(identifier, password);
@@ -52,22 +60,24 @@ const LoginScreen = () => {
         index: 0,
         routes: [
           {
-            name: 'Main',
-            params: { 
-              screen: 'Home',
+            name: "Tabs",
+            params: {
+              screen: "Home",
               params: {
-                screen: 'HomeScreen',
-                params: { username: response.user.username }
-              }
-            }
-          }
+                screen: "HomeScreen",
+                params: { username: response.user.username },
+              },
+            },
+          },
         ],
       });
 
       // Show success message after navigation
       showAlert("Success", "Welcome back, " + response.user.username + "!");
     } catch (error) {
-      setError(error.response?.data?.error || 'Login failed. Please try again.');
+      setError(
+        error.response?.data?.error || "Login failed. Please try again."
+      );
       showAlert("Error", error.message || "Failed to login");
     } finally {
       setIsLoading(false);
@@ -78,10 +88,8 @@ const LoginScreen = () => {
     <View style={styles.container}>
       <View style={styles.loginBox}>
         <Text style={styles.title}>Welcome Back</Text>
-        
-        {error ? (
-          <Text style={styles.error}>{error}</Text>
-        ) : null}
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Username or Email</Text>
@@ -123,12 +131,15 @@ const LoginScreen = () => {
         </View>
 
         <TouchableOpacity
-          style={[ButtonStyles.button, isLoading && ButtonStyles.buttonDisabled]}
+          style={[
+            ButtonStyles.button,
+            isLoading && ButtonStyles.buttonDisabled,
+          ]}
           onPress={handleLogin}
           disabled={isLoading}
         >
           <Text style={ButtonStyles.text}>
-            {isLoading ? 'Logging in...' : 'Login'}
+            {isLoading ? "Logging in..." : "Login"}
           </Text>
         </TouchableOpacity>
 
