@@ -86,9 +86,9 @@ const AddExerciseScreen = ({ navigation, route }) => {
   const loadExercises = async () => {
     try {
       setError(null);
-      // If muscleGroupId is provided, filter exercises by that group
+      console.log('Loading exercises for muscleGroupId:', muscleGroupId, 'activeGroup:', activeGroup);
       const exerciseData = await getExercises(
-        muscleGroupId || (activeGroup === "All" ? null : activeGroup)
+        activeGroup === "All" ? null : activeGroup
       );
       setExercises(exerciseData);
     } catch (err) {
@@ -128,15 +128,18 @@ const AddExerciseScreen = ({ navigation, route }) => {
       key={group ? group.id : "all"}
       style={[
         styles.groupButton,
-        activeGroup === (group ? group.name : "All") &&
+        activeGroup === (group ? group.id : "All") &&
           styles.activeGroupButton,
       ]}
-      onPress={() => setActiveGroup(group ? group.name : "All")}
+      onPress={() => {
+        console.log('Selected muscle group:', group ? group.name : "All");
+        setActiveGroup(group ? group.id : "All");
+      }}
     >
       <Text
         style={[
           styles.groupButtonText,
-          activeGroup === (group ? group.name : "All") &&
+          activeGroup === (group ? group.id : "All") &&
             styles.activeGroupButtonText,
         ]}
       >

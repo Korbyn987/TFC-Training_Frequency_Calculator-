@@ -143,15 +143,15 @@ export const getMuscleGroups = () => {
 
 export const getExercises = (muscleGroup = null) => {
   if (Platform.OS === 'web') {
-    if (!muscleGroup) return Promise.resolve(STATIC_EXERCISES);
-    // Try to match by name or id
+    if (!muscleGroup || muscleGroup === "All") return Promise.resolve(STATIC_EXERCISES);
     let groupId = muscleGroup;
     if (typeof muscleGroup === 'string') {
       const found = STATIC_MUSCLE_GROUPS.find(g => g.name === muscleGroup);
       groupId = found ? found.id : null;
     }
+    // Ensure groupId is a number before filtering
     return Promise.resolve(
-      STATIC_EXERCISES.filter(e => e.muscle_group_id === groupId)
+      STATIC_EXERCISES.filter(e => e.muscle_group_id === Number(groupId))
     );
   }
   return new Promise((resolve, reject) => {
