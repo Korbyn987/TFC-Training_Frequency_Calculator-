@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -17,7 +18,8 @@ import {
   initDatabase,
 } from "../database/database";
 
-const AddExerciseScreen = ({ navigation }) => {
+const AddExerciseScreen = ({ navigation, route }) => {
+  const { muscleGroup, muscleGroupId } = route?.params || {};
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
@@ -34,7 +36,13 @@ const AddExerciseScreen = ({ navigation }) => {
     if (!loading) {
       loadExercises();
     }
-  }, [activeGroup, loading]);
+  }, [activeGroup, loading, muscleGroupId]);
+
+  useEffect(() => {
+    if (muscleGroup) {
+      setActiveGroup(muscleGroup);
+    }
+  }, [muscleGroup]);
 
   const loadData = async () => {
     try {
@@ -48,16 +56,29 @@ const AddExerciseScreen = ({ navigation }) => {
       }
 
       // Load muscle groups
-      const groups = await getMuscleGroups();
+      let groups;
+      if (Platform.OS === 'web') {
+        // Use static data for web
+        const { STATIC_MUSCLE_GROUPS } = require('../database/database');
+        groups = STATIC_MUSCLE_GROUPS;
+      } else {
+        groups = await getMuscleGroups();
+      }
       setMuscleGroups(groups);
 
       // Load initial exercises
-      await loadExercises();
+      let initialExercises;
+      if (Platform.OS === 'web') {
+        const { STATIC_EXERCISES } = require('../database/database');
+        initialExercises = STATIC_EXERCISES;
+      } else {
+        initialExercises = await getExercises();
+      }
+      setExercises(initialExercises);
+
+      setLoading(false);
     } catch (err) {
-      console.error("Error loading data:", err);
-      setError("Failed to load exercises. Please try again.");
-      Alert.alert("Error", "Failed to load exercises. Please try again.");
-    } finally {
+      setError("Error loading data: " + err);
       setLoading(false);
     }
   };
@@ -65,8 +86,9 @@ const AddExerciseScreen = ({ navigation }) => {
   const loadExercises = async () => {
     try {
       setError(null);
+      // If muscleGroupId is provided, filter exercises by that group
       const exerciseData = await getExercises(
-        activeGroup === "All" ? null : activeGroup
+        muscleGroupId || (activeGroup === "All" ? null : activeGroup)
       );
       setExercises(exerciseData);
     } catch (err) {
@@ -91,9 +113,12 @@ const AddExerciseScreen = ({ navigation }) => {
     });
   };
 
+  // Defensive: exercises fallback
+  const safeExercises = Array.isArray(exercises) ? exercises : [];
+
   const filteredExercises = () => {
     const query = searchQuery.toLowerCase();
-    return exercises.filter((exercise) =>
+    return safeExercises.filter((exercise) =>
       exercise.name.toLowerCase().includes(query)
     );
   };
@@ -168,6 +193,9 @@ const AddExerciseScreen = ({ navigation }) => {
     );
   }
 
+  // Defensive: muscleGroups fallback
+  const safeMuscleGroups = Array.isArray(muscleGroups) ? muscleGroups : [];
+
   return (
     <View style={styles.container}>
       <View style={styles.searchContainer}>
@@ -192,7 +220,7 @@ const AddExerciseScreen = ({ navigation }) => {
         style={styles.groupsContainer}
       >
         {renderMuscleGroupButton(null)}
-        {muscleGroups.map((group) => renderMuscleGroupButton(group))}
+        {safeMuscleGroups.map((group) => renderMuscleGroupButton(group))}
       </ScrollView>
 
       <FlatList

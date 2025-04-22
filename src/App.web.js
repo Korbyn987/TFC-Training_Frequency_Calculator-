@@ -16,6 +16,7 @@ import RecoveryScreen from "./screens/RecoveryScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import LogoutButton from "./components/LogoutButton";
 import { linking } from "./navigation/linking";
+import AddExerciseScreen from "./screens/AddExerciseScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -112,6 +113,11 @@ const App = () => {
             name="ResetPassword"
             component={ResetPasswordScreen}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AddExercise"
+            component={AddExerciseScreen}
+            options={{ headerShown: true, title: "Select Exercise" }}
           />
         </Stack.Navigator>
       </NavigationContainer>
