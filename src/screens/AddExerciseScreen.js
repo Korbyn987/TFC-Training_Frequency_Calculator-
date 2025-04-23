@@ -217,14 +217,10 @@ const AddExerciseScreen = ({ navigation, route }) => {
         />
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.groupsContainer}
-      >
+      <View style={styles.groupButtonContainer}>
         {renderMuscleGroupButton(null)}
         {safeMuscleGroups.map((group) => renderMuscleGroupButton(group))}
-      </ScrollView>
+      </View>
 
       <FlatList
         data={filteredExercises()}
@@ -303,27 +299,39 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
   },
-  groupsContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+  groupButtonContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginVertical: 8,
+    gap: 6, // for React Native Web, otherwise use margin
   },
   groupButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#2D3748",
-    marginRight: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: '#272b3a',
+    margin: 4,
+    minWidth: 70,
+    alignItems: 'center',
+    minHeight: 32,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#4a5568',
   },
   activeGroupButton: {
-    backgroundColor: "#6b46c1",
+    backgroundColor: '#6b46c1',
+    borderColor: '#a78bfa',
   },
   groupButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   activeGroupButtonText: {
-    fontWeight: "bold",
+    color: '#fff',
+    fontWeight: '700',
   },
   list: {
     flex: 1,

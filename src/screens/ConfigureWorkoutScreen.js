@@ -15,7 +15,7 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
   const [workoutName, setWorkoutName] = useState('');
   const [exerciseConfigs, setExerciseConfigs] = useState(
     exercises.map(exercise => ({
-      name: exercise,
+      ...exercise,
       sets: '3',
       reps: '12',
       weight: '',

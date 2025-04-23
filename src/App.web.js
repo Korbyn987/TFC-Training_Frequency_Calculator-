@@ -17,6 +17,7 @@ import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import LogoutButton from "./components/LogoutButton";
 import { linking } from "./navigation/linking";
 import AddExerciseScreen from "./screens/AddExerciseScreen";
+import ConfigureWorkoutScreen from "./screens/ConfigureWorkoutScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -118,6 +119,11 @@ const App = () => {
             name="AddExercise"
             component={AddExerciseScreen}
             options={{ headerShown: true, title: "Select Exercise" }}
+          />
+          <Stack.Screen
+            name="ConfigureWorkout"
+            component={ConfigureWorkoutScreen}
+            options={{ headerShown: true, title: "Configure Workout" }}
           />
         </Stack.Navigator>
       </NavigationContainer>
