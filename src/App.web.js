@@ -27,7 +27,7 @@ const MainTabs = () => {
     <Tab.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: "#f4511e",
+          backgroundColor: "#23263a",
         },
         headerTintColor: "#fff",
         headerTitleStyle: {
@@ -82,7 +82,7 @@ const App = () => {
         <Stack.Navigator
           screenOptions={{
             headerStyle: {
-              backgroundColor: "#f4511e",
+              backgroundColor: "#23263a",
             },
             headerTintColor: "#fff",
             headerTitleStyle: {
