@@ -19,10 +19,7 @@ import {
 } from "../database/database";
 
 const AddExerciseScreen = ({ navigation, route }) => {
-<<<<<<< HEAD
-=======
   const { muscleGroup, muscleGroupId } = route?.params || {};
->>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
@@ -36,7 +33,6 @@ const AddExerciseScreen = ({ navigation, route }) => {
     if (muscleGroup && muscleGroupId) {
       setActiveGroup(muscleGroup);
     }
-<<<<<<< HEAD
     loadData();
   }, [route]);
 
@@ -57,63 +53,6 @@ const AddExerciseScreen = ({ navigation, route }) => {
         setExercises(exercisesData);
       }
       setLoading(false);
-=======
-  }, [activeGroup, loading, muscleGroupId]);
-
-  useEffect(() => {
-    if (muscleGroup) {
-      setActiveGroup(muscleGroup);
-    }
-  }, [muscleGroup]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Initialize database
-      const dbInitialized = await initDatabase();
-      if (!dbInitialized) {
-        throw new Error("Failed to initialize database");
-      }
-
-      // Load muscle groups
-      let groups;
-      if (Platform.OS === 'web') {
-        // Use static data for web
-        const { STATIC_MUSCLE_GROUPS } = require('../database/database');
-        groups = STATIC_MUSCLE_GROUPS;
-      } else {
-        groups = await getMuscleGroups();
-      }
-      setMuscleGroups(groups);
-
-      // Load initial exercises
-      let initialExercises;
-      if (Platform.OS === 'web') {
-        const { STATIC_EXERCISES } = require('../database/database');
-        initialExercises = STATIC_EXERCISES;
-      } else {
-        initialExercises = await getExercises();
-      }
-      setExercises(initialExercises);
-
-      setLoading(false);
-    } catch (err) {
-      setError("Error loading data: " + err);
-      setLoading(false);
-    }
-  };
-
-  const loadExercises = async () => {
-    try {
-      setError(null);
-      console.log('Loading exercises for muscleGroupId:', muscleGroupId, 'activeGroup:', activeGroup);
-      const exerciseData = await getExercises(
-        activeGroup === "All" ? null : activeGroup
-      );
-      setExercises(exerciseData);
->>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
     } catch (err) {
       setError(err.message);
       setLoading(false);

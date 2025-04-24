@@ -1,24 +1,16 @@
-<<<<<<< HEAD
 import * as SQLite from "expo-sqlite";
 import * as FileSystem from "expo-file-system";
 import { Asset } from "expo-asset";
 import axios from "axios";
 import { Platform } from "react-native";
-=======
-import { Platform } from 'react-native';
 
 // Platform-specific SQLite imports
-let db;
+let db = null;
 
-if (Platform.OS !== 'web') {
-  // Native: Use expo-sqlite's openDatabase
-  const { openDatabase } = require('expo-sqlite');
-  db = openDatabase('workouts.db');
-}
-
-// On web, import the full static data from staticExercises.js
+// Declare at top-level for export
 let STATIC_MUSCLE_GROUPS = [];
 let STATIC_EXERCISES = [];
+
 if (Platform.OS === 'web') {
   const staticData = require('./staticExercises');
   STATIC_MUSCLE_GROUPS = staticData.STATIC_MUSCLE_GROUPS;
@@ -87,35 +79,16 @@ if (Platform.OS === 'web') {
 // Export for use in AddExerciseScreen and elsewhere
 export { STATIC_MUSCLE_GROUPS, STATIC_EXERCISES };
 
-// Conditionally import FileSystem for native only
-let FileSystem;
-if (Platform.OS !== 'web') {
-  FileSystem = require('expo-file-system');
-}
->>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
-
-let db = null;
-if (Platform.OS !== "web") {
-  db = SQLite.openDatabase("workouts.db");
-} else {
-  // Optional: Provide a fallback or warning for web
-  console.warn(
-    "SQLite is not supported on web. Database features are disabled."
-  );
-}
 export const initDatabase = async () => {
-<<<<<<< HEAD
-  if (!db) {
-    // Handle the web case: skip DB logic, or provide a fallback
-    console.warn("Database not initialized: running on web.");
-    return;
-=======
   if (Platform.OS === 'web') {
     // On web, always resolve successfully (no-op)
     return true;
->>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
   }
   try {
+    // Open database if not already open (async for expo-sqlite >=11)
+    if (!db) {
+      db = await SQLite.openDatabaseAsync("workouts.db");
+    }
     // Check if database needs to be initialized
     const result = await new Promise((resolve, reject) => {
       db.transaction((tx) => {
@@ -127,57 +100,23 @@ export const initDatabase = async () => {
         );
       });
     });
-
     if (!result) {
       // Read SQL file content
       const sqlContent = await FileSystem.readAsStringAsync(
         require.resolve("./Workouts.sql"),
         { encoding: FileSystem.EncodingType.UTF8 }
       );
-<<<<<<< HEAD
-
-      // Split SQL into individual statements
-      const statements = sqlContent
-        .split(";")
-        .map((statement) => statement.trim())
-        .filter((statement) => statement.length > 0);
-
-      // Execute each statement
-      await new Promise((resolve, reject) => {
-        db.transaction(
-          (tx) => {
-            statements.forEach((statement) => {
-              tx.executeSql(
-                statement,
-                [],
-                () => {},
-                (_, error) => {
-                  console.error("SQL Error:", error);
-                  reject(error);
-                }
-              );
-            });
-          },
-          reject,
-          resolve
-        );
-=======
       // Split SQL into individual statements
       const statements = sqlContent.split(';').map(stmt => stmt.trim()).filter(Boolean);
       db.transaction(tx => {
         statements.forEach(statement => {
           tx.executeSql(statement);
         });
->>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
       });
     }
     return true;
   } catch (error) {
-<<<<<<< HEAD
-    console.error("Database initialization error:", error);
-=======
     console.error('Error initializing database:', error);
->>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
     return false;
   }
 };
@@ -231,20 +170,4 @@ export const getExercises = (muscleGroup = null) => {
   });
 };
 
-<<<<<<< HEAD
-export const getMuscleGroups = () => {
-  return new Promise((resolve, reject) => {
-    db.transaction((tx) => {
-      tx.executeSql(
-        "SELECT * FROM muscle_groups;",
-        [],
-        (_, { rows: { _array } }) => resolve(_array),
-        (_, error) => reject(error)
-      );
-    });
-  });
-};
-
-=======
->>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
 export default db;
