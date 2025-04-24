@@ -17,7 +17,7 @@ import {
   initDatabase,
 } from "../database/database";
 
-const AddExerciseScreen = ({ navigation }) => {
+const AddExerciseScreen = ({ navigation, route }) => {
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
@@ -27,52 +27,33 @@ const AddExerciseScreen = ({ navigation }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      loadExercises();
+    const { muscleGroup, muscleGroupId } = route.params || {};
+    if (muscleGroup && muscleGroupId) {
+      setActiveGroup(muscleGroup);
     }
-  }, [activeGroup, loading]);
+    loadData();
+  }, [route]);
 
   const loadData = async () => {
     try {
-      setLoading(true);
-      setError(null);
-
-      // Initialize database
-      const dbInitialized = await initDatabase();
-      if (!dbInitialized) {
-        throw new Error("Failed to initialize database");
-      }
-
-      // Load muscle groups
+      await initDatabase();
       const groups = await getMuscleGroups();
       setMuscleGroups(groups);
 
-      // Load initial exercises
-      await loadExercises();
-    } catch (err) {
-      console.error("Error loading data:", err);
-      setError("Failed to load exercises. Please try again.");
-      Alert.alert("Error", "Failed to load exercises. Please try again.");
-    } finally {
+      // If muscleGroupId is provided, filter exercises for that muscle group
+      const exercisesData = await getExercises();
+      if (route.params?.muscleGroupId) {
+        const filteredExercises = exercisesData.filter(
+          (exercise) => exercise.muscle_group_id === route.params.muscleGroupId
+        );
+        setExercises(filteredExercises);
+      } else {
+        setExercises(exercisesData);
+      }
       setLoading(false);
-    }
-  };
-
-  const loadExercises = async () => {
-    try {
-      setError(null);
-      const exerciseData = await getExercises(
-        activeGroup === "All" ? null : activeGroup
-      );
-      setExercises(exerciseData);
     } catch (err) {
-      console.error("Error loading exercises:", err);
-      setError("Failed to load exercises for this group.");
-      Alert.alert("Error", "Failed to load exercises for this group.");
+      setError(err.message);
+      setLoading(false);
     }
   };
 
