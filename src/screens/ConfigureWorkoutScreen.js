@@ -7,21 +7,65 @@ import {
   TextInput,
   StyleSheet,
   ScrollView,
+  Picker,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+const setTypes = [
+  { label: 'Warmup', value: 'warmup' },
+  { label: 'Numbered', value: 'numbered' },
+  { label: 'Failure', value: 'failure' },
+  { label: 'Drop', value: 'drop' },
+];
 
 const ConfigureWorkoutScreen = ({ route, navigation }) => {
   const { exercises } = route.params || { exercises: [] };
   const [workoutName, setWorkoutName] = useState('');
   const [exerciseConfigs, setExerciseConfigs] = useState(
     exercises.map(exercise => ({
-      name: exercise,
-      sets: '3',
-      reps: '12',
-      weight: '',
-      notes: ''
+      ...exercise,
+      sets: [
+        {
+          setType: 'numbered',
+          reps: '10',
+          weight: '',
+          notes: '',
+        },
+      ],
     }))
   );
+
+  const handleUpdateSet = (exerciseIdx, setIdx, field, value) => {
+    const newConfigs = [...exerciseConfigs];
+    const newSets = [...newConfigs[exerciseIdx].sets];
+    newSets[setIdx] = { ...newSets[setIdx], [field]: value };
+    newConfigs[exerciseIdx].sets = newSets;
+    setExerciseConfigs(newConfigs);
+  };
+
+  const handleAddSet = (exerciseIdx) => {
+    const newConfigs = [...exerciseConfigs];
+    newConfigs[exerciseIdx].sets = [
+      ...newConfigs[exerciseIdx].sets,
+      {
+        setType: 'numbered',
+        reps: '12',
+        weight: '',
+        notes: '',
+      },
+    ];
+    setExerciseConfigs(newConfigs);
+  };
+
+  const handleRemoveSet = (exerciseIdx, setIdx) => {
+    const newConfigs = [...exerciseConfigs];
+    const sets = [...newConfigs[exerciseIdx].sets];
+    if (sets.length > 1) {
+      sets.splice(setIdx, 1);
+      newConfigs[exerciseIdx].sets = sets;
+      setExerciseConfigs(newConfigs);
+    }
+  };
 
   const handleUpdateConfig = (index, field, value) => {
     const newConfigs = [...exerciseConfigs];
@@ -43,59 +87,78 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
     });
   };
 
-  const renderExerciseConfig = ({ item, index }) => (
-    <View style={styles.exerciseCard}>
-      <Text style={styles.exerciseName}>{item.name}</Text>
-      
+  const renderSet = (exerciseIdx, set, setIdx, setsLength) => (
+    <View key={setIdx} style={styles.setCard}>
+      <Text style={styles.setNumber}>Set {setIdx + 1}</Text>
       <View style={styles.configRow}>
         <View style={styles.configItem}>
-          <Text style={styles.label}>Sets</Text>
-          <TextInput
-            style={styles.input}
-            value={item.sets}
-            onChangeText={(value) => handleUpdateConfig(index, 'sets', value)}
-            keyboardType="numeric"
-            placeholder="3"
-            placeholderTextColor="#666"
-          />
+          <Text style={styles.label}>Set Type</Text>
+          <Picker
+            selectedValue={set.setType}
+            style={styles.picker}
+            onValueChange={value => handleUpdateSet(exerciseIdx, setIdx, 'setType', value)}
+            mode="dropdown"
+          >
+            {setTypes.map(type => (
+              <Picker.Item key={type.value} label={type.label} value={type.value} />
+            ))}
+          </Picker>
         </View>
-
         <View style={styles.configItem}>
           <Text style={styles.label}>Reps</Text>
           <TextInput
             style={styles.input}
-            value={item.reps}
-            onChangeText={(value) => handleUpdateConfig(index, 'reps', value)}
+            value={set.reps}
+            onChangeText={value => handleUpdateSet(exerciseIdx, setIdx, 'reps', value)}
             keyboardType="numeric"
             placeholder="12"
             placeholderTextColor="#666"
           />
         </View>
-
         <View style={styles.configItem}>
-          <Text style={styles.label}>Weight (lbs)</Text>
+          <Text style={styles.label}>Weight</Text>
           <TextInput
             style={styles.input}
-            value={item.weight}
-            onChangeText={(value) => handleUpdateConfig(index, 'weight', value)}
+            value={set.weight}
+            onChangeText={value => handleUpdateSet(exerciseIdx, setIdx, 'weight', value)}
             keyboardType="numeric"
             placeholder="0"
             placeholderTextColor="#666"
           />
         </View>
       </View>
-
       <View style={styles.notesContainer}>
         <Text style={styles.label}>Notes</Text>
         <TextInput
           style={styles.notesInput}
-          value={item.notes}
-          onChangeText={(value) => handleUpdateConfig(index, 'notes', value)}
+          value={set.notes}
+          onChangeText={value => handleUpdateSet(exerciseIdx, setIdx, 'notes', value)}
           placeholder="Add notes here..."
           placeholderTextColor="#666"
           multiline
         />
       </View>
+      <View style={styles.setActionsRow}>
+        {setsLength > 1 && (
+          <TouchableOpacity
+            style={styles.removeSetButton}
+            onPress={() => handleRemoveSet(exerciseIdx, setIdx)}
+          >
+            <Text style={styles.removeSetButtonText}>Remove Set</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
+  const renderExerciseConfig = ({ item, index }) => (
+    <View style={styles.exerciseCard}>
+      <Text style={styles.exerciseName}>{item.name}</Text>
+      <Text style={styles.exerciseDesc}>{item.description}</Text>
+      {item.sets.map((set, setIdx) => renderSet(index, set, setIdx, item.sets.length))}
+      <TouchableOpacity style={styles.addSetButton} onPress={() => handleAddSet(index)}>
+        <Text style={styles.addSetButtonText}>+ Add Set</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -161,6 +224,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 16,
   },
+  exerciseDesc: {
+    color: '#a0aec0',
+    fontSize: 13,
+    marginBottom: 4,
+  },
   configRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -182,6 +250,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
   },
+  picker: {
+    minWidth: 120,
+    backgroundColor: '#22223b',
+    color: '#fff',
+    borderRadius: 8,
+    marginVertical: 4,
+  },
   notesContainer: {
     marginTop: 8,
   },
@@ -192,6 +267,49 @@ const styles = StyleSheet.create({
     color: '#fff',
     height: 80,
     textAlignVertical: 'top',
+  },
+  setCard: {
+    marginVertical: 6,
+    padding: 8,
+    backgroundColor: '#23263a',
+    borderRadius: 10,
+  },
+  setNumber: {
+    color: '#b794f4',
+    fontWeight: 'bold',
+    marginBottom: 2,
+    fontSize: 14,
+  },
+  addSetButton: {
+    backgroundColor: '#6b46c1',
+    paddingVertical: 6,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  addSetButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  setActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  removeSetButton: {
+    backgroundColor: '#e53e3e',
+    paddingVertical: 4,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    alignSelf: 'flex-end',
+  },
+  removeSetButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
   },
   saveButton: {
     backgroundColor: '#6b46c1',

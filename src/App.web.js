@@ -17,6 +17,10 @@ import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import LogoutButton from "./components/LogoutButton";
 import { linking } from "./navigation/linking";
 import AddExerciseScreen from "./screens/AddExerciseScreen";
+<<<<<<< HEAD
+=======
+import ConfigureWorkoutScreen from "./screens/ConfigureWorkoutScreen";
+>>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -26,7 +30,7 @@ const MainTabs = () => {
     <Tab.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: "#f4511e",
+          backgroundColor: "#23263a",
         },
         headerTintColor: "#fff",
         headerTitleStyle: {
@@ -81,7 +85,7 @@ const App = () => {
         <Stack.Navigator
           screenOptions={{
             headerStyle: {
-              backgroundColor: "#f4511e",
+              backgroundColor: "#23263a",
             },
             headerTintColor: "#fff",
             headerTitleStyle: {
@@ -117,7 +121,16 @@ const App = () => {
           <Stack.Screen
             name="AddExercise"
             component={AddExerciseScreen}
+<<<<<<< HEAD
             options={{ headerShown: false }}
+=======
+            options={{ headerShown: true, title: "Select Exercise" }}
+          />
+          <Stack.Screen
+            name="ConfigureWorkout"
+            component={ConfigureWorkoutScreen}
+            options={{ headerShown: true, title: "Configure Workout" }}
+>>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
           />
         </Stack.Navigator>
       </NavigationContainer>

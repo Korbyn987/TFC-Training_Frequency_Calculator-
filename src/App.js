@@ -8,6 +8,7 @@ import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
 import AddExerciseScreen from './screens/AddExerciseScreen';
 import SelectRoutineScreen from './screens/SelectRoutineScreen';
+import ConfigureWorkoutScreen from './screens/ConfigureWorkoutScreen';
 
 const Stack = createStackNavigator();
 
@@ -29,7 +30,7 @@ export default function App() {
         initialRouteName="Login"
         screenOptions={{
           headerStyle: {
-            backgroundColor: '#171923',
+            backgroundColor: '#23263a',
           },
           headerTintColor: '#fff',
           headerTitleStyle: {
@@ -56,6 +57,11 @@ export default function App() {
           name="SelectRoutine" 
           component={SelectRoutineScreen}
           options={{ title: 'Select Routine' }}
+        />
+        <Stack.Screen 
+          name="ConfigureWorkout" 
+          component={ConfigureWorkoutScreen}
+          options={{ title: 'Configure Workout' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

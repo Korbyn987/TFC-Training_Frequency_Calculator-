@@ -1,5 +1,6 @@
 const createExpoWebpackConfigAsync = require('@expo/webpack-config');
 const webpack = require('webpack');
+const path = require('path');
 
 module.exports = async function (env, argv) {
   const config = await createExpoWebpackConfigAsync(env, argv);
@@ -7,7 +8,8 @@ module.exports = async function (env, argv) {
   // Customize the config before returning it.
   config.resolve.alias = {
     ...config.resolve.alias,
-    'react-native$': 'react-native-web'
+    'react-native$': 'react-native-web',
+    'expo-file-system': path.resolve(__dirname, 'src/shims/expo-file-system.web.js'),
   };
 
   // Add web-specific configurations
@@ -36,6 +38,13 @@ module.exports = async function (env, argv) {
     new webpack.ProvidePlugin({
       process: 'process/browser',
       Buffer: ['buffer', 'Buffer'],
+    })
+  );
+
+  // Ignore expo-file-system entirely on web to prevent warnings and Buffer errors
+  config.plugins.push(
+    new webpack.IgnorePlugin({
+      resourceRegExp: /^expo-file-system$/
     })
   );
 

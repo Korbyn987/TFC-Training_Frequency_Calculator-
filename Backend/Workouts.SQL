@@ -1,81 +1,72 @@
--- Drop database if it exists
-IF EXISTS (SELECT name FROM sys.databases WHERE name = 'Workouts')
-    DROP DATABASE Workouts
-GO
+-- SQLite-compatible Workouts.SQL
 
--- Create the database
-CREATE DATABASE Workouts;
-GO
-
--- Use the database
-USE Workouts;
-GO
+-- Drop tables if they exist
+DROP TABLE IF EXISTS WeightHistory;
+DROP TABLE IF EXISTS ExerciseGoals;
+DROP TABLE IF EXISTS GoalTemplates;
+DROP TABLE IF EXISTS Exercises;
+DROP TABLE IF EXISTS WorkoutCategories;
 
 -- Create categories table
 CREATE TABLE WorkoutCategories (
-    CategoryID INTEGER PRIMARY KEY IDENTITY(1,1),
-    CategoryName NVARCHAR(50) NOT NULL UNIQUE
+    CategoryID INTEGER PRIMARY KEY AUTOINCREMENT,
+    CategoryName TEXT NOT NULL UNIQUE
 );
 
 -- Create exercises table
 CREATE TABLE Exercises (
-    ExerciseID INTEGER PRIMARY KEY IDENTITY(1,1),
-    CategoryID INTEGER FOREIGN KEY REFERENCES WorkoutCategories(CategoryID),
-    ExerciseName NVARCHAR(100) NOT NULL,
-    Description NVARCHAR(MAX),
-    CreatedDate DATETIME DEFAULT GETDATE()
+    ExerciseID INTEGER PRIMARY KEY AUTOINCREMENT,
+    CategoryID INTEGER,
+    ExerciseName TEXT NOT NULL,
+    Description TEXT,
+    CreatedDate TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (CategoryID) REFERENCES WorkoutCategories(CategoryID)
 );
 
 -- Create weight history table
 CREATE TABLE WeightHistory (
-    HistoryID INTEGER PRIMARY KEY IDENTITY(1,1),
-    UserID INTEGER NOT NULL,  -- Will be linked to Users table
-    ExerciseID INTEGER FOREIGN KEY REFERENCES Exercises(ExerciseID),
-    Weight DECIMAL(6,2) NOT NULL,  -- Allows weights up to 9999.99 lbs
+    HistoryID INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserID INTEGER NOT NULL,
+    ExerciseID INTEGER,
+    Weight REAL NOT NULL,
     Reps INTEGER NOT NULL,
     Sets INTEGER NOT NULL,
-    WorkoutDate DATETIME DEFAULT GETDATE(),
-    CompletedReps INTEGER,  -- Actual reps completed in last set
-    RatingOfPerceived INTEGER,  -- Scale of 1-10 for difficulty
-    Notes NVARCHAR(MAX)
+    WorkoutDate TEXT DEFAULT (datetime('now')),
+    CompletedReps INTEGER,
+    RatingOfPerceived INTEGER,
+    Notes TEXT,
+    FOREIGN KEY (ExerciseID) REFERENCES Exercises(ExerciseID)
 );
 
 -- Create exercise goals table
 CREATE TABLE ExerciseGoals (
-    GoalID INTEGER PRIMARY KEY IDENTITY(1,1),
-    UserID INTEGER NOT NULL,  -- Will be linked to Users table
-    ExerciseID INTEGER FOREIGN KEY REFERENCES Exercises(ExerciseID),
-    TargetWeight DECIMAL(6,2) NOT NULL,
-    TargetDate DATE,
-    StartWeight DECIMAL(6,2),
-    StartDate DATE DEFAULT GETDATE(),
-    WeeklyIncrement DECIMAL(4,2),  -- Planned weekly weight increase
-    Status NVARCHAR(20) DEFAULT 'In Progress',  -- In Progress, Achieved, Abandoned
-    Notes NVARCHAR(MAX)
+    GoalID INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserID INTEGER NOT NULL,
+    ExerciseID INTEGER,
+    TargetWeight REAL NOT NULL,
+    TargetDate TEXT,
+    StartWeight REAL,
+    StartDate TEXT DEFAULT (datetime('now')),
+    WeeklyIncrement REAL,
+    Status TEXT DEFAULT 'In Progress',
+    Notes TEXT,
+    FOREIGN KEY (ExerciseID) REFERENCES Exercises(ExerciseID)
 );
 
 -- Create goal templates table
 CREATE TABLE GoalTemplates (
-    TemplateID INTEGER PRIMARY KEY IDENTITY(1,1),
-    TemplateName NVARCHAR(100) NOT NULL,
-    Description NVARCHAR(MAX),
-    CategoryID INTEGER FOREIGN KEY REFERENCES WorkoutCategories(CategoryID),
+    TemplateID INTEGER PRIMARY KEY AUTOINCREMENT,
+    TemplateName TEXT NOT NULL,
+    Description TEXT,
+    CategoryID INTEGER,
     DurationWeeks INTEGER NOT NULL,
-    WeeklyIncrement DECIMAL(4,2) NOT NULL,
-    PercentageIncrease DECIMAL(5,2),  -- Optional, for percentage-based goals
-    IsPublic BIT DEFAULT 0,  -- 0 for private, 1 for public
-    CreatedBy INTEGER NOT NULL,  -- UserID who created the template
-    CreatedDate DATETIME DEFAULT GETDATE()
+    WeeklyIncrement REAL NOT NULL,
+    PercentageIncrease REAL,
+    IsPublic INTEGER DEFAULT 0,
+    CreatedBy INTEGER NOT NULL,
+    CreatedDate TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (CategoryID) REFERENCES WorkoutCategories(CategoryID)
 );
-
--- Insert some default goal templates
-INSERT INTO GoalTemplates (TemplateName, Description, CategoryID, DurationWeeks, WeeklyIncrement, PercentageIncrease, IsPublic, CreatedBy)
-VALUES 
-    ('Beginner Strength', 'Steady progression for beginners', 1, 12, 2.5, NULL, 1, 1),
-    ('Intermediate Push', 'Moderate progression for chest/shoulders', 1, 8, 5.0, NULL, 1, 1),
-    ('Advanced Percentage', 'Percentage-based progression', 1, 6, 0, 2.5, 1, 1),
-    ('Slow & Steady', 'Conservative progression for injury prevention', 1, 16, 1.25, NULL, 1, 1),
-    ('Power Builder', 'Aggressive progression for compound lifts', 1, 4, 10.0, NULL, 1, 1);
 
 -- Insert workout categories
 INSERT INTO WorkoutCategories (CategoryName)
@@ -87,6 +78,15 @@ VALUES
     ('Shoulders'),
     ('Legs'),
     ('Core');
+
+-- Insert some default goal templates
+INSERT INTO GoalTemplates (TemplateName, Description, CategoryID, DurationWeeks, WeeklyIncrement, PercentageIncrease, IsPublic, CreatedBy)
+VALUES 
+    ('Beginner Strength', 'Steady progression for beginners', 1, 12, 2.5, NULL, 1, 1),
+    ('Intermediate Push', 'Moderate progression for chest/shoulders', 1, 8, 5.0, NULL, 1, 1),
+    ('Advanced Percentage', 'Percentage-based progression', 1, 6, 0, 2.5, 1, 1),
+    ('Slow & Steady', 'Conservative progression for injury prevention', 1, 16, 1.25, NULL, 1, 1),
+    ('Power Builder', 'Aggressive progression for compound lifts', 1, 4, 10.0, NULL, 1, 1);
 
 -- Insert chest exercises
 INSERT INTO Exercises (CategoryID, ExerciseName, Description)

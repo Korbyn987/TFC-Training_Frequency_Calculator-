@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -18,6 +19,10 @@ import {
 } from "../database/database";
 
 const AddExerciseScreen = ({ navigation, route }) => {
+<<<<<<< HEAD
+=======
+  const { muscleGroup, muscleGroupId } = route?.params || {};
+>>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
@@ -31,6 +36,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
     if (muscleGroup && muscleGroupId) {
       setActiveGroup(muscleGroup);
     }
+<<<<<<< HEAD
     loadData();
   }, [route]);
 
@@ -51,6 +57,63 @@ const AddExerciseScreen = ({ navigation, route }) => {
         setExercises(exercisesData);
       }
       setLoading(false);
+=======
+  }, [activeGroup, loading, muscleGroupId]);
+
+  useEffect(() => {
+    if (muscleGroup) {
+      setActiveGroup(muscleGroup);
+    }
+  }, [muscleGroup]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Initialize database
+      const dbInitialized = await initDatabase();
+      if (!dbInitialized) {
+        throw new Error("Failed to initialize database");
+      }
+
+      // Load muscle groups
+      let groups;
+      if (Platform.OS === 'web') {
+        // Use static data for web
+        const { STATIC_MUSCLE_GROUPS } = require('../database/database');
+        groups = STATIC_MUSCLE_GROUPS;
+      } else {
+        groups = await getMuscleGroups();
+      }
+      setMuscleGroups(groups);
+
+      // Load initial exercises
+      let initialExercises;
+      if (Platform.OS === 'web') {
+        const { STATIC_EXERCISES } = require('../database/database');
+        initialExercises = STATIC_EXERCISES;
+      } else {
+        initialExercises = await getExercises();
+      }
+      setExercises(initialExercises);
+
+      setLoading(false);
+    } catch (err) {
+      setError("Error loading data: " + err);
+      setLoading(false);
+    }
+  };
+
+  const loadExercises = async () => {
+    try {
+      setError(null);
+      console.log('Loading exercises for muscleGroupId:', muscleGroupId, 'activeGroup:', activeGroup);
+      const exerciseData = await getExercises(
+        activeGroup === "All" ? null : activeGroup
+      );
+      setExercises(exerciseData);
+>>>>>>> 123ee98a509e9b94e505351d78fedd0d66e4b281
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -72,9 +135,12 @@ const AddExerciseScreen = ({ navigation, route }) => {
     });
   };
 
+  // Defensive: exercises fallback
+  const safeExercises = Array.isArray(exercises) ? exercises : [];
+
   const filteredExercises = () => {
     const query = searchQuery.toLowerCase();
-    return exercises.filter((exercise) =>
+    return safeExercises.filter((exercise) =>
       exercise.name.toLowerCase().includes(query)
     );
   };
@@ -84,15 +150,18 @@ const AddExerciseScreen = ({ navigation, route }) => {
       key={group ? group.id : "all"}
       style={[
         styles.groupButton,
-        activeGroup === (group ? group.name : "All") &&
+        activeGroup === (group ? group.id : "All") &&
           styles.activeGroupButton,
       ]}
-      onPress={() => setActiveGroup(group ? group.name : "All")}
+      onPress={() => {
+        console.log('Selected muscle group:', group ? group.name : "All");
+        setActiveGroup(group ? group.id : "All");
+      }}
     >
       <Text
         style={[
           styles.groupButtonText,
-          activeGroup === (group ? group.name : "All") &&
+          activeGroup === (group ? group.id : "All") &&
             styles.activeGroupButtonText,
         ]}
       >
@@ -149,6 +218,9 @@ const AddExerciseScreen = ({ navigation, route }) => {
     );
   }
 
+  // Defensive: muscleGroups fallback
+  const safeMuscleGroups = Array.isArray(muscleGroups) ? muscleGroups : [];
+
   return (
     <View style={styles.container}>
       <View style={styles.searchContainer}>
@@ -167,14 +239,10 @@ const AddExerciseScreen = ({ navigation, route }) => {
         />
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.groupsContainer}
-      >
+      <View style={styles.groupButtonContainer}>
         {renderMuscleGroupButton(null)}
-        {muscleGroups.map((group) => renderMuscleGroupButton(group))}
-      </ScrollView>
+        {safeMuscleGroups.map((group) => renderMuscleGroupButton(group))}
+      </View>
 
       <FlatList
         data={filteredExercises()}
@@ -253,27 +321,39 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
   },
-  groupsContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+  groupButtonContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginVertical: 8,
+    gap: 6, // for React Native Web, otherwise use margin
   },
   groupButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#2D3748",
-    marginRight: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: '#272b3a',
+    margin: 4,
+    minWidth: 70,
+    alignItems: 'center',
+    minHeight: 32,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#4a5568',
   },
   activeGroupButton: {
-    backgroundColor: "#6b46c1",
+    backgroundColor: '#6b46c1',
+    borderColor: '#a78bfa',
   },
   groupButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   activeGroupButtonText: {
-    fontWeight: "bold",
+    color: '#fff',
+    fontWeight: '700',
   },
   list: {
     flex: 1,
