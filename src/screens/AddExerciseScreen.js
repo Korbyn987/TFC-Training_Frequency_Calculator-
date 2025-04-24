@@ -36,6 +36,14 @@ const AddExerciseScreen = ({ navigation, route }) => {
     loadData();
   }, [route]);
 
+  useEffect(() => {
+    if (activeGroup === "All") {
+      getExercises().then(setExercises);
+    } else {
+      getExercises(activeGroup).then(setExercises);
+    }
+  }, [activeGroup]);
+
   const loadData = async () => {
     try {
       await initDatabase();
