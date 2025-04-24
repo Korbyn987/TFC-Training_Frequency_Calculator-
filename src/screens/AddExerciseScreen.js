@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -17,9 +17,10 @@ import {
   getMuscleGroups,
   initDatabase,
 } from "../database/database";
+import { useFocusEffect } from '@react-navigation/native';
 
 const AddExerciseScreen = ({ navigation, route }) => {
-  const { muscleGroup, muscleGroupId } = route?.params || {};
+  const { muscleGroup, muscleGroupId, previousExercises } = route?.params || {};
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
@@ -27,6 +28,17 @@ const AddExerciseScreen = ({ navigation, route }) => {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (route.params?.newExerciseToAdd) {
+        // Add the new exercise to the previously selected list and return to ConfigureWorkout
+        const exerciseToAdd = route.params.newExerciseToAdd;
+        navigation.setParams({ newExerciseToAdd: undefined }); // Clear param
+        navigation.navigate('ConfigureWorkout', { addExercise: exerciseToAdd });
+      }
+    }, [route.params?.newExerciseToAdd])
+  );
 
   useEffect(() => {
     const { muscleGroup, muscleGroupId } = route.params || {};
@@ -77,9 +89,15 @@ const AddExerciseScreen = ({ navigation, route }) => {
   };
 
   const handleSaveExercises = () => {
-    navigation.navigate("ConfigureWorkout", {
-      exercises: selectedExercises,
-    });
+    // Only allow adding one new exercise at a time
+    const toAdd = selectedExercises.filter(
+      (ex) => !previousExercises.some((prev) => prev.id === ex.id)
+    );
+    if (toAdd.length > 0) {
+      navigation.navigate('ConfigureWorkout', { addExercise: toAdd[0] });
+    } else {
+      navigation.goBack();
+    }
   };
 
   // Defensive: exercises fallback

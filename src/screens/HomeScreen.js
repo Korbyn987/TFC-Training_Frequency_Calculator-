@@ -21,6 +21,7 @@ import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 import WorkoutBanner from "../components/workoutBanner";
 import WorkoutSelectionModal from "../components/workoutSelectionModal";
 import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from '@react-navigation/native';
 import ButtonStyles from "../styles/Button";
 
 const HomeScreen = ({ route, navigation }) => {
@@ -41,6 +42,7 @@ const HomeScreen = ({ route, navigation }) => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [trainedMuscles, setTrainedMuscles] = useState([]);
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
+  const [savedWorkout, setSavedWorkout] = useState(null);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const workoutTimerRef = useRef(null);
@@ -199,6 +201,26 @@ const HomeScreen = ({ route, navigation }) => {
       ),
     });
   }, [navigation, isAuthenticated]);
+
+  useEffect(() => {
+    if (route.params?.workout) {
+      setSavedWorkout(route.params.workout);
+    }
+  }, [route.params?.workout]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadSavedWorkout = async () => {
+        const workoutStr = await AsyncStorage.getItem('savedWorkout');
+        if (workoutStr) {
+          setSavedWorkout(JSON.parse(workoutStr));
+        } else {
+          setSavedWorkout(null);
+        }
+      };
+      loadSavedWorkout();
+    }, [])
+  );
 
   const loadMuscleData = async () => {
     try {
@@ -446,18 +468,7 @@ const HomeScreen = ({ route, navigation }) => {
         />
       }
     >
-      {showWorkoutBanner && (
-        <WorkoutBanner
-          selectedMuscles={selectedMuscles}
-          onMuscleRemove={handleMuscleRemove}
-          onEndWorkout={handleEndWorkout}
-        />
-      )}
       {renderMuscleSelectionBanner()}
-      <WorkoutSelectionModal
-        visible={isWorkoutModalVisible}
-        onClose={handleCloseModal}
-      />
       <View style={styles.header}>
         <Text style={styles.title}>
           Welcome to TFC your Training Frequency Calculator
@@ -496,21 +507,42 @@ const HomeScreen = ({ route, navigation }) => {
           <Text style={styles.statLabel}>Resting Muscles</Text>
         </View>
       </View>
-      <Text style={styles.subtitle}>Tap a muscle to reset its counter</Text>
 
-      <FlatList
-        data={
-          selectedGroup === null
-            ? MUSCLE_GROUPS
-            : selectedGroup === "upper"
-            ? UPPER_BODY
-            : LOWER_BODY
-        }
-        renderItem={renderMuscleItem}
-        keyExtractor={(item) => item}
-        style={styles.list}
-        contentContainerStyle={styles.listContainer}
-      />
+      {/* Current Workout Section */}
+      {savedWorkout && (
+        <View style={styles.configuredWorkoutSection}>
+          <Text style={styles.configuredWorkoutTitle}>Current Workout</Text>
+          <View style={{marginBottom: 8}}>
+            {savedWorkout.exercises.map((ex, idx) => (
+              <View key={idx} style={styles.configuredWorkoutExerciseCard}>
+                <Text style={styles.configuredWorkoutExerciseName}>{ex.name}</Text>
+                <Text style={styles.configuredWorkoutExerciseDesc}>{ex.description}</Text>
+                {ex.sets && ex.sets.length > 0 && (
+                  <View style={{marginTop: 4}}>
+                    {ex.sets.map((set, setIdx) => (
+                      <View key={setIdx} style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2}}>
+                        <Text style={styles.configuredWorkoutSetText}>
+                          Set {setIdx+1}: {set.setType.charAt(0).toUpperCase() + set.setType.slice(1)} | Reps: {set.reps} {set.weight ? `| Weight: ${set.weight}` : ''}
+                        </Text>
+                        {set.notes ? <Text style={styles.configuredWorkoutSetNotes}>Notes: {set.notes}</Text> : null}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={styles.configuredWorkoutEditButton}
+            onPress={() => navigation.navigate('ConfigureWorkout', {
+              exercises: savedWorkout?.exercises || [],
+              workoutName: savedWorkout?.name || '',
+            })}
+          >
+            <Text style={styles.configuredWorkoutEditButtonText}>Edit Workout</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Quick Actions */}
       <View style={styles.quickActions}>
@@ -555,7 +587,7 @@ const HomeScreen = ({ route, navigation }) => {
             LOWER_BODY.forEach((muscle) => handleMuscleSelect(muscle));
           }}
         >
-          <Ionicons name="body" size={24} color="#2196F3" />
+          <Ionicons name="walk" size={24} color="#4CAF50" />
           <Text style={styles.quickActionText}>Lower Body</Text>
         </TouchableOpacity>
       </View>
