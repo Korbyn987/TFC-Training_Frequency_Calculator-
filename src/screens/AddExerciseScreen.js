@@ -89,12 +89,12 @@ const AddExerciseScreen = ({ navigation, route }) => {
   };
 
   const handleSaveExercises = () => {
-    // Only allow adding one new exercise at a time
+    // Only add exercises that are not already present
     const toAdd = selectedExercises.filter(
       (ex) => !previousExercises.some((prev) => prev.id === ex.id)
     );
     if (toAdd.length > 0) {
-      navigation.navigate('ConfigureWorkout', { addExercise: toAdd[0] });
+      navigation.navigate('ConfigureWorkout', { addExercises: toAdd });
     } else {
       navigation.goBack();
     }

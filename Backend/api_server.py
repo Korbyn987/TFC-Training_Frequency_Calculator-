@@ -12,6 +12,7 @@ import smtplib
 from email_templates import get_password_reset_template, get_username_recovery_template
 from dotenv import load_dotenv
 import bcrypt
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -82,6 +83,22 @@ def init_db():
                 user_id INTEGER,
                 token TEXT,
                 expiration TEXT,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        ''')
+        
+        # Create closed workouts table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS closed_workouts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                workout_name TEXT,
+                exercises TEXT,
+                start_time TEXT,
+                end_time TEXT,
+                duration TEXT,
+                notes TEXT,
+                created_at TEXT,
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
         ''')
@@ -431,6 +448,79 @@ def reset_password():
         return jsonify({'error': 'Internal server error'}), 500
     finally:
         if conn:
+            conn.close()
+
+@app.route('/api/closed_workouts', methods=['POST'])
+def save_closed_workout():
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        workout_name = data.get('workout_name')
+        exercises = data.get('exercises')  # Should be a list/dict, will store as JSON
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        duration = data.get('duration')
+        notes = data.get('notes', None)
+
+        if not all([user_id, workout_name, exercises, start_time, end_time]):
+            return jsonify({'error': 'Missing required workout fields'}), 400
+
+        conn = connect_to_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO closed_workouts (user_id, workout_name, exercises, start_time, end_time, duration, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            user_id,
+            workout_name,
+            json.dumps(exercises),
+            start_time,
+            end_time,
+            duration,
+            notes,
+            datetime.now().isoformat()
+        ))
+        conn.commit()
+        workout_id = cursor.lastrowid
+        return jsonify({'message': 'Workout saved', 'workout_id': workout_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.route('/api/closed_workouts', methods=['GET'])
+def get_closed_workouts():
+    try:
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'user_id is required'}), 400
+        conn = connect_to_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, workout_name, exercises, start_time, end_time, duration, notes, created_at
+            FROM closed_workouts
+            WHERE user_id = ?
+            ORDER BY start_time DESC
+        ''', (user_id,))
+        rows = cursor.fetchall()
+        workouts = []
+        for row in rows:
+            workouts.append({
+                'id': row[0],
+                'workout_name': row[1],
+                'exercises': json.loads(row[2]),
+                'start_time': row[3],
+                'end_time': row[4],
+                'duration': row[5],
+                'notes': row[6],
+                'created_at': row[7],
+            })
+        return jsonify({'workouts': workouts}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'conn' in locals() and conn:
             conn.close()
 
 # Initialize database

@@ -15,6 +15,7 @@ import { setUser } from "../redux/userSlice";
 import ButtonStyles from "../styles/Button";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../styles/loginStyles";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = () => {
   const [identifier, setIdentifier] = useState("");
@@ -54,6 +55,9 @@ const LoginScreen = () => {
 
       // Dispatch login action with user data
       dispatch(setUser(response.user));
+
+      // Persist user to AsyncStorage for React Native
+      await AsyncStorage.setItem('user', JSON.stringify(response.user));
 
       // Navigate to main app
       navigation.reset({

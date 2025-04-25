@@ -56,6 +56,26 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
     }
   }, []);
 
+  useEffect(() => {
+    if (route.params?.addExercises) {
+      // Avoid duplicates by id
+      const newExercises = route.params.addExercises.filter(
+        (ex) => !exerciseConfigs.some((cfg) => cfg.id === ex.id)
+      );
+      if (newExercises.length > 0) {
+        setExerciseConfigs((prev) => [
+          ...prev,
+          ...newExercises.map(ex => ({
+            ...ex,
+            sets: ex.sets && Array.isArray(ex.sets) && ex.sets.length > 0 ? ex.sets : [{ setType: 'numbered', reps: '10', weight: '' }],
+          }))
+        ]);
+      }
+      // Clean up param so it doesn't re-add on rerender
+      navigation.setParams({ addExercises: undefined });
+    }
+  }, [route.params?.addExercises]);
+
   useFocusEffect(
     useCallback(() => {
       if (route.params?.addExercise) {
@@ -136,7 +156,7 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
       exercises: exerciseConfigs
     };
     await AsyncStorage.setItem('savedWorkout', JSON.stringify(workout));
-    navigation.navigate('Home');
+    navigation.navigate('Home', { workoutJustSaved: true });
   };
 
   const renderSet = (exerciseIdx, set, setIdx, setsLength) => (
