@@ -20,7 +20,9 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 
 const AddExerciseScreen = ({ navigation, route }) => {
-  const { muscleGroup, muscleGroupId, previousExercises } = route?.params || {};
+  const { muscleGroup, muscleGroupId, previousExercises, returnToPreset } = route?.params || {};
+  // Fallback to empty array if previousExercises is undefined
+  const safePreviousExercises = Array.isArray(previousExercises) ? previousExercises : [];
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
@@ -91,9 +93,16 @@ const AddExerciseScreen = ({ navigation, route }) => {
   const handleSaveExercises = () => {
     // Only add exercises that are not already present
     const toAdd = selectedExercises.filter(
-      (ex) => !previousExercises.some((prev) => prev.id === ex.id)
+      (ex) => !safePreviousExercises.some((prev) => prev.id === ex.id)
     );
-    if (toAdd.length > 0) {
+    if (route.params && route.params.returnToPreset) {
+      // Save to preset flow: go back to the previous screen and pass exercises via navigation.navigate
+      navigation.navigate({
+        name: 'Profile',
+        params: { selectedExercisesForPreset: [...selectedExercises], showPresetModal: true },
+        merge: true,
+      });
+    } else if (toAdd.length > 0) {
       navigation.navigate('ConfigureWorkout', { addExercises: toAdd });
     } else {
       navigation.goBack();
