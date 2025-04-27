@@ -1,77 +1,61 @@
-import { StyleSheet } from 'react-native';
+import { BottomTabBar } from "@react-navigation/bottom-tabs";
+import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
-  noWorkoutsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
   container: {
     flex: 1,
-    backgroundColor: '#F5FCFF',
+    backgroundColor: "#171923", // Dark theme background
+    padding: 16,
   },
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    marginBottom: 24,
+    borderBottomWidth: 4,
+    borderBottomColor: "#6b46c1", // Purple accent
+    paddingBottom: 16,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#ffffff",
     marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 2,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-    lineHeight: 22,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginBottom: 16,
   },
-  muscleList: {
-    padding: 15,
+  content: {
+    padding: 16,
   },
-  muscleItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+  muscleCard: {
+    backgroundColor: "rgba(30, 32, 42, 0.9)",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(107, 70, 193, 0.2)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   muscleName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#ffffff",
     flex: 1,
-    fontSize: 18,
-    color: '#333',
-    fontWeight: '500',
   },
-  meterWrapper: {
-    flex: 2,
+  progressContainer: {
+    marginHorizontal: 16,
+    backgroundColor: "rgba(107, 70, 193, 0.1)",
+    borderRadius: 30,
+    padding: 4,
   },
-  meterContainer: {
-    width: '100%',
-  },
-  meter: {
-    height: 12,
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  meterFill: {
-    height: '100%',
-    borderRadius: 6,
-  },
-  meterLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  meterLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  lastWorkoutText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-    textAlign: 'right',
+  recoveryText: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    flex: 1,
+    textAlign: "right",
   },
 });

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import workoutReducer from './workoutSlice';
-import authReducer from './authSlice';
+import authReducer from "./authSlice";
+import workoutReducer from "./workoutSlice";
 
 const store = configureStore({
   reducer: {
