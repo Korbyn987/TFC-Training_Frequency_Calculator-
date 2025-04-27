@@ -1,124 +1,116 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 import sqlite3
-import re
-
-app = Flask(__name__)
-CORS(app)
+import getpass
 
 def connect_to_db():
     try:
+        # Connect to SQLite database
         conn = sqlite3.connect('tfc_database.db')
         return conn
     except Exception as e:
         print(f"Error connecting to database: {e}")
         return None
 
-def is_valid_email(email):
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern, email) is not None
+def register_user():
+    print("\n=== User Registration ===")
+    username = input("Enter username: ")
+    password = getpass.getpass("Enter password: ")
+    email = input("Enter email: ")
+    
+    # Get user info
+    name = input("Enter your full name: ")
+    age = input("Enter your age: ")
+    gender = input("Enter your gender (Male/Female/Other): ")
+    weight = input("Enter your weight (in lbs): ")
+    height = input("Enter your height (e.g., 5'11\"): ")
+    
+    conn = connect_to_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            
+            # Create tables if they don't exist
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE,
+                    password TEXT,
+                    email TEXT UNIQUE,
+                    name TEXT,
+                    age TEXT,
+                    gender TEXT,
+                    weight TEXT,
+                    height TEXT
+                )
+            ''')
+            
+            # Insert the new user
+            cursor.execute('''
+                INSERT INTO users (username, password, email, name, age, gender, weight, height)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (username, password, email, name, age, gender, weight, height))
+            
+            conn.commit()
+            print("\nRegistration successful!")
+            
+        except Exception as e:
+            print(f"Error during registration: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
 
-@app.route('/api/login', methods=['POST'])
-def login():
-    try:
-        data = request.get_json()
-        if not data:
-            print("No JSON data received")
-            return jsonify({'error': 'No data received'}), 400
+def login_user():
+    print("\n=== User Login ===")
+    username = input("Enter username: ")
+    password = getpass.getpass("Enter password: ")
+    
+    conn = connect_to_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            
+            # Check credentials and get user info
+            cursor.execute('''
+                SELECT name, email, age, gender, weight, height
+                FROM users
+                WHERE username = ? AND password = ?
+            ''', (username, password))
+            
+            user_data = cursor.fetchone()
+            
+            if user_data:
+                print("\nLogin successful!")
+                print(f"Welcome back, {user_data[0]}!")
+                print(f"Email: {user_data[1]}")
+                print(f"Age: {user_data[2]}")
+                print(f"Gender: {user_data[3]}")
+                print(f"Weight: {user_data[4]} lbs")
+                print(f"Height: {user_data[5]}")
+            else:
+                print("\nInvalid username or password.")
+                
+        except Exception as e:
+            print(f"Error during login: {e}")
+        finally:
+            conn.close()
 
-        identifier = data.get('identifier')
-        password = data.get('password')
-
-        print(f"Login attempt - Identifier: {identifier}")  # Debug log
-
-        if not identifier or not password:
-            return jsonify({'error': 'Please enter your username/email and password'}), 400
-
-        conn = connect_to_db()
-        if not conn:
-            return jsonify({'error': 'Database connection failed'}), 500
-
-        cursor = conn.cursor()
+def main():
+    while True:
+        print("\n=== Training Frequency Calculator ===")
+        print("1. Register")
+        print("2. Login")
+        print("3. Exit")
         
-        # First try username
-        cursor.execute('SELECT username FROM users WHERE username = ? AND password = ?', 
-                      (identifier, password))
-        user = cursor.fetchone()
+        choice = input("\nEnter your choice (1-3): ")
         
-        # If not found by username and input looks like email, try email
-        if not user and is_valid_email(identifier):
-            cursor.execute('SELECT username FROM users WHERE email = ? AND password = ?', 
-                         (identifier, password))
-            user = cursor.fetchone()
-
-        if user:
-            return jsonify({
-                'message': 'Login successful',
-                'user': {
-                    'username': user[0]
-                }
-            })
+        if choice == "1":
+            register_user()
+        elif choice == "2":
+            login_user()
+        elif choice == "3":
+            print("Goodbye!")
+            break
         else:
-            return jsonify({'error': 'Invalid username/email or password'}), 401
+            print("Invalid choice. Please try again.")
 
-    except Exception as e:
-        print(f"Login error: {str(e)}")
-        return jsonify({'error': 'Login failed'}), 500
-    finally:
-        if 'conn' in locals() and conn:
-            conn.close()
-
-@app.route('/api/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    name = data.get('name')
-    age = data.get('age')
-    gender = data.get('gender')
-    weight = data.get('weight')
-    height = data.get('height')
-    email = data.get('email')
-
-    if not username or not password:
-        return jsonify({'error': 'Username and password are required'}), 400
-
-    if email and not is_valid_email(email):
-        return jsonify({'error': 'Invalid email format'}), 400
-
-    try:
-        conn = connect_to_db()
-        if not conn:
-            return jsonify({'error': 'Database connection failed'}), 500
-
-        cursor = conn.cursor()
-        
-        # Check if username exists
-        cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
-        if cursor.fetchone():
-            return jsonify({'error': 'Username already exists'}), 409
-
-        if email:
-            # Check if email exists
-            cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
-            if cursor.fetchone():
-                return jsonify({'error': 'Email already exists'}), 409
-
-        # Insert new user
-        cursor.execute('''
-            INSERT INTO users (username, password, name, age, gender, weight, height, email)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (username, password, name, age, gender, weight, height, email))
-        
-        conn.commit()
-        return jsonify({'message': 'Registration successful'}), 201
-
-    except Exception as e:
-        print(f"Registration error: {str(e)}")
-        return jsonify({'error': 'Registration failed'}), 500
-    finally:
-        if conn:
-            conn.close()
-
-if __name__ == '__main__':
-    app.run(port=5001, debug=True)
+if __name__ == "__main__":
+    main()

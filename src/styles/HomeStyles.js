@@ -1,355 +1,143 @@
 import { StyleSheet } from "react-native";
 
-export const styles = StyleSheet.create({
+const HomeStyles = StyleSheet.create({
+  // Container styles
   container: {
     flex: 1,
-    backgroundColor: "#171923", // Dark theme background
-    padding: 16,
-  },
-  scrollView: {
-    flex: 1,
+    padding: 20,
+    backgroundColor: "#fff",
   },
   header: {
-    marginBottom: 24,
-    borderBottomWidth: 4,
-    borderBottomColor: "#6b46c1", // Purple accent
-    paddingBottom: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 8,
-    textTransform: "uppercase",
-    letterSpacing: 2,
+    flex: 1,
   },
   welcomeUser: {
-    fontSize: 18,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginBottom: 16,
-  },
-  startWorkoutButton: {
-    backgroundColor: "#6b46c1",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 16,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  startWorkoutButtonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "bold",
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  streakContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-    backgroundColor: "rgba(107, 70, 193, 0.1)",
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(107, 70, 193, 0.2)",
-  },
-  streakText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginLeft: 8,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 24,
-    backgroundColor: "rgba(30, 32, 42, 0.9)",
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  statItem: {
-    alignItems: "center",
-    padding: 12,
-  },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#6b46c1",
-  },
-  statLabel: {
     fontSize: 16,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginTop: 4,
+    color: "#4CAF50",
+    fontWeight: "600",
+    marginLeft: 10,
   },
   subtitle: {
-    fontSize: 18,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginBottom: 16,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    fontSize: 16,
+    color: "#000",
+    marginBottom: 20,
+    textAlign: "center",
   },
   list: {
     flex: 1,
   },
-  listContainer: {
-    paddingBottom: 100,
-  },
   muscleItem: {
-    backgroundColor: "rgba(30, 32, 42, 0.9)",
+    backgroundColor: "white",
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "rgba(107, 70, 193, 0.2)",
-  },
-  muscleStatus: (status) => ({
-    flex: 1,
-    backgroundColor:
-      status === "ready"
-        ? "#6b46c1" // Primary purple
-        : status === "caution"
-        ? "#805ad5" // Lighter purple
-        : "#553c9a", // Darker purple
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor:
-      status === "ready"
-        ? "rgba(107, 70, 193, 0.4)"
-        : status === "caution"
-        ? "rgba(128, 90, 213, 0.4)"
-        : "rgba(85, 60, 154, 0.4)",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  }),
-  muscleName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#ffffff",
     marginBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  muscleName: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#000",
   },
   daysContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   daysText: {
-    fontSize: 18,
-    color: "#ffffff",
-    fontWeight: "600",
+    fontSize: 16,
+    color: "#666",
+    marginRight: 8,
   },
   editButton: {
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: "rgba(107, 70, 193, 0.2)",
+    padding: 4,
   },
-  quickActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 24,
+  // Button styles
+  buttonContainer: {
+    marginTop: 20,
+    paddingHorizontal: 16,
   },
-  quickActionItem: {
-    flex: 1,
-    marginHorizontal: 8,
-    padding: 16,
+  button: {
+    backgroundColor: "#007AFF",
     borderRadius: 8,
+    padding: 12,
     alignItems: "center",
-    justifyContent: "center",
+    marginBottom: 10,
   },
-  quickActionText: {
-    color: "#ffffff",
-    marginTop: 8,
+  secondaryButton: {
+    backgroundColor: "#5856D6",
+  },
+  outlineButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#007AFF",
+  },
+  buttonText: {
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
   },
-  selectedGroup: {
-    backgroundColor: "rgba(107, 70, 193, 0.2)",
-    borderWidth: 2,
-    borderColor: "#6b46c1",
+  outlineText: {
+    color: "#007AFF",
   },
+  logoutButton: {
+    backgroundColor: "#f44336",
+  },
+  // Modal styles
   modalContainer: {
     flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    backgroundColor: "#171923",
-    padding: 24,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(107, 70, 193, 0.2)",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 20,
+    width: "80%",
+    maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "600",
     marginBottom: 16,
     textAlign: "center",
-  },
-  input: {
-    borderWidth: 2,
-    borderColor: "rgba(107, 70, 193, 0.2)",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    backgroundColor: "rgba(30, 32, 42, 0.9)",
-    color: "#ffffff",
   },
   modalButtons: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 16,
+    justifyContent: "space-between",
+    marginTop: 20,
   },
   modalButton: {
-    padding: 16,
-    borderRadius: 12,
-    minWidth: 120,
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 8,
   },
   cancelButton: {
-    backgroundColor: "#c53030",
+    backgroundColor: "#FF3B30",
   },
   saveButton: {
-    backgroundColor: "#6b46c1",
+    backgroundColor: "#34C759",
   },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  buttonContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: "#171923",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(107, 70, 193, 0.2)",
-  },
-  button: {
-    backgroundColor: "#6b46c1",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  secondaryButton: {
-    backgroundColor: "#2196F3",
-  },
-  logoutButton: {
-    backgroundColor: "#c53030",
-  },
-  outlineButton: {
+  input: {
     borderWidth: 1,
-    borderColor: "#6b46c1",
-    backgroundColor: "transparent",
-  },
-  outlineText: {
-    color: "#6b46c1",
-  },
-  resetButton: {
-    backgroundColor: "#ff9800",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  // Workout Menu Styles
-  workoutMenu: {
-    backgroundColor: "#1f222b", // Darker background for menu
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 8,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  menuHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  menuTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#ffffff",
-  },
-  menuCloseButton: {
-    padding: 8,
-  },
-  menuCloseText: {
-    fontSize: 20,
-    color: "#6b46c1", // Purple accent
-  },
-  muscleGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  muscleButton: {
-    backgroundColor: "#2a2e39",
-    padding: 12,
+    borderColor: "#E5E5EA",
     borderRadius: 8,
-    minWidth: 100,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  muscleButtonText: {
-    color: "#ffffff",
-    textAlign: "center",
-  },
-  selectedMuscleButton: {
-    backgroundColor: "#6b46c1",
-  },
-  selectedMuscleButtonText: {
-    color: "#ffffff",
-    fontWeight: "bold",
-  },
-  startWorkoutButton: {
-    backgroundColor: "#6b46c1",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 24,
-  },
-  startWorkoutButtonText: {
-    color: "#ffffff",
+    padding: 12,
     fontSize: 16,
-    fontWeight: "bold",
-  },
-  streakContainer: {
-    backgroundColor: "#2a2e39",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-    alignItems: "center",
-  },
-  streakText: {
-    color: "#ffffff",
-    fontSize: 16,
-  },
-  streakNumber: {
-    color: "#6b46c1",
-    fontSize: 24,
-    fontWeight: "bold",
+    width: "100%",
+    backgroundColor: "#FFFFFF",
   },
 });
+
+export default HomeStyles;
