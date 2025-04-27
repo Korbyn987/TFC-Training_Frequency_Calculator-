@@ -25,6 +25,16 @@ const PresetExerciseSelector = ({ visible, onClose, onAddExercise, selectedExerc
     setSelectedMuscleGroup(null);
   };
 
+  const handleNavigateToAddExercise = () => {
+    setSelectExerciseVisible(false);
+    navigation.navigate('AddExercise', {
+      muscleGroup: selectedMuscleGroup.name,
+      muscleGroupId: selectedMuscleGroup.id,
+      previousExercises: selectedExercises,
+      // Add a callback or use params for return if needed
+    });
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -60,15 +70,7 @@ const PresetExerciseSelector = ({ visible, onClose, onAddExercise, selectedExerc
             transparent={false}
             onRequestClose={() => setSelectExerciseVisible(false)}
           >
-            {(() => {
-              setSelectExerciseVisible(false);
-              navigation.navigate('AddExercise', {
-                muscleGroup: selectedMuscleGroup.name,
-                muscleGroupId: selectedMuscleGroup.id,
-                // Add a callback or use params for return if needed
-              });
-              return null;
-            })()}
+            {handleNavigateToAddExercise()}
           </Modal>
         )}
       </View>

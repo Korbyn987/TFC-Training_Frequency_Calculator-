@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, ScrollView } from "react-native";
 import { styles } from "../styles/profileStyles";
 import WorkoutHistory from "../components/WorkoutHistory";
 import WorkoutPresets from "../components/WorkoutPresets";
@@ -25,18 +25,18 @@ const ProfileScreen = () => {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatar} />
         <Text style={styles.name}>{username || "Username"}</Text>
         <Text style={styles.email}>{email || "email@example.com"}</Text>
       </View>
-      {/* Workout Presets Section */}
-      <WorkoutPresets />
       {/* Workout History Section */}
       <WorkoutHistory userId={userId} />
-    </View>
+      {/* Workout Presets Section */}
+      <WorkoutPresets />
+    </ScrollView>
   );
 };
 
