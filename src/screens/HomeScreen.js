@@ -21,7 +21,9 @@ import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 import WorkoutBanner from "../components/workoutBanner";
 import WorkoutSelectionModal from "../components/workoutSelectionModal";
 import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from '@react-navigation/native';
 import ButtonStyles from "../styles/Button";
+import axios from "axios";
 
 const HomeScreen = ({ route, navigation }) => {
   const { username } = route.params || {};
@@ -41,6 +43,8 @@ const HomeScreen = ({ route, navigation }) => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [trainedMuscles, setTrainedMuscles] = useState([]);
   const [workoutInProgress, setWorkoutInProgress] = useState(false);
+  const [savedWorkout, setSavedWorkout] = useState(null);
+  const [isWorkoutOptionsVisible, setIsWorkoutOptionsVisible] = useState(false);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const workoutTimerRef = useRef(null);
@@ -200,6 +204,85 @@ const HomeScreen = ({ route, navigation }) => {
     });
   }, [navigation, isAuthenticated]);
 
+  useEffect(() => {
+    if (route.params?.workout) {
+      setSavedWorkout(route.params.workout);
+    }
+  }, [route.params?.workout]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadSavedWorkout = async () => {
+        const workoutStr = await AsyncStorage.getItem('savedWorkout');
+        if (workoutStr) {
+          setSavedWorkout(JSON.parse(workoutStr));
+        } else {
+          setSavedWorkout(null);
+        }
+      };
+      loadSavedWorkout();
+    }, [])
+  );
+
+  useEffect(() => {
+    const checkWorkoutStatus = async () => {
+      const inProgress = await AsyncStorage.getItem('workoutInProgress');
+      if (inProgress === 'true') {
+        setWorkoutInProgress(true);
+        // Defensive: restore selected muscles if possible
+        const musclesStr = await AsyncStorage.getItem('selectedMuscles');
+        if (musclesStr) {
+          try {
+            const muscles = JSON.parse(musclesStr);
+            if (Array.isArray(muscles) && muscles.length > 0) {
+              setSelectedMuscles(muscles);
+            }
+          } catch {}
+        }
+      } else {
+        setWorkoutInProgress(false);
+      }
+    };
+    checkWorkoutStatus();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem('workoutInProgress', workoutInProgress ? 'true' : 'false');
+    if (workoutInProgress) {
+      AsyncStorage.setItem('selectedMuscles', JSON.stringify(selectedMuscles));
+    } else {
+      AsyncStorage.removeItem('selectedMuscles');
+    }
+  }, [workoutInProgress, selectedMuscles]);
+
+  useEffect(() => {
+    console.log('DEBUG: workoutInProgress', workoutInProgress);
+    console.log('DEBUG: selectedMuscles', selectedMuscles);
+    console.log('DEBUG: workoutHistory', workoutHistory);
+    console.log('DEBUG: isTimerRunning', isTimerRunning);
+    console.log('DEBUG: muscleData', muscleData);
+  }, [workoutInProgress, selectedMuscles, workoutHistory, isTimerRunning, muscleData]);
+
+  useEffect(() => {
+    if (workoutInProgress && selectedMuscles.length === 0 && workoutHistory.length > 0) {
+      const lastWorkout = workoutHistory[workoutHistory.length - 1];
+      if (lastWorkout && Array.isArray(lastWorkout.muscles) && lastWorkout.muscles.length > 0) {
+        setSelectedMuscles(lastWorkout.muscles);
+        console.log('DEBUG: Restored selectedMuscles from workoutHistory', lastWorkout.muscles);
+      }
+    }
+  }, [workoutInProgress, selectedMuscles, workoutHistory]);
+
+  useEffect(() => {
+    if (route.params?.workoutJustSaved) {
+      setWorkoutInProgress(true);
+      setIsTimerRunning(true);
+      setWorkoutTimer(0);
+      // Clean up param so it doesn't retrigger
+      navigation.setParams({ workoutJustSaved: undefined });
+    }
+  }, [route.params?.workoutJustSaved]);
+
   const loadMuscleData = async () => {
     try {
       const savedData = await AsyncStorage.getItem("muscleData");
@@ -238,45 +321,84 @@ const HomeScreen = ({ route, navigation }) => {
   };
 
   const startWorkout = () => {
-    console.log("Start Workout button pressed");
-    if (selectedMuscles.length === 0) {
-      Alert.alert("Error", "Please select at least one muscle group to train");
-      return;
-    }
-    setIsWorkoutModalVisible(false);
-    setWorkoutInProgress(true);
-    setIsTimerRunning(true);
-    setWorkoutTimer(0);
-
-    // Store the workout in history
-    const workoutData = {
-      muscles: selectedMuscles,
-      startTime: new Date().toISOString(),
-      duration: 0,
-      userId: user?.id,
-    };
-    setWorkoutHistory([...workoutHistory, workoutData]);
+    setIsWorkoutOptionsVisible(true);
   };
 
-  const endWorkout = () => {
+  const endWorkout = async () => {
     console.log("End Workout button pressed");
     setIsTimerRunning(false);
     setWorkoutInProgress(false);
-
-    // Update the last workout time for selected muscles
-    const currentTime = new Date().getTime();
-    const updatedMuscleData = { ...muscleData };
-    selectedMuscles.forEach((muscle) => {
-      updatedMuscleData[muscle] = currentTime;
-    });
-    setMuscleData(updatedMuscleData);
-
-    // Update the workout history with duration
-    const lastWorkout = workoutHistory[workoutHistory.length - 1];
-    if (lastWorkout) {
-      lastWorkout.duration = workoutTimer;
-      setWorkoutHistory([...workoutHistory.slice(0, -1), lastWorkout]);
+    setSelectedMuscles([]);
+    // Defensive: If no savedWorkout, do nothing
+    if (!savedWorkout) {
+      Alert.alert("No saved workout", "You must start and save a workout before ending it.");
+      console.error("No savedWorkout found in state. Cannot end workout.");
+      return;
     }
+
+    // Defensive: Get user_id from Redux or AsyncStorage
+    let userId = user?.id;
+    if (!userId) {
+      try {
+        const userStr = await AsyncStorage.getItem("user");
+        if (userStr) userId = JSON.parse(userStr).id;
+      } catch (e) {
+        console.error("Error reading user from AsyncStorage", e);
+      }
+    }
+    if (!userId) {
+      Alert.alert("User not found", "You must be logged in to save workouts.");
+      console.error("No user_id found in Redux or AsyncStorage. Cannot save workout.");
+      return;
+    }
+
+    // --- Get workout details for closed_workouts ---
+    const workoutName = savedWorkout?.name || "Untitled Workout";
+    let exercises = savedWorkout?.exercises;
+    if (!Array.isArray(exercises) || exercises.length === 0) {
+      Alert.alert("No exercises found", "Cannot save a workout with no exercises.");
+      return;
+    }
+    const startTime = savedWorkout?.startTime || (savedWorkout?.startedAt || new Date(Date.now() - workoutTimer * 1000).toISOString());
+    const endTime = new Date().toISOString();
+    const duration = workoutTimer;
+    const notes = savedWorkout?.notes || "";
+
+    // Log outgoing payload for debugging
+    console.log('Saving closed workout with payload:', {
+      user_id: userId,
+      workout_name: workoutName,
+      exercises,
+      start_time: startTime,
+      end_time: endTime,
+      duration,
+      notes,
+    });
+
+    // Save closed workout to backend
+    try {
+      const response = await axios.post("http://localhost:5001/api/closed_workouts", {
+        user_id: userId,
+        workout_name: workoutName,
+        exercises,
+        start_time: startTime,
+        end_time: endTime,
+        duration,
+        notes,
+      });
+      console.log('Backend response:', response.data);
+      Alert.alert("Workout Saved", "Your workout has been saved to your history.");
+    } catch (err) {
+      console.error("Failed to save closed workout:", err?.response?.data || err.message);
+      Alert.alert("Error", err?.response?.data?.error || "Failed to save workout to server.");
+    }
+
+    // --- Reset workout state ---
+    setIsTimerRunning(false);
+    setWorkoutInProgress(false);
+    setSelectedMuscles([]);
+    setWorkoutTimer(0);
+    await AsyncStorage.removeItem('savedWorkout');
   };
 
   const handleEdit = (muscle) => {
@@ -412,6 +534,14 @@ const HomeScreen = ({ route, navigation }) => {
     }
   };
 
+  const handleConfigureWorkout = () => {
+    setIsWorkoutOptionsVisible(false);
+    navigation.navigate('ConfigureWorkout', {
+      exercises: [], // Start with empty or last used
+      workoutName: '',
+    });
+  };
+
   const handleStartWorkout = () => {
     console.log("Start Workout button pressed");
     setIsWorkoutModalVisible(true);
@@ -446,18 +576,7 @@ const HomeScreen = ({ route, navigation }) => {
         />
       }
     >
-      {showWorkoutBanner && (
-        <WorkoutBanner
-          selectedMuscles={selectedMuscles}
-          onMuscleRemove={handleMuscleRemove}
-          onEndWorkout={handleEndWorkout}
-        />
-      )}
       {renderMuscleSelectionBanner()}
-      <WorkoutSelectionModal
-        visible={isWorkoutModalVisible}
-        onClose={handleCloseModal}
-      />
       <View style={styles.header}>
         <Text style={styles.title}>
           Welcome to TFC your Training Frequency Calculator
@@ -496,67 +615,79 @@ const HomeScreen = ({ route, navigation }) => {
           <Text style={styles.statLabel}>Resting Muscles</Text>
         </View>
       </View>
-      <Text style={styles.subtitle}>Tap a muscle to reset its counter</Text>
 
-      <FlatList
-        data={
-          selectedGroup === null
-            ? MUSCLE_GROUPS
-            : selectedGroup === "upper"
-            ? UPPER_BODY
-            : LOWER_BODY
-        }
-        renderItem={renderMuscleItem}
-        keyExtractor={(item) => item}
-        style={styles.list}
-        contentContainerStyle={styles.listContainer}
-      />
+      {/* Current Workout Section */}
+      {savedWorkout && (
+        <View style={styles.configuredWorkoutSection}>
+          <Text style={styles.configuredWorkoutTitle}>Current Workout</Text>
+          <View style={{marginBottom: 8}}>
+            {savedWorkout.exercises.map((ex, idx) => (
+              <View key={idx} style={styles.configuredWorkoutExerciseCard}>
+                <Text style={styles.configuredWorkoutExerciseName}>{ex.name}</Text>
+                <Text style={styles.configuredWorkoutExerciseDesc}>{ex.description}</Text>
+                {ex.sets && ex.sets.length > 0 && (
+                  <View style={{marginTop: 4}}>
+                    {ex.sets.map((set, setIdx) => (
+                      <View key={setIdx} style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2}}>
+                        <Text style={styles.configuredWorkoutSetText}>
+                          Set {setIdx+1}: {set.setType.charAt(0).toUpperCase() + set.setType.slice(1)} | Reps: {set.reps} {set.weight ? `| Weight: ${set.weight}` : ''}
+                        </Text>
+                        {set.notes ? <Text style={styles.configuredWorkoutSetNotes}>Notes: {set.notes}</Text> : null}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={styles.configuredWorkoutEditButton}
+            onPress={() => navigation.navigate('ConfigureWorkout', {
+              exercises: savedWorkout?.exercises || [],
+              workoutName: savedWorkout?.name || '',
+            })}
+          >
+            <Text style={styles.configuredWorkoutEditButtonText}>Edit Workout</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Quick Actions */}
-      <View style={styles.quickActions}>
+      <View style={[styles.quickActions, { flexDirection: 'row', justifyContent: 'center', marginTop: 32, marginBottom: 24 }]}> 
         <TouchableOpacity
-          style={styles.startWorkoutButton}
-          onPress={handleStartWorkout}
+          style={[
+            styles.startWorkoutButton,
+            { opacity: 1 },
+          ]}
+          onPress={startWorkout}
         >
           <Ionicons name="barbell-outline" size={24} color="#ffffff" />
           <Text style={styles.buttonText}>Start Workout</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.quickActionItem, styles.endWorkoutButton]}
-          onPress={() => {
-            console.log("Button pressed");
-            endWorkout();
-          }}
-          disabled={!workoutInProgress || selectedMuscles.length === 0}
-        >
-          <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-          <Text style={styles.quickActionText}>End Workout</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
           style={[
-            styles.quickActionItem,
-            selectedGroup === "upper" && styles.selectedGroup,
+            styles.startWorkoutButton,
+            {
+              backgroundColor: '#23263a', // App theme: dark card
+              borderWidth: 2,
+              borderColor: '#4CAF50', // Green border for accent
+              marginLeft: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              opacity: workoutInProgress ? 1 : 0.5, // PATCH: allow end button if workoutInProgress
+            },
           ]}
           onPress={() => {
-            setSelectedGroup("upper");
-            UPPER_BODY.forEach((muscle) => handleMuscleSelect(muscle));
+            if (workoutInProgress) {
+              endWorkout();
+            } else {
+              Alert.alert("No workout in progress", "Start a workout before ending it.");
+            }
           }}
+          disabled={!workoutInProgress} // PATCH: only require workoutInProgress
         >
-          <Ionicons name="body" size={24} color="#4CAF50" />
-          <Text style={styles.quickActionText}>Upper Body</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.quickActionItem,
-            selectedGroup === "lower" && styles.selectedGroup,
-          ]}
-          onPress={() => {
-            setSelectedGroup("lower");
-            LOWER_BODY.forEach((muscle) => handleMuscleSelect(muscle));
-          }}
-        >
-          <Ionicons name="body" size={24} color="#2196F3" />
-          <Text style={styles.quickActionText}>Lower Body</Text>
+          <Ionicons name="checkmark-circle" size={24} color="#4CAF50" style={{ marginRight: 10 }} />
+          <Text style={styles.buttonText}>End Workout</Text>
         </TouchableOpacity>
       </View>
 
@@ -579,20 +710,24 @@ const HomeScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       )}
 
-      {workoutInProgress && (
-        <View style={styles.workoutInProgressContainer}>
-          <Text style={styles.workoutInProgressText}>Workout in Progress</Text>
-          <TouchableOpacity
-            style={styles.endWorkoutButton}
-            onPress={() => {
-              console.log("Button pressed");
-              endWorkout();
-            }}
-          >
-            <Text style={styles.endWorkoutButtonText}>End Workout</Text>
-          </TouchableOpacity>
+      <Modal
+        visible={isWorkoutOptionsVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsWorkoutOptionsVisible(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(20,22,34,0.97)' }}>
+          <View style={{ backgroundColor: '#181a24', padding: 36, borderRadius: 22, alignItems: 'center', width: 320, borderWidth: 2, borderColor: '#4b2e83', shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 18 }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#f2f2f2', marginBottom: 24, letterSpacing: 1 }}>Workout Options</Text>
+            <TouchableOpacity style={{ backgroundColor: '#4b2e83', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 38, marginBottom: 18, width: 220, alignItems: 'center', shadowColor: '#4b2e83', shadowOpacity: 0.4, shadowRadius: 6 }} onPress={handleConfigureWorkout}>
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 18, letterSpacing: 0.5 }}>Configure Workout</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#4b2e83', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 38, marginBottom: 0, width: 220, alignItems: 'center' }} onPress={() => setIsWorkoutOptionsVisible(false)}>
+              <Text style={{ color: '#4b2e83', fontWeight: '600', fontSize: 18, letterSpacing: 0.5 }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      )}
+      </Modal>
 
       <Modal visible={editMode} transparent={true} animationType="slide">
         <View style={styles.modalContainer}>

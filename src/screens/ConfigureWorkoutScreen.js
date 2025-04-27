@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,29 +10,96 @@ import {
   Picker,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 const setTypes = [
   { label: 'Warmup', value: 'warmup' },
-  { label: 'Numbered', value: 'numbered' },
+  { label: 'Working Set', value: 'numbered' },
   { label: 'Failure', value: 'failure' },
   { label: 'Drop', value: 'drop' },
 ];
 
 const ConfigureWorkoutScreen = ({ route, navigation }) => {
-  const { exercises } = route.params || { exercises: [] };
-  const [workoutName, setWorkoutName] = useState('');
+  const { exercises, workoutName: navWorkoutName } = route.params || {};
+  const safeExercises = Array.isArray(exercises) ? exercises : [];
+  const [workoutName, setWorkoutName] = useState(navWorkoutName || '');
   const [exerciseConfigs, setExerciseConfigs] = useState(
-    exercises.map(exercise => ({
+    safeExercises.map(exercise => ({
       ...exercise,
-      sets: [
-        {
-          setType: 'numbered',
-          reps: '10',
-          weight: '',
-          notes: '',
-        },
-      ],
+      sets: exercise.sets && Array.isArray(exercise.sets) && exercise.sets.length > 0
+        ? exercise.sets
+        : [
+            {
+              setType: 'numbered',
+              reps: '10',
+              weight: '',
+              notes: '',
+            },
+          ],
     }))
+  );
+
+  useEffect(() => {
+    // If this screen is opened for editing (from HomeScreen), load the saved workout
+    const loadSavedWorkout = async () => {
+      const workoutStr = await AsyncStorage.getItem('savedWorkout');
+      if (workoutStr) {
+        const workout = JSON.parse(workoutStr);
+        setWorkoutName(workout.name || '');
+        setExerciseConfigs(Array.isArray(workout.exercises) ? workout.exercises : []);
+      }
+    };
+    // Only load on first mount if there are no exercises in state
+    if (safeExercises.length === 0 && exerciseConfigs.length === 0) {
+      loadSavedWorkout();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (route.params?.addExercises) {
+      // Avoid duplicates by id
+      const newExercises = route.params.addExercises.filter(
+        (ex) => !exerciseConfigs.some((cfg) => cfg.id === ex.id)
+      );
+      if (newExercises.length > 0) {
+        setExerciseConfigs((prev) => [
+          ...prev,
+          ...newExercises.map(ex => ({
+            ...ex,
+            sets: ex.sets && Array.isArray(ex.sets) && ex.sets.length > 0 ? ex.sets : [{ setType: 'numbered', reps: '10', weight: '' }],
+          }))
+        ]);
+      }
+      // Clean up param so it doesn't re-add on rerender
+      navigation.setParams({ addExercises: undefined });
+    }
+  }, [route.params?.addExercises]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (route.params?.addExercise) {
+        const newExercise = route.params.addExercise;
+        // Prevent duplicates
+        if (!exerciseConfigs.some((ex) => ex.id === newExercise.id)) {
+          setExerciseConfigs((prev) => [
+            ...prev,
+            {
+              ...newExercise,
+              sets: [
+                {
+                  setType: 'numbered',
+                  reps: '10',
+                  weight: '',
+                  notes: '',
+                },
+              ],
+            },
+          ]);
+        }
+        navigation.setParams({ addExercise: undefined }); // Clear param
+      }
+    }, [route.params?.addExercise, exerciseConfigs])
   );
 
   const handleUpdateSet = (exerciseIdx, setIdx, field, value) => {
@@ -76,15 +143,20 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
     setExerciseConfigs(newConfigs);
   };
 
-  const handleSaveWorkout = () => {
-    // Here you would save the workout configuration
-    // For now, we'll just navigate back to home
-    navigation.navigate('HomeScreen', {
-      workout: {
-        name: workoutName || 'My Workout',
-        exercises: exerciseConfigs
-      }
-    });
+  const handleRemoveExercise = (exerciseIdx) => {
+    const newConfigs = [...exerciseConfigs];
+    newConfigs.splice(exerciseIdx, 1);
+    setExerciseConfigs(newConfigs);
+  };
+
+  const handleSaveWorkout = async () => {
+    // Save the workout to AsyncStorage
+    const workout = {
+      name: workoutName || 'My Workout',
+      exercises: exerciseConfigs
+    };
+    await AsyncStorage.setItem('savedWorkout', JSON.stringify(workout));
+    navigation.navigate('Home', { workoutJustSaved: true });
   };
 
   const renderSet = (exerciseIdx, set, setIdx, setsLength) => (
@@ -153,6 +225,12 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
 
   const renderExerciseConfig = ({ item, index }) => (
     <View style={styles.exerciseCard}>
+      <TouchableOpacity
+        style={styles.removeExerciseButton}
+        onPress={() => handleRemoveExercise(index)}
+      >
+        <Ionicons name="close" size={24} color="#e53e3e" />
+      </TouchableOpacity>
       <Text style={styles.exerciseName}>{item.name}</Text>
       <Text style={styles.exerciseDesc}>{item.description}</Text>
       {item.sets.map((set, setIdx) => renderSet(index, set, setIdx, item.sets.length))}
@@ -163,7 +241,7 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
   );
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TextInput
           style={styles.workoutNameInput}
@@ -173,21 +251,24 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
           placeholderTextColor="#666"
         />
       </View>
-
+      {/* Move Add Exercise Button to the top */}
+      <TouchableOpacity style={styles.addExerciseButton} onPress={() => navigation.navigate('AddExercise', { previousExercises: exerciseConfigs })}>
+        <Ionicons name="add-circle" size={28} color="#fff" style={{ marginRight: 12 }} />
+        <Text style={styles.addExerciseButtonText}>Add Exercise</Text>
+      </TouchableOpacity>
       <FlatList
         data={exerciseConfigs}
         renderItem={renderExerciseConfig}
         keyExtractor={(item, index) => index.toString()}
         contentContainerStyle={styles.exerciseList}
       />
-
       <TouchableOpacity
         style={styles.saveButton}
         onPress={handleSaveWorkout}
       >
         <Text style={styles.saveButtonText}>Save Workout</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -217,6 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    position: 'relative',
   },
   exerciseName: {
     fontSize: 18,
@@ -310,6 +392,33 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 13,
+  },
+  removeExerciseButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 1,
+  },
+  addExerciseButton: {
+    backgroundColor: '#6b46c1',
+    marginHorizontal: 32,
+    marginTop: 16,
+    marginBottom: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignSelf: 'center',
+    minWidth: 160,
+    maxWidth: 320,
+  },
+  addExerciseButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    letterSpacing: 1,
   },
   saveButton: {
     backgroundColor: '#6b46c1',

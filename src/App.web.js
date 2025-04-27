@@ -119,7 +119,6 @@ const App = () => {
             name="AddExercise"
             component={AddExerciseScreen}
             options={{ headerShown: false }}
-            options={{ headerShown: true, title: "Select Exercise" }}
           />
           <Stack.Screen
             name="ConfigureWorkout"

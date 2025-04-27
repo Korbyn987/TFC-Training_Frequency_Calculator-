@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -17,9 +17,12 @@ import {
   getMuscleGroups,
   initDatabase,
 } from "../database/database";
+import { useFocusEffect } from '@react-navigation/native';
 
 const AddExerciseScreen = ({ navigation, route }) => {
-  const { muscleGroup, muscleGroupId } = route?.params || {};
+  const { muscleGroup, muscleGroupId, previousExercises, returnToPreset } = route?.params || {};
+  // Fallback to empty array if previousExercises is undefined
+  const safePreviousExercises = Array.isArray(previousExercises) ? previousExercises : [];
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
@@ -27,6 +30,17 @@ const AddExerciseScreen = ({ navigation, route }) => {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (route.params?.newExerciseToAdd) {
+        // Add the new exercise to the previously selected list and return to ConfigureWorkout
+        const exerciseToAdd = route.params.newExerciseToAdd;
+        navigation.setParams({ newExerciseToAdd: undefined }); // Clear param
+        navigation.navigate('ConfigureWorkout', { addExercise: exerciseToAdd });
+      }
+    }, [route.params?.newExerciseToAdd])
+  );
 
   useEffect(() => {
     const { muscleGroup, muscleGroupId } = route.params || {};
@@ -46,13 +60,13 @@ const AddExerciseScreen = ({ navigation, route }) => {
     try {
       setLoading(true);
       setError(null);
-
+  
       // Initialize database
       const dbInitialized = await initDatabase();
       if (!dbInitialized) {
         throw new Error("Failed to initialize database");
       }
-
+  
       // Load muscle groups
       let groups;
       if (Platform.OS === "web") {
@@ -63,17 +77,26 @@ const AddExerciseScreen = ({ navigation, route }) => {
         groups = await getMuscleGroups();
       }
       setMuscleGroups(groups);
-
-      // Load initial exercises
-      let initialExercises;
+  
+      // Load exercises
+      let exercisesData;
       if (Platform.OS === "web") {
         const { STATIC_EXERCISES } = require("../database/database");
-        initialExercises = STATIC_EXERCISES;
+        exercisesData = STATIC_EXERCISES;
       } else {
-        initialExercises = await getExercises();
+        exercisesData = await getExercises();
       }
-      setExercises(initialExercises);
-
+  
+      // If muscleGroupId is provided, filter exercises for that muscle group
+      if (route.params?.muscleGroupId) {
+        const filteredExercises = exercisesData.filter(
+          (exercise) => exercise.muscle_group_id === route.params.muscleGroupId
+        );
+        setExercises(filteredExercises);
+      } else {
+        setExercises(exercisesData);
+      }
+  
       setLoading(false);
     } catch (err) {
       setError("Error loading data: " + err);
@@ -94,10 +117,13 @@ const AddExerciseScreen = ({ navigation, route }) => {
         activeGroup === "All" ? null : activeGroup
       );
       setExercises(exerciseData);
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
+
+    if (activeGroup === "All") {
+      getExercises().then(setExercises);
+    } else {
+      getExercises(activeGroup).then(setExercises);
     }
+  } catch (err) {
   };
 
   const handleSelectExercise = (exercise) => {
@@ -110,9 +136,22 @@ const AddExerciseScreen = ({ navigation, route }) => {
   };
 
   const handleSaveExercises = () => {
-    navigation.navigate("ConfigureWorkout", {
-      exercises: selectedExercises,
-    });
+    // Only add exercises that are not already present
+    const toAdd = selectedExercises.filter(
+      (ex) => !safePreviousExercises.some((prev) => prev.id === ex.id)
+    );
+    if (route.params && route.params.returnToPreset) {
+      // Save to preset flow: go back to the previous screen and pass exercises via navigation.navigate
+      navigation.navigate({
+        name: 'Profile',
+        params: { selectedExercisesForPreset: [...selectedExercises], showPresetModal: true },
+        merge: true,
+      });
+    } else if (toAdd.length > 0) {
+      navigation.navigate('ConfigureWorkout', { addExercises: toAdd });
+    } else {
+      navigation.goBack();
+    }
   };
 
   // Defensive: exercises fallback
