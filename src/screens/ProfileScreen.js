@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, ScrollView } from "react-native";
 import { styles } from "../styles/profileStyles";
 import WorkoutHistory from "../components/WorkoutHistory";
 import WorkoutPresets from "../components/WorkoutPresets";
@@ -24,8 +24,18 @@ const ProfileScreen = () => {
     fetchUserData();
   }, []);
 
+  // Fix: move alignItems/justifyContent to contentContainerStyle for ScrollView compatibility
+  const scrollContentStyle = {
+    flexGrow: 1,
+    justifyContent: "flex-start",
+    alignItems: "stretch",
+    backgroundColor: "#171923", // Match Home/Calculator dark theme
+    paddingTop: 32,
+    paddingHorizontal: 16, // Match Home/Calculator padding
+  };
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={{ flex: 1, backgroundColor: '#171923' }} contentContainerStyle={scrollContentStyle}>
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatar} />
@@ -36,7 +46,7 @@ const ProfileScreen = () => {
       <WorkoutPresets />
       {/* Workout History Section */}
       <WorkoutHistory userId={userId} />
-    </View>
+    </ScrollView>
   );
 };
 

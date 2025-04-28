@@ -251,10 +251,25 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
           placeholderTextColor="#666"
         />
       </View>
-      {/* Move Add Exercise Button to the top */}
-      <TouchableOpacity style={styles.addExerciseButton} onPress={() => navigation.navigate('AddExercise', { previousExercises: exerciseConfigs })}>
-        <Ionicons name="add-circle" size={28} color="#fff" style={{ marginRight: 12 }} />
+      {/* Add Exercise Button */}
+      <TouchableOpacity
+        style={styles.addExerciseButton}
+        onPress={() => navigation.navigate('AddExercise', { exercises: exerciseConfigs })}
+      >
+        <Ionicons name="add-circle-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
         <Text style={styles.addExerciseButtonText}>Add Exercise</Text>
+      </TouchableOpacity>
+
+      {/* Load Preset Button */}
+      <TouchableOpacity
+        style={styles.addExerciseButton}
+        onPress={() => {
+          console.log('Navigation state:', navigation.getState());
+          navigation.push('SelectRoutine');
+        }}
+      >
+        <Ionicons name="cloud-download-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
+        <Text style={styles.addExerciseButtonText}>Load Preset</Text>
       </TouchableOpacity>
       <FlatList
         data={exerciseConfigs}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, Modal, TextInput, Button, StyleSheet, ScrollView } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 const STORAGE_KEY = "workout_presets";
 
@@ -160,18 +161,12 @@ const WorkoutPresets = () => {
         data={presets}
         keyExtractor={item => item.id.toString()}
         renderItem={({ item }) => (
-          <View style={styles.presetCard}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.presetName}>{item.name}</Text>
-              <Text style={styles.presetExercises}>{item.exercises.map(e => e.name).join(", ")}</Text>
-            </View>
-            <TouchableOpacity onPress={() => openModal(item)}>
-              <Text style={styles.editBtn}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDelete(item.id)}>
-              <Text style={styles.deleteBtn}>Delete</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.presetCard}
+            onPress={() => openModal(item)}
+          >
+            <Text style={styles.presetName}>{item.name}</Text>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={<Text style={styles.empty}>No presets yet.</Text>}
       />
@@ -179,6 +174,13 @@ const WorkoutPresets = () => {
       <Modal visible={modalVisible && !isAddExerciseScreenActive()} animationType="slide" transparent={true} onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            {/* Close (X) button in top right */}
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => { setModalVisible(false); navigation.navigate('Profile'); }}
+            >
+              <Ionicons name="close" size={28} color="#888" />
+            </TouchableOpacity>
             <ScrollView>
               <Text style={styles.modalTitle}>{editingPreset ? "Edit Preset" : "New Preset"}</Text>
               <TextInput
@@ -204,7 +206,15 @@ const WorkoutPresets = () => {
                 </TouchableOpacity>
               </View>
               <Button title="Save" color="#6b46c1" onPress={handleSave} />
-              <Button title="Cancel" color="#888" onPress={closeModal} />
+              {editingPreset && (
+                <TouchableOpacity
+                  style={[styles.deleteButton, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12 }]}
+                  onPress={() => handleDelete(editingPreset.id)}
+                >
+                  <Ionicons name="trash" size={20} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -229,6 +239,26 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: "#fff", borderRadius: 14, padding: 28, width: "90%", maxHeight: "80%", shadowColor: "#6b46c1", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 7, borderWidth: 1.5, borderColor: "#6b46c1" },
   modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 12, color: "#6b46c1", alignSelf: "center", letterSpacing: 1 },
   input: { backgroundColor: "#f3f1fa", borderRadius: 8, padding: 12, marginBottom: 14, fontSize: 16, borderWidth: 1, borderColor: "#d1c4e9" },
+  deleteButton: {
+    backgroundColor: '#e53e3e',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  closeIcon: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+    backgroundColor: 'transparent',
+  },
 });
 
 export default WorkoutPresets;

@@ -35,8 +35,17 @@ const WorkoutHistory = ({ userId }) => {
     return d;
   });
 
-  // Group workouts by date string (YYYY-MM-DD)
-  const workoutsByDate = workouts.reduce((acc, w) => {
+  // Filter workouts to only include those from the last 7 days
+  const startOfWindow = new Date(today);
+  startOfWindow.setDate(today.getDate() - 6);
+  const filteredWorkouts = workouts.filter(w => {
+    const workoutDate = new Date(w.start_time);
+    // Only include workouts from startOfWindow (7 days ago) to today (inclusive)
+    return workoutDate >= startOfWindow && workoutDate <= today;
+  });
+
+  // Group filtered workouts by date string (YYYY-MM-DD)
+  const workoutsByDate = filteredWorkouts.reduce((acc, w) => {
     const dateStr = new Date(w.start_time).toISOString().slice(0, 10);
     if (!acc[dateStr]) acc[dateStr] = [];
     acc[dateStr].push(w);
@@ -59,7 +68,7 @@ const WorkoutHistory = ({ userId }) => {
 
   if (loading) return <ActivityIndicator style={{ marginTop: 20 }} />;
   if (error) return <Text style={styles.error}>{error}</Text>;
-  if (!workouts.length) return <Text style={styles.empty}>No workout history found.</Text>;
+  if (!filteredWorkouts.length) return <Text style={styles.empty}>No workout history found.</Text>;
 
   return (
     <View style={styles.section}>

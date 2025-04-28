@@ -23,7 +23,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
   const { muscleGroup, muscleGroupId, previousExercises, returnToPreset } = route?.params || {};
   // Fallback to empty array if previousExercises is undefined
   const safePreviousExercises = Array.isArray(previousExercises) ? previousExercises : [];
-  const [selectedExercises, setSelectedExercises] = useState([]);
+  const [selectedExercises, setSelectedExercises] = useState(safePreviousExercises);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
   const [muscleGroups, setMuscleGroups] = useState([]);
