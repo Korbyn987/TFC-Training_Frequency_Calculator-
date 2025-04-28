@@ -17,12 +17,14 @@ import {
   getMuscleGroups,
   initDatabase,
 } from "../database/database";
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "@react-navigation/native";
 
 const AddExerciseScreen = ({ navigation, route }) => {
-  const { muscleGroup, muscleGroupId, previousExercises, returnToPreset } = route?.params || {};
+  const { muscleGroup, muscleGroupId, previousExercises, returnToPreset } =
+    route?.params || {};
   // Fallback to empty array if previousExercises is undefined
   const safePreviousExercises = Array.isArray(previousExercises) ? previousExercises : [];
+  // Initialize selectedExercises with previousExercises if provided
   const [selectedExercises, setSelectedExercises] = useState(safePreviousExercises);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
@@ -37,7 +39,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
         // Add the new exercise to the previously selected list and return to ConfigureWorkout
         const exerciseToAdd = route.params.newExerciseToAdd;
         navigation.setParams({ newExerciseToAdd: undefined }); // Clear param
-        navigation.navigate('ConfigureWorkout', { addExercise: exerciseToAdd });
+        navigation.navigate("ConfigureWorkout", { addExercise: exerciseToAdd });
       }
     }, [route.params?.newExerciseToAdd])
   );
@@ -51,21 +53,43 @@ const AddExerciseScreen = ({ navigation, route }) => {
   }, [route]);
 
   useEffect(() => {
-    if (activeGroup === "All") {
-      getExercises().then(setExercises);
-    } else {
-      getExercises(activeGroup).then(setExercises);
+    if (muscleGroup) {
+      setActiveGroup(muscleGroup);
     }
-  }, [activeGroup]);
+  }, [muscleGroup]);
 
   const loadData = async () => {
     try {
-      await initDatabase();
-      const groups = await getMuscleGroups();
+      setLoading(true);
+      setError(null);
+
+      // Initialize database
+      const dbInitialized = await initDatabase();
+      if (!dbInitialized) {
+        throw new Error("Failed to initialize database");
+      }
+
+      // Load muscle groups
+      let groups;
+      if (Platform.OS === "web") {
+        // Use static data for web
+        const { STATIC_MUSCLE_GROUPS } = require("../database/database");
+        groups = STATIC_MUSCLE_GROUPS;
+      } else {
+        groups = await getMuscleGroups();
+      }
       setMuscleGroups(groups);
 
+      // Load exercises
+      let exercisesData;
+      if (Platform.OS === "web") {
+        const { STATIC_EXERCISES } = require("../database/database");
+        exercisesData = STATIC_EXERCISES;
+      } else {
+        exercisesData = await getExercises();
+      }
+
       // If muscleGroupId is provided, filter exercises for that muscle group
-      const exercisesData = await getExercises();
       if (route.params?.muscleGroupId) {
         const filteredExercises = exercisesData.filter(
           (exercise) => exercise.muscle_group_id === route.params.muscleGroupId
@@ -74,12 +98,34 @@ const AddExerciseScreen = ({ navigation, route }) => {
       } else {
         setExercises(exercisesData);
       }
+
       setLoading(false);
     } catch (err) {
-      setError(err.message);
+      setError("Error loading data: " + err);
       setLoading(false);
     }
   };
+
+  const loadExercises = async () => {
+    try {
+      setError(null);
+      console.log(
+        "Loading exercises for muscleGroupId:",
+        muscleGroupId,
+        "activeGroup:",
+        activeGroup
+      );
+      const exerciseData = await getExercises(
+        activeGroup === "All" ? null : activeGroup
+      );
+      setExercises(exerciseData);
+
+      if (activeGroup === "All") {
+        getExercises().then(setExercises);
+      } else {
+        getExercises(activeGroup).then(setExercises);
+      }
+    } catch (err) {}
 
   const handleSelectExercise = (exercise) => {
     setSelectedExercises((prev) => {
@@ -98,12 +144,15 @@ const AddExerciseScreen = ({ navigation, route }) => {
     if (route.params && route.params.returnToPreset) {
       // Save to preset flow: go back to the previous screen and pass exercises via navigation.navigate
       navigation.navigate({
-        name: 'Profile',
-        params: { selectedExercisesForPreset: [...selectedExercises], showPresetModal: true },
+        name: "Profile",
+        params: {
+          selectedExercisesForPreset: [...selectedExercises],
+          showPresetModal: true,
+        },
         merge: true,
       });
     } else if (toAdd.length > 0) {
-      navigation.navigate('ConfigureWorkout', { addExercises: toAdd });
+      navigation.navigate("ConfigureWorkout", { addExercises: toAdd });
     } else {
       navigation.goBack();
     }
@@ -128,7 +177,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
           styles.activeGroupButton,
       ]}
       onPress={() => {
-        console.log('Selected muscle group:', group ? group.name : "All");
+          console.log("Selected muscle group:", group ? group.name : "All");
         setActiveGroup(group ? group.id : "All");
       }}
     >
@@ -296,9 +345,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   groupButtonContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "center",
     marginVertical: 8,
     gap: 6, // for React Native Web, otherwise use margin
   },
@@ -306,28 +355,28 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 16,
-    backgroundColor: '#272b3a',
+      backgroundColor: "#272b3a",
     margin: 4,
     minWidth: 70,
-    alignItems: 'center',
+      alignItems: "center",
     minHeight: 32,
     elevation: 1,
     borderWidth: 1,
-    borderColor: '#4a5568',
+      borderColor: "#4a5568",
   },
   activeGroupButton: {
-    backgroundColor: '#6b46c1',
-    borderColor: '#a78bfa',
+      backgroundColor: "#6b46c1",
+      borderColor: "#a78bfa",
   },
   groupButtonText: {
-    color: '#e2e8f0',
+      color: "#e2e8f0",
     fontSize: 13,
-    fontWeight: '500',
+      fontWeight: "500",
     letterSpacing: 0.2,
   },
   activeGroupButtonText: {
-    color: '#fff',
-    fontWeight: '700',
+      color: "#fff",
+      fontWeight: "700",
   },
   list: {
     flex: 1,
@@ -381,5 +430,5 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-
+};
 export default AddExerciseScreen;

@@ -1,0 +1,14 @@
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: block;
+  background: #222;
+}
+
+#root > * {
+  min-height: 100vh;
+  min-width: 100vw;
+  display: block;
+}

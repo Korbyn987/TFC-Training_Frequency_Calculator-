@@ -24,28 +24,18 @@ const ProfileScreen = () => {
     fetchUserData();
   }, []);
 
-  // Fix: move alignItems/justifyContent to contentContainerStyle for ScrollView compatibility
-  const scrollContentStyle = {
-    flexGrow: 1,
-    justifyContent: "flex-start",
-    alignItems: "stretch",
-    backgroundColor: "#171923", // Match Home/Calculator dark theme
-    paddingTop: 32,
-    paddingHorizontal: 16, // Match Home/Calculator padding
-  };
-
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#171923' }} contentContainerStyle={scrollContentStyle}>
+    <ScrollView contentContainerStyle={styles.container}>
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatar} />
         <Text style={styles.name}>{username || "Username"}</Text>
         <Text style={styles.email}>{email || "email@example.com"}</Text>
       </View>
-      {/* Workout Presets Section */}
-      <WorkoutPresets />
       {/* Workout History Section */}
       <WorkoutHistory userId={userId} />
+      {/* Workout Presets Section */}
+      <WorkoutPresets />
     </ScrollView>
   );
 };

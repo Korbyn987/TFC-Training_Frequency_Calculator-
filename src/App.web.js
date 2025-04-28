@@ -1,7 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Provider, useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,7 +19,7 @@ import { linking } from "./navigation/linking";
 import AddExerciseScreen from "./screens/AddExerciseScreen";
 import ConfigureWorkoutScreen from "./screens/ConfigureWorkoutScreen";
 
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
@@ -118,7 +118,7 @@ const App = () => {
           <Stack.Screen
             name="AddExercise"
             component={AddExerciseScreen}
-            options={{ headerShown: true, title: "Select Exercise" }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="ConfigureWorkout"
