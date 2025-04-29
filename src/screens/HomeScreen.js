@@ -275,13 +275,62 @@ const HomeScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     if (route.params?.workoutJustSaved) {
+      console.log('[HomeScreen] workoutJustSaved param detected');
+      // Load the latest saved workout from AsyncStorage
+      const loadAndSetWorkout = async () => {
+        try {
+          const workoutStr = await AsyncStorage.getItem('savedWorkout');
+          if (workoutStr) {
+            const workout = JSON.parse(workoutStr);
+            setSavedWorkout(workout);
+            setWorkoutInProgress(true);
+            setIsTimerRunning(true);
+            setWorkoutTimer(0);
+            console.log('[HomeScreen] Workout loaded and started:', workout);
+          } else {
+            setSavedWorkout(null);
+            setWorkoutInProgress(false);
+            setIsTimerRunning(false);
+            setWorkoutTimer(0);
+            console.warn('[HomeScreen] No savedWorkout found in AsyncStorage');
+          }
+        } catch (e) {
+          setSavedWorkout(null);
+          setWorkoutInProgress(false);
+          setIsTimerRunning(false);
+          setWorkoutTimer(0);
+          console.error('[HomeScreen] Error loading savedWorkout from AsyncStorage', e);
+        }
+        // Clean up param so it doesn't retrigger
+        navigation.setParams({ workoutJustSaved: undefined });
+      };
+      loadAndSetWorkout();
+    }
+  }, [route.params?.workoutJustSaved]);
+
+  useEffect(() => {
+    if (route.params?.workoutConfig) {
+      setSavedWorkout(route.params.workoutConfig);
+      AsyncStorage.setItem('savedWorkout', JSON.stringify(route.params.workoutConfig));
       setWorkoutInProgress(true);
       setIsTimerRunning(true);
       setWorkoutTimer(0);
-      // Clean up param so it doesn't retrigger
-      navigation.setParams({ workoutJustSaved: undefined });
+      console.log('[HomeScreen] Workout configured and started:', route.params.workoutConfig);
+      navigation.setParams({ workoutConfig: undefined });
     }
-  }, [route.params?.workoutJustSaved]);
+  }, [route.params?.workoutConfig]);
+
+  useEffect(() => {
+    if (route.params?.workout) {
+      setSavedWorkout(route.params.workout);
+      AsyncStorage.setItem('savedWorkout', JSON.stringify(route.params.workout));
+      setWorkoutInProgress(true);
+      setIsTimerRunning(true);
+      setWorkoutTimer(0);
+      console.log('[HomeScreen] Workout loaded and started:', route.params.workout);
+      navigation.setParams({ workout: undefined });
+    }
+  }, [route.params?.workout]);
 
   const loadMuscleData = async () => {
     try {
@@ -320,22 +369,72 @@ const HomeScreen = ({ route, navigation }) => {
     setSelectedMuscles([]);
   };
 
-  const startWorkout = () => {
-    setIsWorkoutOptionsVisible(true);
+  // Start Workout handler
+  const startWorkout = async () => {
+    console.log("Start Workout button pressed");
+    setWorkoutInProgress(true);
+    setIsTimerRunning(true);
+    setWorkoutTimer(0);
+    // Defensive: if no savedWorkout, create a basic one
+    if (!savedWorkout) {
+      const newWorkout = {
+        name: 'Untitled Workout',
+        exercises: [],
+        startTime: new Date().toISOString(),
+        notes: '',
+      };
+      setSavedWorkout(newWorkout);
+      await AsyncStorage.setItem('savedWorkout', JSON.stringify(newWorkout));
+      console.log('[HomeScreen] Created and started new workout:', newWorkout);
+    } else {
+      // Update start time if not set
+      if (!savedWorkout.startTime) {
+        const updated = { ...savedWorkout, startTime: new Date().toISOString() };
+        setSavedWorkout(updated);
+        await AsyncStorage.setItem('savedWorkout', JSON.stringify(updated));
+        console.log('[HomeScreen] Updated workout with startTime:', updated);
+      }
+    }
+    await AsyncStorage.setItem('workoutInProgress', 'true');
+    // Redirect user to ConfigureWorkoutScreen
+    navigation.navigate('ConfigureWorkout', {
+      exercises: savedWorkout?.exercises || [],
+      workoutName: savedWorkout?.name || 'Untitled Workout',
+    });
   };
 
   const endWorkout = async () => {
+    console.log("Inside endWorkout function");
     console.log("End Workout button pressed");
     setIsTimerRunning(false);
     setWorkoutInProgress(false);
     setSelectedMuscles([]);
-    // Defensive: If no savedWorkout, do nothing
-    if (!savedWorkout) {
+    let workoutToSave = savedWorkout;
+    // Defensive: If no savedWorkout in state, try to read from AsyncStorage
+    if (!workoutToSave) {
+      try {
+        const workoutStr = await AsyncStorage.getItem('savedWorkout');
+        if (workoutStr) workoutToSave = JSON.parse(workoutStr);
+      } catch (e) {
+        console.error("Error reading savedWorkout from AsyncStorage", e);
+      }
+    }
+    if (!workoutToSave) {
       Alert.alert("No saved workout", "You must start and save a workout before ending it.");
-      console.error("No savedWorkout found in state. Cannot end workout.");
+      console.error("No savedWorkout found in state or AsyncStorage. Cannot end workout.");
       return;
     }
-
+    // --- Get workout details for closed_workouts ---
+    const workoutName = workoutToSave?.name || "Untitled Workout";
+    let exercises = workoutToSave?.exercises;
+    if (!Array.isArray(exercises) || exercises.length === 0) {
+      Alert.alert("No exercises found", "Cannot save a workout with no exercises.");
+      return;
+    }
+    const startTime = workoutToSave?.startTime || (workoutToSave?.startedAt || new Date(Date.now() - workoutTimer * 1000).toISOString());
+    const endTime = new Date().toISOString();
+    const duration = workoutTimer;
+    const notes = workoutToSave?.notes || "";
     // Defensive: Get user_id from Redux or AsyncStorage
     let userId = user?.id;
     if (!userId) {
@@ -351,19 +450,6 @@ const HomeScreen = ({ route, navigation }) => {
       console.error("No user_id found in Redux or AsyncStorage. Cannot save workout.");
       return;
     }
-
-    // --- Get workout details for closed_workouts ---
-    const workoutName = savedWorkout?.name || "Untitled Workout";
-    let exercises = savedWorkout?.exercises;
-    if (!Array.isArray(exercises) || exercises.length === 0) {
-      Alert.alert("No exercises found", "Cannot save a workout with no exercises.");
-      return;
-    }
-    const startTime = savedWorkout?.startTime || (savedWorkout?.startedAt || new Date(Date.now() - workoutTimer * 1000).toISOString());
-    const endTime = new Date().toISOString();
-    const duration = workoutTimer;
-    const notes = savedWorkout?.notes || "";
-
     // Log outgoing payload for debugging
     console.log('Saving closed workout with payload:', {
       user_id: userId,
@@ -374,7 +460,6 @@ const HomeScreen = ({ route, navigation }) => {
       duration,
       notes,
     });
-
     // Save closed workout to backend
     try {
       const response = await axios.post("http://localhost:5001/api/closed_workouts", {
@@ -388,11 +473,12 @@ const HomeScreen = ({ route, navigation }) => {
       });
       console.log('Backend response:', response.data);
       Alert.alert("Workout Saved", "Your workout has been saved to your history.");
+      // After saving, navigate to Profile and trigger a refresh
+      navigation.navigate('Profile', { refreshHistory: true });
     } catch (err) {
       console.error("Failed to save closed workout:", err?.response?.data || err.message);
       Alert.alert("Error", err?.response?.data?.error || "Failed to save workout to server.");
     }
-
     // --- Reset workout state ---
     setIsTimerRunning(false);
     setWorkoutInProgress(false);
@@ -674,17 +760,18 @@ const HomeScreen = ({ route, navigation }) => {
               marginLeft: 16,
               flexDirection: 'row',
               alignItems: 'center',
-              opacity: workoutInProgress ? 1 : 0.5, // PATCH: allow end button if workoutInProgress
+              opacity: 1, // Always enabled
             },
           ]}
           onPress={() => {
+            console.log("End Workout button was pressed. workoutInProgress:", workoutInProgress);
             if (workoutInProgress) {
               endWorkout();
             } else {
               Alert.alert("No workout in progress", "Start a workout before ending it.");
             }
           }}
-          disabled={!workoutInProgress} // PATCH: only require workoutInProgress
+          disabled={false} // Always enabled
         >
           <Ionicons name="checkmark-circle" size={24} color="#4CAF50" style={{ marginRight: 10 }} />
           <Text style={styles.buttonText}>End Workout</Text>

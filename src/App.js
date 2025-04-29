@@ -11,6 +11,7 @@ import HomeScreen from './screens/HomeScreen';
 import AddExerciseScreen from './screens/AddExerciseScreen';
 import SelectRoutineScreen from './screens/SelectRoutineScreen';
 import ConfigureWorkoutScreen from './screens/ConfigureWorkoutScreen';
+import ProfileScreen from './screens/ProfileScreen';
 
 const Stack = createStackNavigator();
 
@@ -64,6 +65,11 @@ export default function App() {
           name="ConfigureWorkout" 
           component={ConfigureWorkoutScreen}
           options={{ title: 'Configure Workout' }}
+        />
+        <Stack.Screen 
+          name="Profile" 
+          component={ProfileScreen}
+          options={{ title: 'Profile' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
