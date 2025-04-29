@@ -1,3 +1,5 @@
+console.log("database.js loaded (start)");
+
 import * as SQLite from "expo-sqlite";
 import * as FileSystem from "expo-file-system";
 import { Asset } from "expo-asset";
@@ -15,6 +17,7 @@ if (Platform.OS === 'web') {
   const staticData = require('./staticExercises');
   STATIC_MUSCLE_GROUPS = staticData.STATIC_MUSCLE_GROUPS;
   STATIC_EXERCISES = staticData.STATIC_EXERCISES;
+  console.log("database.js loaded static data");
 } else {
   // Fallback for native (if needed)
   STATIC_MUSCLE_GROUPS = [
@@ -171,3 +174,5 @@ export const getExercises = (muscleGroup = null) => {
 };
 
 export default db;
+
+console.log("database.js loaded (end)");

@@ -1,3 +1,5 @@
+console.log("index.js loaded (start)");
+
 window.global = window;
 
 import { AppRegistry } from "react-native";

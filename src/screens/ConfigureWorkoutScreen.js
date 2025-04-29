@@ -40,39 +40,63 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
     }))
   );
 
+  // Only load from AsyncStorage or initial params ONCE, and only if no exercises are present
   useEffect(() => {
-    // If this screen is opened for editing (from HomeScreen), load the saved workout
-    const loadSavedWorkout = async () => {
-      const workoutStr = await AsyncStorage.getItem('savedWorkout');
-      if (workoutStr) {
-        const workout = JSON.parse(workoutStr);
-        setWorkoutName(workout.name || '');
-        setExerciseConfigs(Array.isArray(workout.exercises) ? workout.exercises : []);
-      }
-    };
-    // Only load on first mount if there are no exercises in state
-    if (safeExercises.length === 0 && exerciseConfigs.length === 0) {
+    if (
+      exerciseConfigs.length === 0 &&
+      (!route.params?.selectedExercises || route.params.selectedExercises.length === 0)
+    ) {
+      const loadSavedWorkout = async () => {
+        const workoutStr = await AsyncStorage.getItem('savedWorkout');
+        if (workoutStr) {
+          const workout = JSON.parse(workoutStr);
+          setWorkoutName(workout.name || '');
+          setExerciseConfigs(Array.isArray(workout.exercises) ? workout.exercises : []);
+        } else if (Array.isArray(safeExercises) && safeExercises.length > 0) {
+          setExerciseConfigs(
+            safeExercises.map(exercise => ({
+              ...exercise,
+              sets: exercise.sets && Array.isArray(exercise.sets) && exercise.sets.length > 0
+                ? exercise.sets
+                : [{ setType: 'numbered', reps: '10', weight: '', notes: '' }]
+            }))
+          );
+        }
+      };
       loadSavedWorkout();
     }
   }, []);
 
+  // Always prioritize selectedExercises param if present
   useEffect(() => {
-    if (route.params?.addExercises) {
-      // Avoid duplicates by id
-      const newExercises = route.params.addExercises.filter(
-        (ex) => !exerciseConfigs.some((cfg) => cfg.id === ex.id)
+    if (route.params?.selectedExercises && Array.isArray(route.params.selectedExercises)) {
+      console.log('[ConfigureWorkoutScreen] Received selectedExercises param:', route.params.selectedExercises);
+      setExerciseConfigs(
+        route.params.selectedExercises.map(ex => ({
+          ...ex,
+          sets: ex.sets && Array.isArray(ex.sets) && ex.sets.length > 0
+            ? ex.sets
+            : [{ setType: 'numbered', reps: '10', weight: '', notes: '' }]
+        }))
       );
-      if (newExercises.length > 0) {
-        setExerciseConfigs((prev) => [
-          ...prev,
-          ...newExercises.map(ex => ({
-            ...ex,
-            sets: ex.sets && Array.isArray(ex.sets) && ex.sets.length > 0 ? ex.sets : [{ setType: 'numbered', reps: '10', weight: '' }],
-          }))
-        ]);
-      }
-      // Clean up param so it doesn't re-add on rerender
-      navigation.setParams({ addExercises: undefined });
+      navigation.setParams({ selectedExercises: undefined });
+    }
+  }, [route.params?.selectedExercises]);
+
+  useEffect(() => {
+    console.log('[ConfigureWorkoutScreen] exerciseConfigs updated:', exerciseConfigs);
+  }, [exerciseConfigs]);
+
+  useEffect(() => {
+    if (route.params?.addExercises && Array.isArray(route.params.addExercises) && route.params.addExercises.length > 0) {
+      setExerciseConfigs(prev => [
+        ...prev,
+        ...route.params.addExercises.filter(
+          newEx => !prev.some(existing => existing.id === newEx.id)
+        )
+      ]);
+      // Clear the param to prevent repeated additions
+      navigation.setParams({ addExercises: [] });
     }
   }, [route.params?.addExercises]);
 
@@ -156,7 +180,8 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
       exercises: exerciseConfigs
     };
     await AsyncStorage.setItem('savedWorkout', JSON.stringify(workout));
-    navigation.navigate('Home', { workoutJustSaved: true });
+    // Pop to the top of the stack (Home)
+    navigation.popToTop();
   };
 
   const renderSet = (exerciseIdx, set, setIdx, setsLength) => (

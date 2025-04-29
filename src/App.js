@@ -1,7 +1,9 @@
+console.log("App.js loaded (start)");
+
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { initDatabase } from './database/database';
+// import { initDatabase } from './database/database';
 
 // Import screens
 import LoginScreen from './screens/LoginScreen';
@@ -13,16 +15,16 @@ import ConfigureWorkoutScreen from './screens/ConfigureWorkoutScreen';
 const Stack = createStackNavigator();
 
 export default function App() {
-  useEffect(() => {
-    const setupDatabase = async () => {
-      try {
-        await initDatabase();
-      } catch (error) {
-        console.error('Failed to initialize database:', error);
-      }
-    };
-    setupDatabase();
-  }, []);
+  // useEffect(() => {
+  //   const setupDatabase = async () => {
+  //     try {
+  //       await initDatabase();
+  //     } catch (error) {
+  //       console.error('Failed to initialize database:', error);
+  //     }
+  //   };
+  //   setupDatabase();
+  // }, []);
 
   return (
     <NavigationContainer>
