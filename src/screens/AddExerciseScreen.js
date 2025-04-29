@@ -24,7 +24,7 @@ import { useState, useEffect, useCallback } from "react";
 
 const AddExerciseScreen = ({ navigation, route }) => {
   console.log("AddExerciseScreen: component render start");
-  const { muscleGroup, muscleGroupId, previousExercises, returnToPreset } = route?.params || {};
+  const { muscleGroup, muscleGroupId, previousExercises, returnToPreset, onReturnToPreset } = route?.params || {};
   const safePreviousExercises = Array.isArray(previousExercises) ? previousExercises : [];
   const [selectedExercises, setSelectedExercises] = useState(safePreviousExercises);
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,15 +141,9 @@ const AddExerciseScreen = ({ navigation, route }) => {
   const handleSaveExercises = () => {
     console.log("[AddExerciseScreen] handleSaveExercises called");
     console.log("[AddExerciseScreen] selectedExercises:", selectedExercises);
-    if (route.params && route.params.returnToPreset) {
-      navigation.navigate({
-        name: "Profile",
-        params: {
-          selectedExercisesForPreset: [...selectedExercises],
-          showPresetModal: true
-        },
-        merge: true
-      });
+    if (route.params && route.params.returnToPreset && route.params.onReturnToPreset) {
+      route.params.onReturnToPreset([...selectedExercises]);
+      navigation.goBack();
     } else {
       console.log("[AddExerciseScreen] Navigating to ConfigureWorkout with selectedExercises:", selectedExercises);
       navigation.navigate({

@@ -276,11 +276,28 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
           placeholderTextColor="#666"
         />
       </View>
-      {/* Move Add Exercise Button to the top */}
-      <TouchableOpacity style={styles.addExerciseButton} onPress={() => navigation.navigate('AddExercise', { previousExercises: exerciseConfigs })}>
-        <Ionicons name="add-circle" size={28} color="#fff" style={{ marginRight: 12 }} />
-        <Text style={styles.addExerciseButtonText}>Add Exercise</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', marginBottom: 16 }}>
+        <TouchableOpacity
+          style={[styles.addExerciseButton, { marginRight: 12 }]}
+          onPress={() => navigation.navigate('AddExercise', { onGoBack: () => {} })}
+        >
+          <Ionicons name="add-circle-outline" size={22} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.addExerciseButtonText}>Add Exercise</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.addExerciseButton, { backgroundColor: '#4b2e83' }]}
+          onPress={() => navigation.navigate('WorkoutPresets', { onSelectPreset: (preset) => {
+            if (preset && Array.isArray(preset.exercises)) {
+              setExerciseConfigs(preset.exercises);
+              setWorkoutName(preset.name || '');
+            }
+            navigation.goBack();
+          } })}
+        >
+          <Ionicons name="download-outline" size={22} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.addExerciseButtonText}>Load Preset</Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={exerciseConfigs}
         renderItem={renderExerciseConfig}

@@ -136,15 +136,17 @@ const WorkoutPresets = () => {
       editingPreset,
       pendingAddExercise: true
     });
-    // Animate modal out, then navigate after animation completes
     setModalVisible(false);
-    // Use InteractionManager to guarantee all animations and state flush before navigation
     import('react-native').then(({ InteractionManager }) => {
       InteractionManager.runAfterInteractions(() => {
         setPendingPreset(prev => prev ? { ...prev, pendingAddExercise: false } : prev);
         navigation.navigate('AddExercise', {
           previousExercises: presetExercises,
-          returnToPreset: true
+          returnToPreset: true,
+          onReturnToPreset: (newExercises) => {
+            setPresetExercises(newExercises);
+            setModalVisible(true);
+          }
         });
       });
     });
