@@ -3,6 +3,7 @@ console.log("App.js loaded (start)");
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { navigationRef } from './navigationRef';
 // import { initDatabase } from './database/database';
 
 // Import screens
@@ -28,7 +29,7 @@ export default function App() {
   // }, []);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="Login"
         screenOptions={{

@@ -778,6 +778,14 @@ const HomeScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* DEBUG: Direct navigation to Select Routine */}
+      <TouchableOpacity
+        style={{ backgroundColor: 'purple', padding: 12, margin: 12, borderRadius: 8 }}
+        onPress={() => navigation.navigate('SelectRoutine')}
+      >
+        <Text style={{ color: 'white', fontWeight: 'bold' }}>Go Directly to Select Routine</Text>
+      </TouchableOpacity>
+
       {/* Reset button to show all muscles */}
       {selectedGroup !== null && (
         <TouchableOpacity

@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { StackActions } from '@react-navigation/native';
 
 const setTypes = [
   { label: 'Warmup', value: 'warmup' },
@@ -286,16 +287,10 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.addExerciseButton, { backgroundColor: '#4b2e83' }]}
-          onPress={() => navigation.navigate('WorkoutPresets', { onSelectPreset: (preset) => {
-            if (preset && Array.isArray(preset.exercises)) {
-              setExerciseConfigs(preset.exercises);
-              setWorkoutName(preset.name || '');
-            }
-            navigation.goBack();
-          } })}
+          onPress={() => navigation.dispatch(StackActions.push('SelectRoutine'))}
         >
-          <Ionicons name="download-outline" size={22} color="#fff" style={{ marginRight: 6 }} />
-          <Text style={styles.addExerciseButtonText}>Load Preset</Text>
+          <Ionicons name="list-outline" size={22} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.addExerciseButtonText}>Select Routine</Text>
         </TouchableOpacity>
       </View>
       <FlatList
