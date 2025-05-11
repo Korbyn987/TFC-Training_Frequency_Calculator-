@@ -1,52 +1,77 @@
-const createExpoWebpackConfigAsync = require('@expo/webpack-config');
+const createExpoWebpackConfig = require('@expo/webpack-config');
 const webpack = require('webpack');
 const path = require('path');
 
 module.exports = async function (env, argv) {
-  const config = await createExpoWebpackConfigAsync(env, argv);
-  
+  const config = await createExpoWebpackConfig({
+    ...env,
+    babel: {
+      dangerouslyAddModulePathsToTranspile: ['@react-navigation'],
+    },
+  }, argv);
+
   // Customize the config before returning it.
-  config.resolve.alias = {
-    ...config.resolve.alias,
-    'react-native$': 'react-native-web',
-    'expo-file-system': path.resolve(__dirname, 'src/shims/expo-file-system.web.js'),
+  config.resolve = {
+    ...config.resolve,
+    alias: {
+      ...config.resolve?.alias,
+      'react-native$': 'react-native-web',
+      'expo-file-system': path.resolve(__dirname, 'src/shims/expo-file-system.web.js'),
+    },
+    extensions: [
+      '.web.js',
+      '.web.jsx',
+      '.web.ts',
+      '.web.tsx',
+      '.js',
+      '.jsx',
+      '.ts',
+      '.tsx',
+    ],
+    fallback: {
+      ...config.resolve?.fallback,
+      crypto: false,
+      path: false,
+      util: false,
+      stream: false,
+      buffer: false,
+      process: false,
+    },
   };
 
-  // Add web-specific configurations
-  config.resolve.extensions = [
-    '.web.js',
-    '.web.jsx',
-    '.web.ts',
-    '.web.tsx',
-    '.js',
-    '.jsx',
-    '.ts',
-    '.tsx'
-  ];
-
-  // Add Node.js polyfills for newer Node versions
-  config.resolve.fallback = {
-    ...config.resolve.fallback,
-    "crypto": require.resolve("crypto-browserify"),
-    "stream": require.resolve("stream-browserify"),
-    "buffer": require.resolve("buffer/"),
-    "process": require.resolve("process/browser"),
-  };
-
-  // Add plugins for polyfills
-  config.plugins.push(
+  // Add plugins for polyfills if needed
+  config.plugins = [
+    ...(config.plugins || []),
     new webpack.ProvidePlugin({
       process: 'process/browser',
       Buffer: ['buffer', 'Buffer'],
-    })
-  );
-
-  // Ignore expo-file-system entirely on web to prevent warnings and Buffer errors
-  config.plugins.push(
+    }),
     new webpack.IgnorePlugin({
       resourceRegExp: /^expo-file-system$/
     })
-  );
+  ];
+
+  // Handle MIME type errors
+  config.module = {
+    ...config.module,
+    rules: [
+      ...(config.module?.rules || []),
+      {
+        test: /\.(js|jsx|ts|tsx)$/,
+        exclude: /node_modules\/(?!(@react-navigation|react-native-gesture-handler|react-native-reanimated|@react-native-community\/masked-view|react-native-screens|react-native-safe-area-context|@react-navigation\/.*|@react-navigation\/.*\/.*)\/).*/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'],
+            plugins: [
+              '@babel/plugin-proposal-export-namespace-from',
+              'react-native-reanimated/plugin',
+            ],
+          },
+        },
+      },
+    ],
+  };
 
   return config;
 };
