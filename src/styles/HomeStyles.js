@@ -91,6 +91,28 @@ export const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.8)",
     marginTop: 4,
   },
+  nextWorkoutContainer: {
+    backgroundColor: '#6b46c1',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  nextWorkoutText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'left',
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  lastWorkoutText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    textAlign: 'left',
+    fontStyle: 'italic',
+  },
   subtitle: {
     fontSize: 18,
     color: "rgba(255, 255, 255, 0.8)",

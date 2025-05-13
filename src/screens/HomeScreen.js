@@ -75,6 +75,94 @@ const HomeScreen = ({ route, navigation }) => {
     }
   };
 
+  // Get muscle status from Redux store
+  const muscleStatus = useSelector((state) => state.workout?.muscleStatus) || {};
+  const workouts = useSelector((state) => state.workout?.workouts || []);
+
+  // Function to format time in a user-friendly way
+  const formatTimeLeft = (hours) => {
+    if (hours <= 0) return 'now';
+    
+    const days = Math.floor(hours / 24);
+    const remainingHours = Math.ceil(hours % 24);
+    
+    if (days > 0) {
+      return `${days} day${days > 1 ? 's' : ''}${remainingHours > 0 ? ` and ${remainingHours} hour${remainingHours > 1 ? 's' : ''}` : ''}`;
+    }
+    return `${remainingHours} hour${remainingHours > 1 ? 's' : ''}`;
+  };
+
+  // Function to get next recommended workout time
+  const getNextWorkoutTime = () => {
+    if (!workouts || workouts.length === 0) {
+      return { 
+        message: 'No workout history found. Ready for your first workout!', 
+        timeLeft: 0,
+        status: 'ready'
+      };
+    }
+
+    // Get the most recent workout
+    const latestWorkout = [...workouts].sort((a, b) => 
+      new Date(b.date) - new Date(a.date)
+    )[0];
+
+    if (!latestWorkout || !latestWorkout.muscles || latestWorkout.muscles.length === 0) {
+      return { 
+        message: 'No muscle data in latest workout', 
+        timeLeft: 0,
+        status: 'ready'
+      };
+    }
+
+    // Find the muscle group with the longest recovery time
+    let longestRecovery = { timeLeft: 0, muscle: '', recoveryTime: 0 };
+    
+    latestWorkout.muscles.forEach(muscleName => {
+      const muscleKey = muscleName.toLowerCase();
+      const muscleData = muscleStatus[muscleKey];
+      
+      if (muscleData && muscleData.lastWorkout) {
+        const recoveryTime = muscleData.recoveryTime || 72; // Default to 72 hours if not set
+        const lastWorkout = new Date(muscleData.lastWorkout);
+        const now = new Date();
+        const hoursSinceWorkout = (now - lastWorkout) / (1000 * 60 * 60);
+        const timeLeft = Math.max(0, recoveryTime - hoursSinceWorkout);
+        
+        if (timeLeft > longestRecovery.timeLeft) {
+          longestRecovery = {
+            timeLeft,
+            muscle: muscleName,
+            recoveryTime,
+            lastWorkout: muscleData.lastWorkout
+          };
+        }
+      }
+    });
+
+    if (longestRecovery.timeLeft > 0) {
+      const timeLeftFormatted = formatTimeLeft(longestRecovery.timeLeft);
+      const recoveryTimeFormatted = formatTimeLeft(longestRecovery.recoveryTime);
+      
+      return {
+        message: `Next workout in ~${timeLeftFormatted} (${longestRecovery.muscle} recovery: ${recoveryTimeFormatted})`,
+        timeLeft: longestRecovery.timeLeft,
+        muscle: longestRecovery.muscle,
+        status: longestRecovery.timeLeft < 24 ? 'soon' : 'wait',
+        lastWorkout: longestRecovery.lastWorkout
+      };
+    }
+    
+    return { 
+      message: 'Ready for your next workout!', 
+      timeLeft: 0,
+      status: 'ready'
+    };
+  };
+
+  // Get next workout information
+  const nextWorkoutInfo = getNextWorkoutTime();
+
   // Function to load streak from AsyncStorage
   const loadStreak = async () => {
     try {
@@ -583,6 +671,12 @@ const HomeScreen = ({ route, navigation }) => {
   const renderMuscleSelectionBanner = () => {
     if (!workoutInProgress) return null;
 
+    const getStatusColor = (timeLeft) => {
+      if (timeLeft <= 0) return '#10b981'; // Green - Ready to train
+      if (timeLeft < 24) return '#f59e0b'; // Yellow - Almost ready
+      return '#ef4444'; // Red - Needs more recovery
+    };
+
     return (
       <View style={styles.muscleSelectionBanner}>
         <Text style={styles.bannerTitle}>Selected Muscles:</Text>
@@ -684,6 +778,29 @@ const HomeScreen = ({ route, navigation }) => {
       <View style={styles.streakContainer}>
         <Ionicons name="trophy" size={24} color="#FFD700" />
         <Text style={styles.streakText}>{streak} day streak!</Text>
+      </View>
+
+      {/* Next Workout Indicator */}
+      <View style={[
+        styles.nextWorkoutContainer, 
+        { 
+          backgroundColor: nextWorkoutInfo.status === 'ready' ? '#10b981' : 
+                         nextWorkoutInfo.status === 'soon' ? '#f59e0b' : '#ef4444',
+          borderLeftWidth: 6,
+          borderLeftColor: nextWorkoutInfo.status === 'ready' ? '#047857' : 
+                          nextWorkoutInfo.status === 'soon' ? '#b45309' : '#b91c1c'
+        }
+      ]}>
+        <Text style={styles.nextWorkoutText}>
+          {nextWorkoutInfo.status === 'ready' ? '🏋️ ' : 
+           nextWorkoutInfo.status === 'soon' ? '⏳ ' : '⏳ '}
+          {nextWorkoutInfo.message}
+        </Text>
+        {nextWorkoutInfo.lastWorkout && (
+          <Text style={styles.lastWorkoutText}>
+            Last workout: {new Date(nextWorkoutInfo.lastWorkout).toLocaleString()}
+          </Text>
+        )}
       </View>
 
       {/* Quick Stats */}

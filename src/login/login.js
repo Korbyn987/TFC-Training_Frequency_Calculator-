@@ -11,7 +11,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { useDispatch } from "react-redux";
 import { authService } from "../services/authService";
-import { setUser } from "../redux/userSlice";
+import { login } from "../redux/authSlice";
 import ButtonStyles from "../styles/Button";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../styles/loginStyles";
@@ -54,7 +54,7 @@ const LoginScreen = () => {
       const response = await authService.login(identifier, password);
 
       // Dispatch login action with user data
-      dispatch(setUser(response.user));
+      dispatch(login(response.user));
 
       // Persist user to AsyncStorage for React Native
       await AsyncStorage.setItem('user', JSON.stringify(response.user));

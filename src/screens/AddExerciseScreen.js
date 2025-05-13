@@ -11,22 +11,32 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Platform
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   getExercises,
   getMuscleGroups,
-  initDatabase
+  initDatabase,
 } from "../database/database";
 import { useFocusEffect } from "@react-navigation/native";
 import { useState, useEffect, useCallback } from "react";
 
 const AddExerciseScreen = ({ navigation, route }) => {
   console.log("AddExerciseScreen: component render start");
-  const { muscleGroup, muscleGroupId, previousExercises, returnToPreset, onReturnToPreset } = route?.params || {};
-  const safePreviousExercises = Array.isArray(previousExercises) ? previousExercises : [];
-  const [selectedExercises, setSelectedExercises] = useState(safePreviousExercises);
+  const {
+    muscleGroup,
+    muscleGroupId,
+    previousExercises,
+    returnToPreset,
+    onReturnToPreset,
+  } = route?.params || {};
+  const safePreviousExercises = Array.isArray(previousExercises)
+    ? previousExercises
+    : [];
+  const [selectedExercises, setSelectedExercises] = useState(
+    safePreviousExercises
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
   const [muscleGroups, setMuscleGroups] = useState([]);
@@ -113,16 +123,30 @@ const AddExerciseScreen = ({ navigation, route }) => {
   if (error) {
     console.log("AddExerciseScreen: rendering error UI", error);
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#171923' }}>
-        <Text style={{ color: '#fc8181', fontSize: 18 }}>Error: {error}</Text>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#171923",
+        }}
+      >
+        <Text style={{ color: "#fc8181", fontSize: 18 }}>Error: {error}</Text>
       </View>
     );
   }
   if (loading) {
     console.log("AddExerciseScreen: rendering loading UI");
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#171923' }}>
-        <Text style={{ color: '#fff', fontSize: 18 }}>Loading...</Text>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#171923",
+        }}
+      >
+        <Text style={{ color: "#fff", fontSize: 18 }}>Loading...</Text>
       </View>
     );
   }
@@ -141,15 +165,22 @@ const AddExerciseScreen = ({ navigation, route }) => {
   const handleSaveExercises = () => {
     console.log("[AddExerciseScreen] handleSaveExercises called");
     console.log("[AddExerciseScreen] selectedExercises:", selectedExercises);
-    if (route.params && route.params.returnToPreset && route.params.onReturnToPreset) {
+    if (
+      route.params &&
+      route.params.returnToPreset &&
+      route.params.onReturnToPreset
+    ) {
       route.params.onReturnToPreset([...selectedExercises]);
       navigation.goBack();
     } else {
-      console.log("[AddExerciseScreen] Navigating to ConfigureWorkout with selectedExercises:", selectedExercises);
+      console.log(
+        "[AddExerciseScreen] Navigating to ConfigureWorkout with selectedExercises:",
+        selectedExercises
+      );
       navigation.navigate({
         name: "ConfigureWorkout",
         params: { selectedExercises: [...selectedExercises] },
-        merge: true
+        merge: true,
       });
     }
   };
@@ -174,7 +205,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
       key={group ? group.id : "all"}
       style={[
         styles.groupButton,
-        activeGroup === (group ? group.id : "All") && styles.activeGroupButton
+        activeGroup === (group ? group.id : "All") && styles.activeGroupButton,
       ]}
       onPress={() => {
         console.log("Selected muscle group:", group ? group.name : "All");
@@ -185,7 +216,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
         style={[
           styles.groupButtonText,
           activeGroup === (group ? group.id : "All") &&
-            styles.activeGroupButtonText
+            styles.activeGroupButtonText,
         ]}
       >
         {group ? group.name : "All"}
@@ -198,7 +229,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
       style={[
         styles.exerciseItem,
         selectedExercises.find((e) => e.id === item.id) &&
-          styles.selectedExerciseItem
+          styles.selectedExerciseItem,
       ]}
       onPress={() => handleSelectExercise(item)}
     >
@@ -207,7 +238,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
           style={[
             styles.exerciseText,
             selectedExercises.find((e) => e.id === item.id) &&
-              styles.selectedExerciseText
+              styles.selectedExerciseText,
           ]}
         >
           {item.name}
@@ -260,7 +291,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
           <TouchableOpacity
             style={[
               styles.saveButton,
-              selectedExercises.length === 0 && styles.disabledButton
+              selectedExercises.length === 0 && styles.disabledButton,
             ]}
             onPress={handleSaveExercises}
             disabled={selectedExercises.length === 0}
@@ -279,37 +310,37 @@ const AddExerciseScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#171923"
+    backgroundColor: "#171923",
   },
   loadingContainer: {
     flex: 1,
     backgroundColor: "#171923",
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
   },
   errorContainer: {
     flex: 1,
     backgroundColor: "#171923",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20
+    padding: 20,
   },
   errorText: {
     color: "#fc8181",
     fontSize: 16,
     textAlign: "center",
-    marginBottom: 16
+    marginBottom: 16,
   },
   retryButton: {
     backgroundColor: "#6b46c1",
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8
+    borderRadius: 8,
   },
   retryButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
   searchContainer: {
     flexDirection: "row",
@@ -317,23 +348,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#2D3748",
     margin: 16,
     paddingHorizontal: 16,
-    borderRadius: 8
+    borderRadius: 8,
   },
   searchIcon: {
-    marginRight: 8
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     height: 48,
     color: "#fff",
-    fontSize: 16
+    fontSize: 16,
   },
   groupButtonContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
     marginVertical: 8,
-    gap: 6 // for React Native Web, otherwise use margin
+    gap: 6, // for React Native Web, otherwise use margin
   },
   groupButton: {
     paddingVertical: 4,
@@ -346,27 +377,27 @@ const styles = StyleSheet.create({
     minHeight: 32,
     elevation: 1,
     borderWidth: 1,
-    borderColor: "#4a5568"
+    borderColor: "#4a5568",
   },
   activeGroupButton: {
     backgroundColor: "#6b46c1",
-    borderColor: "#a78bfa"
+    borderColor: "#a78bfa",
   },
   groupButtonText: {
     color: "#e2e8f0",
     fontSize: 13,
     fontWeight: "500",
-    letterSpacing: 0.2
+    letterSpacing: 0.2,
   },
   activeGroupButtonText: {
     color: "#fff",
-    fontWeight: "700"
+    fontWeight: "700",
   },
   list: {
-    flex: 1
+    flex: 1,
   },
   listContent: {
-    padding: 16
+    padding: 16,
   },
   exerciseItem: {
     flexDirection: "row",
@@ -375,43 +406,43 @@ const styles = StyleSheet.create({
     backgroundColor: "#2D3748",
     padding: 16,
     borderRadius: 8,
-    marginBottom: 8
+    marginBottom: 8,
   },
   exerciseContent: {
     flex: 1,
-    marginRight: 16
+    marginRight: 16,
   },
   selectedExerciseItem: {
     backgroundColor: "#2D3748",
     borderColor: "#6b46c1",
-    borderWidth: 2
+    borderWidth: 2,
   },
   exerciseText: {
     color: "#fff",
-    fontSize: 16
+    fontSize: 16,
   },
   exerciseDescription: {
     color: "#A0AEC0",
     fontSize: 14,
-    marginTop: 4
+    marginTop: 4,
   },
   selectedExerciseText: {
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
   saveButton: {
     backgroundColor: "#6b46c1",
     margin: 16,
     padding: 16,
     borderRadius: 8,
-    alignItems: "center"
+    alignItems: "center",
   },
   disabledButton: {
-    backgroundColor: "#4A5568"
+    backgroundColor: "#4A5568",
   },
   saveButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold"
+    fontWeight: "bold",
   },
   fixedButtonContainer: {
     position: Platform.OS === "web" ? "fixed" : "absolute",
@@ -424,7 +455,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     zIndex: 100,
     width: "100%",
-    alignItems: "center"
-  }
+    alignItems: "center",
+  },
 });
 export default AddExerciseScreen;

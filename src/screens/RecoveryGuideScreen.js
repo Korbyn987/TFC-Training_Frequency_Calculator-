@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useSelector } from "react-redux";
 import { styles } from "../styles/recoveryGuideStyles";
 import CircularProgress from 'react-native-circular-progress-indicator';
+import { format } from 'date-fns';
 
 const MUSCLE_RECOVERY_TIMES = {
   Biceps: 48,
@@ -22,79 +23,241 @@ const MUSCLE_RECOVERY_TIMES = {
   Core: 48,
 };
 
-const calculateRecovery = (lastWorkout, recoveryTime) => {
-  if (!lastWorkout) return { percentage: 100, timeLeft: 0 };
+const useRecoveryCountdown = (lastWorkout, recoveryTime, muscleName = 'unknown') => {
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [percentage, setPercentage] = useState(0);
+  const [status, setStatus] = useState('Fully Recovered');
+  const [statusDetails, setStatusDetails] = useState('');
+  const [nextAvailable, setNextAvailable] = useState(null);
 
-  const now = new Date();
-  const workoutDate = new Date(lastWorkout);
-  const hoursPassed = (now - workoutDate) / (1000 * 60 * 60);
-  const timeLeft = recoveryTime - hoursPassed;
-  const recoveryPercentage = Math.min((hoursPassed / recoveryTime) * 100, 100);
-  
+  useEffect(() => {
+    if (!lastWorkout) {
+      console.log(`Muscle ${muscleName}: No last workout date - considering fully rested`);
+      setPercentage(100);
+      setTimeLeft(0);
+      setStatus('Fully Recovered');
+      setStatusDetails('No workout recorded');
+      setNextAvailable(new Date());
+      return;
+    }
+
+    const calculateRecovery = () => {
+      const now = new Date();
+      const workoutDate = new Date(lastWorkout);
+      
+      if (isNaN(workoutDate.getTime())) {
+        console.warn(`Muscle ${muscleName}: Invalid workout date:`, lastWorkout);
+        setPercentage(100);
+        setTimeLeft(0);
+        setStatus('Fully Recovered');
+        setStatusDetails('Invalid workout date');
+        setNextAvailable(now);
+        return;
+      }
+
+      // Calculate time difference in seconds for more precise countdown
+      const timeDiffInSeconds = (now - workoutDate) / 1000;
+      const recoveryTimeInSeconds = recoveryTime * 3600; // Convert hours to seconds
+      const timeLeftInSeconds = Math.max(0, recoveryTimeInSeconds - timeDiffInSeconds);
+      const timeLeftInHours = timeLeftInSeconds / 3600; // Convert back to hours for percentage
+      const percentage = Math.min(100, ((recoveryTimeInSeconds - timeLeftInSeconds) / recoveryTimeInSeconds) * 100);
+      
+      // Calculate next available time
+      const nextAvailableTime = new Date(workoutDate);
+      nextAvailableTime.setHours(nextAvailableTime.getHours() + recoveryTime);
+      
+      let status, statusDetails;
+      
+      if (timeLeftInSeconds <= 0) {
+        status = 'Fully Recovered';
+        statusDetails = 'Ready to train';
+      } else {
+        status = 'Recovering';
+        // Format time left with days, hours, minutes, and seconds
+        const days = Math.floor(timeLeftInSeconds / 86400);
+        const hours = Math.floor((timeLeftInSeconds % 86400) / 3600);
+        const minutes = Math.floor((timeLeftInSeconds % 3600) / 60);
+        const seconds = Math.floor(timeLeftInSeconds % 60);
+        
+        if (days > 0) {
+          statusDetails = `Ready in ~${days}d ${hours}h ${minutes}m`;
+        } else if (hours > 0) {
+          statusDetails = `Ready in ~${hours}h ${minutes}m ${seconds}s`;
+        } else {
+          statusDetails = `Ready in ~${minutes}m ${seconds}s`;
+        }
+      }
+      
+      setTimeLeft(timeLeftInHours);
+      setPercentage(percentage);
+      setStatus(status);
+      setStatusDetails(statusDetails);
+      setNextAvailable(nextAvailableTime);
+    };
+
+    // Calculate immediately
+    calculateRecovery();
+    
+    // Update every second for smooth countdown
+    const interval = setInterval(calculateRecovery, 1000);
+    
+    return () => clearInterval(interval);
+  }, [lastWorkout, recoveryTime, muscleName]);
+
   return {
-    percentage: recoveryPercentage,
-    timeLeft: timeLeft > 0 ? timeLeft : 0,
-    hoursPassed,
+    timeLeft,
+    percentage,
+    status,
+    statusDetails,
+    nextAvailable
   };
 };
 
 const MuscleRecoveryMeter = ({ muscleName, lastWorkout, recoveryTime }) => {
-  const { percentage, timeLeft } = calculateRecovery(lastWorkout, recoveryTime);
+  const { percentage, status, statusDetails, nextAvailable, timeLeft } = useRecoveryCountdown(
+    lastWorkout,
+    recoveryTime,
+    muscleName
+  );
 
-  const getGradientColor = (percent) => {
-    if (percent <= 33) return '#553c9a';
-    if (percent <= 66) return '#805ad5';
-    return '#9f7aea';
+  // Format the remaining time for countdown with seconds
+  const formatTimeLeft = (hours) => {
+    if (hours <= 0) return 'Now';
+    
+    // Convert hours to seconds for more precise calculation
+    const totalSeconds = Math.ceil(hours * 3600);
+    const days = Math.floor(totalSeconds / 86400);
+    const hoursRemaining = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (days > 0) {
+      return `${days}d ${hoursRemaining}h ${minutes}m`;
+    } else if (hoursRemaining > 0) {
+      return `${hoursRemaining}h ${minutes}m ${seconds}s`;
+    } else {
+      return `${minutes}m ${seconds}s`;
+    }
+  };
+
+  // Determine the color based on status
+  const getStatusColor = () => {
+    if (status === 'Fully Recovered') return '#10b981'; // Green
+    if (status === 'Recovering') return timeLeft < 24 ? '#f59e0b' : '#ef4444'; // Yellow if <24h, else Red
+    return '#ef4444'; // Red
   };
 
   return (
     <View style={styles.muscleCard}>
-      <Text style={styles.muscleName}>{muscleName}</Text>
+      <View style={styles.muscleHeader}>
+        <Text style={styles.muscleName}>{muscleName}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
+          <Text style={styles.statusText}>{status}</Text>
+        </View>
+      </View>
       <View style={styles.progressContainer}>
         <CircularProgress
           value={percentage}
-          radius={30}
+          radius={40}
           duration={1000}
-          progressValueColor={'#2d3748'}
+          progressValueColor={getStatusColor()}
+          activeStrokeColor={getStatusColor()}
+          inActiveStrokeColor="#e5e7eb"
           maxValue={100}
-          title={'%'}
-          titleColor={'#2d3748'}
-          titleStyle={{ fontWeight: 'bold' }}
-          activeStrokeColor={getGradientColor(percentage)}
-          inActiveStrokeColor={'#e2e8f0'}
-          inActiveStrokeOpacity={0.5}
-          inActiveStrokeWidth={6}
-          activeStrokeWidth={12}
+          title={`${status === 'Fully Recovered' ? 'Ready' : formatTimeLeft(timeLeft)}`}
+          titleStyle={[styles.progressTitle, { color: getStatusColor() }]}
+          titleFontSize={14}
+          progressValueFontSize={16}
+          progressValueStyle={{ fontWeight: 'bold' }}
         />
+        <View style={styles.recoveryInfo}>
+          <Text style={styles.recoveryText}>
+            Recovery: {recoveryTime}h
+          </Text>
+          <Text style={[styles.recoveryText, { color: getStatusColor() }]}>
+            {statusDetails}
+          </Text>
+          {nextAvailable && status !== 'Fully Recovered' && (
+            <Text style={[styles.recoveryText, { fontSize: 12, opacity: 0.8 }]}>
+              Ready by: {format(nextAvailable, 'MMM d, h:mm a')}
+            </Text>
+          )}
+        </View>
       </View>
-      <Text style={styles.recoveryText}>
-        {timeLeft > 0
-          ? `${Math.ceil(timeLeft)}h until fully recovered`
-          : 'Fully Recovered'}
-      </Text>
     </View>
   );
 };
 
 const RecoveryGuideScreen = () => {
-  const workouts = useSelector((state) => state.workouts?.workouts) || {};
+  // Get the muscle status from Redux store
+  const muscleStatus = useSelector((state) => state.workout?.muscleStatus) || {};
+  const workouts = useSelector((state) => state.workout?.workouts || []);
+  
+  console.log('RecoveryGuideScreen - Raw muscle status from Redux:', muscleStatus);
+  console.log('Total workouts in history:', workouts.length);
+  
+  // Default muscle groups with their recovery times (in hours)
+  const defaultMuscleGroups = {
+    'Chest': { recoveryTime: 72 },
+    'Biceps': { recoveryTime: 48 },
+    'Triceps': { recoveryTime: 48 },
+    'Back': { recoveryTime: 72 },
+    'Shoulders': { recoveryTime: 48 },
+    'Core': { recoveryTime: 24 }, // Maps to 'abs' in Redux
+    'Forearms': { recoveryTime: 48 },
+    'Traps': { recoveryTime: 48 },
+    'Quads': { recoveryTime: 72 },
+    'Hamstrings': { recoveryTime: 72 },
+    'Calves': { recoveryTime: 48 },
+    'Glutes': { recoveryTime: 72 }
+  };
+
+  // Create a map of muscle display names to their status
+  const muscleGroups = { ...defaultMuscleGroups };
+  
+  // Update with actual data from Redux
+  Object.entries(muscleStatus).forEach(([muscleKey, data]) => {
+    // Convert the key to display name (capitalized first letter)
+    const displayName = muscleKey.charAt(0).toUpperCase() + muscleKey.slice(1);
+    
+    // Special case for 'abs' which is stored as 'abs' but displayed as 'Core'
+    const displayNameToUse = muscleKey === 'abs' ? 'Core' : displayName;
+    
+    if (muscleGroups[displayNameToUse]) {
+      muscleGroups[displayNameToUse] = {
+        ...muscleGroups[displayNameToUse],
+        lastWorkout: data.lastWorkout,
+        recoveryTime: data.recoveryTime || defaultMuscleGroups[displayNameToUse]?.recoveryTime || 48
+      };
+      console.log(`Updated muscle group ${displayNameToUse} with data:`, data);
+    } else {
+      console.warn(`No matching display name for muscle key: ${muscleKey} (tried ${displayName} and ${displayNameToUse})`);
+    }
+  });
+  
+  // Log the final processed data for debugging
+  console.log('Final muscle groups with recovery data:', muscleGroups);
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Recovery Guide</Text>
         <Text style={styles.subtitle}>Track your muscle recovery status</Text>
+        <Text style={styles.workoutCount}>Total Workouts: {workouts.length}</Text>
       </View>
 
       <View style={styles.content}>
-        {Object.entries(MUSCLE_RECOVERY_TIMES).map(([muscle, recoveryTime]) => (
-          <MuscleRecoveryMeter
-            key={muscle}
-            muscleName={muscle}
-            lastWorkout={workouts[muscle]?.lastWorkout}
-            recoveryTime={recoveryTime}
-          />
-        ))}
+        {Object.entries(muscleGroups).map(([muscle, data]) => {
+          const recoveryTime = data.recoveryTime || 48; // Default to 48 hours if not set
+          return (
+            <MuscleRecoveryMeter
+              key={muscle}
+              muscleName={muscle}
+              lastWorkout={data.lastWorkout}
+              recoveryTime={recoveryTime}
+            />
+          );
+        })}
       </View>
     </ScrollView>
   );

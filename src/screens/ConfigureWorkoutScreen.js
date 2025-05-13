@@ -10,9 +10,12 @@ import {
   Picker,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { useFocusEffect } from '@react-navigation/native';
 import { StackActions } from '@react-navigation/native';
+import { useDispatch } from 'react-redux';
+import { Alert } from 'react-native';
+import { addWorkout } from '../redux/workoutSlice';
 
 const setTypes = [
   { label: 'Warmup', value: 'warmup' },
@@ -21,7 +24,82 @@ const setTypes = [
   { label: 'Drop', value: 'drop' },
 ];
 
+// Map of exercise IDs to muscle group names
+// Note: These must match the muscle group names used in the Redux store
+const EXERCISE_TO_MUSCLE_GROUP = {
+  // Chest (1)
+  1: 'Chest', 2: 'Chest', 3: 'Chest', 4: 'Chest', 5: 'Chest', 6: 'Chest',
+  7: 'Chest', 8: 'Chest', 9: 'Chest', 10: 'Chest', 11: 'Chest', 12: 'Chest',
+  13: 'Chest', 14: 'Chest', 15: 'Chest', 16: 'Chest', 17: 'Chest', 18: 'Chest',
+  19: 'Chest', 20: 'Chest', 21: 'Chest', 22: 'Chest', 23: 'Chest', 24: 'Chest',
+  25: 'Chest', 26: 'Chest', 27: 'Chest',
+  
+  // Biceps (2)
+  28: 'Biceps', 29: 'Biceps', 30: 'Biceps', 31: 'Biceps', 32: 'Biceps', 
+  33: 'Biceps', 34: 'Biceps', 35: 'Biceps', 36: 'Biceps', 37: 'Biceps',
+  38: 'Biceps', 39: 'Biceps',
+  
+  // Triceps (3)
+  40: 'Triceps', 41: 'Triceps', 42: 'Triceps', 43: 'Triceps', 44: 'Triceps',
+  45: 'Triceps', 46: 'Triceps', 47: 'Triceps', 48: 'Triceps', 49: 'Triceps',
+  50: 'Triceps', 51: 'Triceps',
+  
+  // Back (4)
+  52: 'Back', 53: 'Back', 54: 'Back', 55: 'Back', 56: 'Back', 57: 'Back',
+  58: 'Back', 59: 'Back', 60: 'Back', 61: 'Back', 62: 'Back', 63: 'Back',
+  64: 'Back', 65: 'Back', 66: 'Back', 67: 'Back', 68: 'Back', 69: 'Back',
+  70: 'Back', 71: 'Back', 72: 'Back', 73: 'Back', 74: 'Back', 75: 'Back',
+  76: 'Back', 77: 'Back', 78: 'Back',
+  
+  // Shoulders (5) - Mapped to 'Shoulders' in Redux store
+  79: 'Shoulders', 80: 'Shoulders', 81: 'Shoulders', 82: 'Shoulders', 83: 'Shoulders',
+  84: 'Shoulders', 85: 'Shoulders', 86: 'Shoulders', 87: 'Shoulders', 88: 'Shoulders',
+  89: 'Shoulders', 90: 'Shoulders', 91: 'Shoulders', 92: 'Shoulders', 93: 'Shoulders',
+  94: 'Shoulders', 95: 'Shoulders', 96: 'Shoulders', 97: 'Shoulders', 98: 'Shoulders',
+  99: 'Shoulders', 100: 'Shoulders', 101: 'Shoulders', 102: 'Shoulders', 103: 'Shoulders',
+  104: 'Shoulders', 105: 'Shoulders', 106: 'Shoulders', 107: 'Shoulders', 108: 'Shoulders',
+  109: 'Shoulders', 110: 'Shoulders', 111: 'Shoulders', 112: 'Shoulders', 113: 'Shoulders',
+  114: 'Shoulders', 115: 'Shoulders', 116: 'Shoulders', 117: 'Shoulders', 118: 'Shoulders',
+  119: 'Shoulders', 120: 'Shoulders', 121: 'Shoulders', 122: 'Shoulders', 123: 'Shoulders',
+  124: 'Shoulders', 125: 'Shoulders', 126: 'Shoulders', 127: 'Shoulders', 128: 'Shoulders',
+  129: 'Shoulders', 130: 'Shoulders', 131: 'Shoulders', 132: 'Shoulders', 133: 'Shoulders',
+  134: 'Shoulders', 135: 'Shoulders', 136: 'Shoulders', 137: 'Shoulders', 138: 'Shoulders',
+  139: 'Shoulders', 140: 'Shoulders', 141: 'Shoulders', 142: 'Shoulders', 143: 'Shoulders',
+  144: 'Shoulders', 145: 'Shoulders', 146: 'Shoulders', 147: 'Shoulders', 148: 'Shoulders',
+  149: 'Shoulders', 150: 'Shoulders', 151: 'Shoulders', 152: 'Shoulders',
+  
+  // Legs (6) - Mapped to specific leg muscles in Redux store
+  // Quads
+  90: 'Quads', 91: 'Quads', 92: 'Quads', 93: 'Quads', 94: 'Quads', 95: 'Quads',
+  96: 'Quads', 97: 'Quads', 98: 'Quads', 99: 'Quads', 100: 'Quads', 101: 'Quads',
+  102: 'Quads', 103: 'Quads', 104: 'Quads', 105: 'Quads', 106: 'Quads', 107: 'Quads',
+  
+  // Hamstrings
+  108: 'Hamstrings', 109: 'Hamstrings', 110: 'Hamstrings', 111: 'Hamstrings', 
+  112: 'Hamstrings', 113: 'Hamstrings', 114: 'Hamstrings', 115: 'Hamstrings',
+  116: 'Hamstrings', 117: 'Hamstrings', 118: 'Hamstrings', 119: 'Hamstrings',
+  
+  // Calves
+  120: 'Calves', 121: 'Calves', 122: 'Calves', 123: 'Calves', 124: 'Calves', 
+  125: 'Calves', 126: 'Calves', 127: 'Calves', 128: 'Calves', 129: 'Calves',
+  
+  // Glutes
+  130: 'Glutes', 131: 'Glutes', 132: 'Glutes', 133: 'Glutes', 134: 'Glutes',
+  135: 'Glutes', 136: 'Glutes', 137: 'Glutes', 138: 'Glutes', 139: 'Glutes',
+  140: 'Glutes', 141: 'Glutes', 142: 'Glutes', 143: 'Glutes', 144: 'Glutes',
+  145: 'Glutes', 146: 'Glutes', 147: 'Glutes', 148: 'Glutes', 149: 'Glutes',
+  150: 'Glutes', 151: 'Glutes', 152: 'Glutes',
+  
+  // Core (7) - Mapped to 'Core' in Redux store (matches 'abs' in Redux)
+  153: 'Core', 154: 'Core', 155: 'Core', 156: 'Core', 157: 'Core', 158: 'Core',
+  159: 'Core', 160: 'Core', 161: 'Core', 162: 'Core', 163: 'Core', 164: 'Core',
+  165: 'Core', 166: 'Core', 167: 'Core', 168: 'Core', 169: 'Core', 170: 'Core',
+  171: 'Core', 172: 'Core', 173: 'Core', 174: 'Core', 175: 'Core', 176: 'Core',
+  177: 'Core', 178: 'Core', 179: 'Core', 180: 'Core'
+};
+
 const ConfigureWorkoutScreen = ({ route, navigation }) => {
+  const dispatch = useDispatch();
   const { exercises, workoutName: navWorkoutName } = route.params || {};
   const safeExercises = Array.isArray(exercises) ? exercises : [];
   const [workoutName, setWorkoutName] = useState(navWorkoutName || '');
@@ -174,15 +252,54 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
     setExerciseConfigs(newConfigs);
   };
 
-  const handleSaveWorkout = async () => {
-    // Save the workout to AsyncStorage
-    const workout = {
-      name: workoutName || 'My Workout',
-      exercises: exerciseConfigs
-    };
-    await AsyncStorage.setItem('savedWorkout', JSON.stringify(workout));
-    // Pop to the top of the stack (Home)
-    navigation.popToTop();
+  const handleSaveWorkout = () => {
+    try {
+      // Extract unique muscle groups from all exercises
+      const muscleGroups = new Set();
+      
+      console.log('Saving workout with exercises:', exerciseConfigs);
+      
+      exerciseConfigs.forEach(exercise => {
+        if (exercise.id && EXERCISE_TO_MUSCLE_GROUP[exercise.id]) {
+          const muscleGroup = EXERCISE_TO_MUSCLE_GROUP[exercise.id];
+          console.log(`Exercise ${exercise.name} (ID: ${exercise.id}) maps to muscle group:`, muscleGroup);
+          muscleGroups.add(muscleGroup);
+        } else {
+          console.warn(`No muscle group mapping found for exercise ID: ${exercise.id} (${exercise.name})`);
+        }
+      });
+      
+      // Convert Set to array for Redux
+      const muscles = Array.from(muscleGroups);
+      
+      if (muscles.length === 0) {
+        // Fallback in case we couldn't determine muscle groups
+        console.warn('No muscle groups found for exercises, using default');
+        muscles.push('Full Body');
+      }
+
+      console.log('Saving workout with muscle groups:', muscles);
+      
+      // Create the workout data
+      const workoutData = {
+        date: new Date().toISOString(),
+        muscles,
+        intensity: 'moderate',
+        name: workoutName || 'My Workout',
+        exercises: exerciseConfigs
+      };
+      
+      console.log('Dispatching addWorkout with data:', workoutData);
+      
+      // Dispatch to Redux store
+      dispatch(addWorkout(workoutData));
+
+      // Navigate back to home
+      navigation.popToTop();
+    } catch (error) {
+      console.error('Error saving workout:', error);
+      Alert.alert('Error', 'Failed to save workout. Please try again.');
+    }
   };
 
   const renderSet = (exerciseIdx, set, setIdx, setsLength) => (

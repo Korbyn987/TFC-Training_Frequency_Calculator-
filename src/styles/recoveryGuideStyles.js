@@ -34,10 +34,25 @@ export const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(107, 70, 193, 0.2)",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    overflow: 'hidden',
+  },
+  muscleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   muscleName: {
     fontSize: 16,
@@ -46,15 +61,44 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   progressContainer: {
-    marginHorizontal: 16,
-    backgroundColor: "rgba(107, 70, 193, 0.1)",
-    borderRadius: 30,
-    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+  },
+  progressTitle: {
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  recoveryInfo: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
   },
   recoveryText: {
     fontSize: 14,
     color: "rgba(255, 255, 255, 0.8)",
-    flex: 1,
-    textAlign: "right",
+    marginVertical: 2,
+    fontWeight: '500',
+  },
+  muscleName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  recoveredText: {
+    color: '#10b981', // Green for fully recovered
+  },
+  partiallyRecoveredText: {
+    color: '#f59e0b', // Yellow for partially recovered
+  },
+  notRecoveredText: {
+    color: '#ef4444', // Red for not recovered
+  },
+  workoutCount: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.6)",
+    textAlign: "center",
+    marginTop: 8,
   },
 });

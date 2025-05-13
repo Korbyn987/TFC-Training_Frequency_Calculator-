@@ -4,8 +4,9 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Provider, useSelector, useDispatch } from "react-redux";
+import { PersistGate } from 'redux-persist/integration/react';
+import { store, persistor } from "./redux/store";
 import { Ionicons } from "@expo/vector-icons";
-import store from "./redux/store";
 import HomeScreen from "./screens/HomeScreen";
 import AboutScreen from "./screens/AboutScreen";
 import RecoveryGuideScreen from "./screens/RecoveryGuideScreen";
@@ -78,7 +79,8 @@ const MainTabs = () => {
 const App = () => {
   return (
     <Provider store={store}>
-      <NavigationContainer linking={linking}>
+      <PersistGate loading={null} persistor={persistor}>
+        <NavigationContainer linking={linking}>
         <Stack.Navigator
           screenOptions={{
             headerStyle: {
@@ -127,6 +129,7 @@ const App = () => {
           />
         </Stack.Navigator>
       </NavigationContainer>
+      </PersistGate>
     </Provider>
   );
 };

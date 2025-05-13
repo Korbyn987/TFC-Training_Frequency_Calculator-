@@ -3,7 +3,10 @@ console.log("App.js loaded (start)");
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
 import { navigationRef } from './navigationRef';
+import { store, persistor } from './redux/store';
 // import { initDatabase } from './database/database';
 
 // Import screens
@@ -16,7 +19,8 @@ import ProfileScreen from './screens/ProfileScreen';
 
 const Stack = createStackNavigator();
 
-export default function App() {
+function AppContent() {
+  // Database initialization can be uncommented if needed
   // useEffect(() => {
   //   const setupDatabase = async () => {
   //     try {
@@ -74,5 +78,15 @@ export default function App() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <AppContent />
+      </PersistGate>
+    </Provider>
   );
 }
