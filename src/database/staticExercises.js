@@ -39,7 +39,6 @@ export const STATIC_EXERCISES = [
   { id: 24, name: 'Hammer Strength Press', muscle_group_id: 1, description: 'Machine press for chest development' },
   { id: 25, name: 'Alternating Dumbbell Press', muscle_group_id: 1, description: 'Alternating chest press with dumbbells' },
   { id: 26, name: 'Spoto Press', muscle_group_id: 1, description: 'Bench press with pause above chest' },
-  { id: 27, name: 'Guillotine Press', muscle_group_id: 1, description: 'Wide-grip press to neck area' },
 
   // Bicep (2)
   { id: 28, name: 'Barbell Curl', muscle_group_id: 2, description: 'Classic bicep exercise using a straight barbell' },
@@ -116,7 +115,6 @@ export const STATIC_EXERCISES = [
   { id: 93, name: 'Cable Front Raise', muscle_group_id: 5, description: 'Cable variation of front raise' },
   { id: 94, name: 'Cable Reverse Fly', muscle_group_id: 5, description: 'Cable variation for rear deltoids' },
   { id: 95, name: 'Landmine Press', muscle_group_id: 5, description: 'Single-arm pressing using barbell and landmine' },
-  { id: 96, name: 'Behind the Neck Press', muscle_group_id: 5, description: 'Advanced overhead press variation' },
   { id: 97, name: 'Seated Dumbbell Press', muscle_group_id: 5, description: 'Shoulder press performed seated for stability' },
   { id: 98, name: 'Single-Arm Lateral Raise', muscle_group_id: 5, description: 'Unilateral lateral deltoid exercise' },
   { id: 99, name: 'Incline Reverse Fly', muscle_group_id: 5, description: 'Rear delt exercise on incline bench' },

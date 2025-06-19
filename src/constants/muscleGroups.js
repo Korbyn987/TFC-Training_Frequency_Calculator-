@@ -6,7 +6,7 @@ export const MUSCLE_GROUPS = [
   "Triceps",
   "Abs",
   "Shoulders",
-  "Traps",
+
   "Back",
   "Calves",
   "Glutes",

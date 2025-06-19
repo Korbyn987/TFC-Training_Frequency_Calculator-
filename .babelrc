@@ -1,0 +1,25 @@
+{
+  "presets": [
+    "babel-preset-expo",
+    ["@babel/preset-env", { "modules": false, "targets": { "esmodules": true } }],
+    "@babel/preset-react",
+    "@babel/preset-typescript",
+    "module:metro-react-native-babel-preset"
+  ],
+  "plugins": [
+    "@babel/plugin-proposal-export-namespace-from",
+    "react-native-reanimated/plugin",
+    ["@babel/plugin-proposal-class-properties", { "loose": true }],
+    ["@babel/plugin-proposal-private-methods", { "loose": true }],
+    ["@babel/plugin-proposal-private-property-in-object", { "loose": true }],
+    ["@babel/plugin-transform-runtime", { "regenerator": true }]
+  ],
+  "env": {
+    "development": {
+      "plugins": ["@babel/transform-react-jsx-source"]
+    },
+    "production": {
+      "plugins": ["transform-remove-console"]
+    }
+  }
+}

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity, Modal, ScrollView, Button } from "react-native";
+import React, { useEffect, useState, useRef } from "react";
+import { View, Text, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity, Modal, ScrollView, Button, Platform, Animated } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 
 const WorkoutHistory = ({ userId }) => {
@@ -9,6 +10,7 @@ const WorkoutHistory = ({ userId }) => {
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [showScrollIndicator, setShowScrollIndicator] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
@@ -50,6 +52,28 @@ const WorkoutHistory = ({ userId }) => {
   const handleWorkoutPress = (workout) => {
     setSelectedWorkout(workout);
     setModalVisible(true);
+    // Check for core exercises and update only the core/abs timer
+    if (Array.isArray(workout.exercises)) {
+      const hasCore = workout.exercises.some(
+        (ex) => ex.name && (
+          ex.name.toLowerCase().includes('core') ||
+          ex.name.toLowerCase().includes('abs') ||
+          ex.name.toLowerCase().includes('abdominal')
+        )
+      );
+      if (hasCore) {
+        // Only update the core/abs timer, not glutes
+        dispatch(
+          addWorkout({
+            date: workout.end_time || new Date().toISOString(),
+            muscles: ['core'], // This will be mapped to 'abs' in Redux
+            intensity: workout.intensity || 'unknown',
+            name: workout.workout_name || 'Core Workout',
+            exercises: workout.exercises,
+          })
+        );
+      }
+    }
   };
 
   const closeModal = () => {
@@ -94,16 +118,50 @@ const WorkoutHistory = ({ userId }) => {
         data={workoutsByDate[(selectedDate || today).toISOString().slice(0, 10)] || []}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => handleWorkoutPress(item)}>
-            <View style={styles.cardCustom}>
-              <Text style={styles.workoutNameCustom}>{item.workout_name}</Text>
-              <Text style={styles.dateCustom}>{new Date(item.start_time).toLocaleTimeString()} - {new Date(item.end_time).toLocaleTimeString()}</Text>
-              <Text style={styles.durationCustom}>Duration: {item.duration ? `${item.duration} sec` : "-"}</Text>
-              <Text style={styles.exercisesTitleCustom}>Exercises:</Text>
-              {Array.isArray(item.exercises) && item.exercises.map((ex, idx) => (
-                <Text key={idx} style={styles.exerciseItemCustom}>- {ex.name}</Text>
-              ))}
-              {item.notes ? <Text style={styles.notesCustom}>Notes: {item.notes}</Text> : null}
+          <TouchableOpacity
+            key={item.id}
+            style={styles.cardCustom}
+            onPress={() => handleWorkoutPress(item)}
+          >
+            <View style={styles.cardContent}>
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                onScroll={({ nativeEvent }) => {
+                  const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
+                  const isScrollable = contentSize.height > layoutMeasurement.height;
+                  const isAtBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height;
+                  setShowScrollIndicator(prev => ({ ...prev, [item.id]: isScrollable && !isAtBottom }));
+                }}
+                scrollEventThrottle={16}
+              >
+                <Text style={styles.workoutNameCustom}>{item.workout_name || "Workout"}</Text>
+                <Text style={styles.dateCustom}>
+                  {new Date(item.start_time).toLocaleDateString()}
+                </Text>
+                <Text style={styles.durationCustom}>
+                  Duration: {item.duration || "Not recorded"}
+                </Text>
+                {item.exercises && item.exercises.length > 0 && (
+                  <>
+                    <Text style={styles.exercisesTitleCustom}>Exercises:</Text>
+                    {item.exercises.map((exercise, index) => (
+                      <Text key={index} style={styles.exerciseItemCustom}>
+                        {exercise.name}
+                      </Text>
+                    ))}
+                  </>
+                )}
+                {item.notes && (
+                  <Text style={styles.notesCustom}>Notes: {item.notes}</Text>
+                )}
+              </ScrollView>
+              {showScrollIndicator[item.id] && item.exercises && item.exercises.length >= 3 && (
+                <View style={styles.scrollIndicator}>
+                  <Ionicons name="chevron-down" size={16} color="rgba(255, 255, 255, 0.6)" />
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         )}
@@ -146,7 +204,7 @@ const WorkoutHistory = ({ userId }) => {
 
 const styles = StyleSheet.create({
   section: { marginTop: 24, paddingHorizontal: 0 },
-  sectionTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 16, color: "#6b46c1", alignSelf: "center", letterSpacing: 1 },
+  sectionTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 16, color: "#ffffff", alignSelf: "center", letterSpacing: 1 },
   calendarRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -159,30 +217,31 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: "#f3f1fa",
+    backgroundColor: "rgba(30, 32, 42, 0.9)",
     marginHorizontal: 2,
     minWidth: 40,
     minHeight: 58,
   },
   calendarDayActive: {
-    borderWidth: 2,
-    borderColor: "#6b46c1",
+    backgroundColor: "rgba(107, 70, 193, 0.2)",
   },
   calendarDaySelected: {
-    backgroundColor: "#6b46c1",
+    backgroundColor: "rgba(107, 70, 193, 0.2)",
+    borderColor: "#6b46c1",
+    borderWidth: 2,
   },
   calendarDayText: {
     fontSize: 13,
-    color: "#6b46c1",
+    color: "rgba(255, 255, 255, 0.8)",
     fontWeight: "bold",
   },
   calendarDayTextSelected: {
-    color: "#fff",
+    color: "#ffffff",
   },
   calendarDateText: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
+    color: "rgba(255, 255, 255, 0.9)",
   },
   dot: {
     width: 7,
@@ -193,56 +252,65 @@ const styles = StyleSheet.create({
   },
   listContainer: { paddingHorizontal: 8, paddingBottom: 16, flexDirection: "row" },
   cardCustom: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(30, 32, 42, 0.9)",
     borderRadius: 12,
     padding: 18,
     marginBottom: 16,
     marginRight: 16,
-    shadowColor: "#6b46c1",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
     elevation: 4,
     borderWidth: 1.2,
-    borderColor: "#6b46c1",
+    borderColor: "rgba(107, 70, 193, 0.5)",
     width: 240,
-    minHeight: 170,
-    maxHeight: 170,
+    height: 170,
     flexBasis: 240,
     flexGrow: 0,
     flexShrink: 0,
     alignSelf: "flex-start",
-    justifyContent: "space-between",
   },
-  workoutNameCustom: { fontSize: 18, fontWeight: "bold", color: "#6b46c1", marginBottom: 2 },
-  dateCustom: { color: "#888", fontSize: 13, marginBottom: 2 },
-  durationCustom: { fontSize: 14, marginBottom: 2, color: "#333" },
+  cardContent: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 8,
+  },
+  scrollIndicator: {
+    position: 'absolute',
+    bottom: 4,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(30, 32, 42, 0.8)',
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  workoutNameCustom: { fontSize: 18, fontWeight: "bold", color: "#ffffff", marginBottom: 2 },
+  dateCustom: { color: "rgba(255, 255, 255, 0.6)", fontSize: 13, marginBottom: 2 },
+  durationCustom: { fontSize: 14, marginBottom: 2, color: "rgba(255, 255, 255, 0.8)" },
   exercisesTitleCustom: { fontWeight: "bold", marginTop: 8, color: "#6b46c1" },
-  exerciseItemCustom: { marginLeft: 8, fontSize: 14, color: "#4B3869" },
-  notesCustom: { fontStyle: "italic", marginTop: 8, color: "#6b46c1" },
-  error: { color: "red", marginTop: 20 },
-  empty: { color: "#666", marginTop: 20 },
+  exerciseItemCustom: { marginLeft: 8, fontSize: 14, color: "rgba(255, 255, 255, 0.8)" },
+  notesCustom: { fontStyle: "italic", marginTop: 8, color: "rgba(255, 255, 255, 0.7)" },
+  error: { color: "#ef4444", marginTop: 20 },
+  empty: { color: "rgba(255, 255, 255, 0.5)", marginTop: 20 },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
     alignItems: "center",
   },
   modalContentCustom: {
-    backgroundColor: "#fff",
+    backgroundColor: "#171923",
     borderRadius: 14,
     padding: 28,
     width: "90%",
     maxHeight: "80%",
-    shadowColor: "#6b46c1",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
     elevation: 7,
     borderWidth: 1.5,
     borderColor: "#6b46c1",
   },
-  modalTitleCustom: { fontSize: 22, fontWeight: "bold", marginBottom: 12, color: "#6b46c1", alignSelf: "center", letterSpacing: 1 },
+  modalTitleCustom: { fontSize: 22, fontWeight: "bold", marginBottom: 12, color: "#ffffff", alignSelf: "center", letterSpacing: 1 },
 });
 
 export default WorkoutHistory;

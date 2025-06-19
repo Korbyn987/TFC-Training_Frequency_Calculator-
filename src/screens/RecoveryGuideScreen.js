@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useSelector } from "react-redux";
+import LoginRequiredModal from "../components/LoginRequiredModal";
 import { styles } from "../styles/recoveryGuideStyles";
 import CircularProgress from 'react-native-circular-progress-indicator';
 import { format } from 'date-fns';
@@ -8,14 +9,10 @@ import { format } from 'date-fns';
 const MUSCLE_RECOVERY_TIMES = {
   Biceps: 48,
   Triceps: 72,
-  Forearms: 48,
+  // Forearms: 48, // Removed as per user request
   Chest: 72,
-  "Deltoid (front)": 48,
-  "Deltoid (side)": 48,
-  "Deltoid (rear)": 48,
-  "Upper/Middle Back": 72,
-  "Lower Back": 62,
-  Trapezius: 72,
+  Shoulders: 48, // Combined all deltoid parts into one
+  "Back": 72, // Combined all back muscles
   Glutes: 62,
   Calves: 48,
   Quadriceps: 72,
@@ -158,7 +155,7 @@ const MuscleRecoveryMeter = ({ muscleName, lastWorkout, recoveryTime }) => {
       <View style={styles.progressContainer}>
         <CircularProgress
           value={percentage}
-          radius={40}
+          radius={48}
           duration={1000}
           progressValueColor={getStatusColor()}
           activeStrokeColor={getStatusColor()}
@@ -189,6 +186,14 @@ const MuscleRecoveryMeter = ({ muscleName, lastWorkout, recoveryTime }) => {
 };
 
 const RecoveryGuideScreen = () => {
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const user = useSelector((state) => state.auth.user);
+
+  useEffect(() => {
+    if (!user) {
+      setShowLoginModal(true);
+    }
+  }, [user]);
   // Get the muscle status from Redux store
   const muscleStatus = useSelector((state) => state.workout?.muscleStatus) || {};
   const workouts = useSelector((state) => state.workout?.workouts || []);
@@ -201,11 +206,10 @@ const RecoveryGuideScreen = () => {
     'Chest': { recoveryTime: 72 },
     'Biceps': { recoveryTime: 48 },
     'Triceps': { recoveryTime: 48 },
-    'Back': { recoveryTime: 72 },
+    'Back': { recoveryTime: 72 }, // This covers all back muscles
     'Shoulders': { recoveryTime: 48 },
     'Core': { recoveryTime: 24 }, // Maps to 'abs' in Redux
-    'Forearms': { recoveryTime: 48 },
-    'Traps': { recoveryTime: 48 },
+    // 'Forearms': { recoveryTime: 48 }, // Removed as per user request
     'Quads': { recoveryTime: 72 },
     'Hamstrings': { recoveryTime: 72 },
     'Calves': { recoveryTime: 48 },
@@ -247,17 +251,19 @@ const RecoveryGuideScreen = () => {
       </View>
 
       <View style={styles.content}>
-        {Object.entries(muscleGroups).map(([muscle, data]) => {
-          const recoveryTime = data.recoveryTime || 48; // Default to 48 hours if not set
-          return (
-            <MuscleRecoveryMeter
-              key={muscle}
-              muscleName={muscle}
-              lastWorkout={data.lastWorkout}
-              recoveryTime={recoveryTime}
-            />
-          );
-        })}
+        {Object.entries(muscleGroups)
+          .filter(([muscle]) => !['Traps', 'Trapezius'].includes(muscle)) // Exclude Traps/Trapezius
+          .map(([muscle, data]) => {
+            const recoveryTime = data.recoveryTime || 48; // Default to 48 hours if not set
+            return (
+              <MuscleRecoveryMeter
+                key={muscle}
+                muscleName={muscle}
+                lastWorkout={data.lastWorkout}
+                recoveryTime={recoveryTime}
+              />
+            );
+          })}
       </View>
     </ScrollView>
   );

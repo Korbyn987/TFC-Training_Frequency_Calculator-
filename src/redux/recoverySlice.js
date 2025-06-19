@@ -9,7 +9,7 @@ const initialState = {
     triceps: { recovery: 75 },
     forearms: { recovery: 90 },
     abs: { recovery: 85 },
-    traps: { recovery: 45 },
+
     quads: { recovery: 20 },
     hamstrings: { recovery: 25 },
     calves: { recovery: 95 },

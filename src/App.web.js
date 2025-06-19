@@ -9,16 +9,21 @@ import { store, persistor } from "./redux/store";
 import { Ionicons } from "@expo/vector-icons";
 import HomeScreen from "./screens/HomeScreen";
 import AboutScreen from "./screens/AboutScreen";
-import RecoveryGuideScreen from "./screens/RecoveryGuideScreen";
+// Import the web-compatible version of RecoveryGuideScreen
+import RecoveryGuideScreenWeb from "./shims/RecoveryGuideScreenWeb";
 import ProfileScreen from "./screens/ProfileScreen";
 import LoginScreen from "./login/login";
 import CreateAccount from "./login/createAccount";
 import RecoveryScreen from "./screens/RecoveryScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import LogoutButton from "./components/LogoutButton";
-import { linking } from "./navigation/linking";
+// Import our enhanced linking solution instead of the standard one
+import { useEnhancedLinking } from "./shims/NavigationLinkingShim";
+// Import the original linking configuration
+import { linking as linkingConfig } from "./navigation/linking";
 import AddExerciseScreen from "./screens/AddExerciseScreen";
 import ConfigureWorkoutScreen from "./screens/ConfigureWorkoutScreen";
+import SelectRoutineScreen from "./screens/SelectRoutineScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -34,6 +39,13 @@ const MainTabs = () => {
         headerTitleStyle: {
           fontWeight: "bold",
         },
+        tabBarStyle: {
+          backgroundColor: "#23263a",
+          borderTopColor: "rgba(107, 70, 193, 0.2)",
+          borderTopWidth: 1,
+        },
+        tabBarActiveTintColor: "#6b46c1",
+        tabBarInactiveTintColor: "rgba(255, 255, 255, 0.6)",
       }}
     >
       <Tab.Screen
@@ -47,7 +59,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Calculator"
-        component={RecoveryGuideScreen}
+        component={RecoveryGuideScreenWeb}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calculator" size={size} color={color} />
@@ -77,10 +89,20 @@ const MainTabs = () => {
 };
 
 const App = () => {
+  // Create navigation ref for our enhanced linking
+  const navigationRef = React.useRef();
+  
+  // Use our enhanced linking hook with the original config
+  const enhancedLinking = useEnhancedLinking(navigationRef, {
+    enabled: true,
+    prefixes: linkingConfig.prefixes || [],
+    config: linkingConfig.config || {}
+  });
+
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
-        <NavigationContainer linking={linking}>
+        <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
             headerStyle: {
@@ -126,6 +148,11 @@ const App = () => {
             name="ConfigureWorkout"
             component={ConfigureWorkoutScreen}
             options={{ headerShown: true, title: "Configure Workout" }}
+          />
+          <Stack.Screen
+            name="SelectRoutine"
+            component={SelectRoutineScreen}
+            options={{ headerShown: true, title: "Select Routine" }}
           />
         </Stack.Navigator>
       </NavigationContainer>

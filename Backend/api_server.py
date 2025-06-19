@@ -29,14 +29,20 @@ CORS(app, resources={
             "http://localhost:19007",
             "http://127.0.0.1:19007",
             "http://localhost:19006",
+            "http://localhost:3006",
+            "http://127.0.0.1:3006",
             "http://127.0.0.1:19006",
             "http://localhost:5001",
             "http://127.0.0.1:5001",
             "http://localhost:3000",
-            "http://127.0.0.1:3000"
+            "http://127.0.0.1:3000",
+            "exp://127.0.0.1:19000"
         ],
+        "allow_credentials": True,
+        "allow_headers": ["Content-Type", "Authorization", "Accept"],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
+        "expose_headers": ["Content-Type", "Authorization", "Accept"],
+        "supports_credentials": True
     }
 })
 

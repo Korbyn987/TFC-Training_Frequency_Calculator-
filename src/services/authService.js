@@ -3,11 +3,26 @@ import axios from 'axios';
 // Use different URLs based on platform
 const API_URL = 'http://localhost:5001/api';
 
+// Configure axios defaults
+axios.defaults.withCredentials = true;
+axios.defaults.headers.common['Content-Type'] = 'application/json';
+
 const login = async (identifier, password) => {
   try {
     console.log('Attempting login with:', { identifier, password });
-    const response = await axios.post(`${API_URL}/login`, { identifier, password });
+    const response = await axios.post(`${API_URL}/login`, 
+      { identifier, password },
+      {
+        headers: {
+          'Accept': 'application/json',
+        },
+        withCredentials: true
+      }
+    );
     console.log('Login response:', response.data);
+    if (response.data.token) {
+      localStorage.setItem('user', JSON.stringify(response.data));
+    }
     return response.data;
   } catch (error) {
     console.error('Login error:', error.response?.data || error.message);

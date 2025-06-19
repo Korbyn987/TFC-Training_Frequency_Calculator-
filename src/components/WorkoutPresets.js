@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, Modal, TextInput, Button, StyleSheet, ScrollView } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, Modal, TextInput, Button, StyleSheet, ScrollView, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { DeviceEventEmitter } from 'react-native';
 
 const STORAGE_KEY = "workout_presets";
 
@@ -127,6 +128,23 @@ const WorkoutPresets = () => {
     savePresets(newPresets);
   };
 
+  // Listen for return event once on mount
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('onReturnToPreset', (data) => {
+      if (data?.presetName === name) {
+        setPresetExercises(data.exercises);
+        // Open modal after navigation finishes
+        setTimeout(() => {
+          setModalVisible(true);
+        }, 300);
+      }
+    });
+    
+    return () => {
+      subscription.remove();
+    };
+  }, [name]);
+
   // Smoother, race-condition-free navigation to AddExercise
   const handleAddExerciseNav = () => {
     // Save current preset state and mark navigation intent
@@ -137,19 +155,16 @@ const WorkoutPresets = () => {
       pendingAddExercise: true
     });
     setModalVisible(false);
-    import('react-native').then(({ InteractionManager }) => {
-      InteractionManager.runAfterInteractions(() => {
-        setPendingPreset(prev => prev ? { ...prev, pendingAddExercise: false } : prev);
-        navigation.navigate('AddExercise', {
-          previousExercises: presetExercises,
-          returnToPreset: true,
-          onReturnToPreset: (newExercises) => {
-            setPresetExercises(newExercises);
-            setModalVisible(true);
-          }
-        });
+    
+    // Use setTimeout to ensure modal is fully closed before navigating
+    setTimeout(() => {
+      setPendingPreset(prev => prev ? { ...prev, pendingAddExercise: false } : prev);
+      navigation.navigate('AddExercise', {
+        previousExercises: presetExercises,
+        returnToPreset: true,
+        presetName: name,
       });
-    });
+    }, 300);
   };
 
   return (
@@ -160,47 +175,49 @@ const WorkoutPresets = () => {
       <FlatList
         data={presets}
         keyExtractor={item => item.id.toString()}
+        scrollEnabled={false}
+        nestedScrollEnabled={true}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.presetCard, expandedPresetId === item.id && styles.presetCardActive]}
-            onPress={() => setExpandedPresetId(expandedPresetId === item.id ? null : item.id)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.presetName}>{item.name}</Text>
-            <Ionicons name={expandedPresetId === item.id ? 'chevron-up' : 'chevron-down'} size={22} color="#6b46c1" style={{ marginLeft: 'auto' }} />
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity
+              style={[styles.presetCard, expandedPresetId === item.id && styles.presetCardActive]}
+              onPress={() => setExpandedPresetId(expandedPresetId === item.id ? null : item.id)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.presetName}>{item.name}</Text>
+              <Ionicons name={expandedPresetId === item.id ? 'chevron-up' : 'chevron-down'} size={22} color="#6b46c1" style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+            
+            {/* Expanded preset details - now directly below the preset */}
+            {expandedPresetId === item.id && (
+              <View style={styles.expandedCardInline}>
+                <View style={styles.expandedHeaderRow}>
+                  <TouchableOpacity style={styles.editBtnTopRight} onPress={() => openModal(item)}>
+                    <Ionicons name="create-outline" size={22} color="#6b46c1" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.expandedRow}>
+                  <Ionicons name="barbell-outline" size={20} color="#6b46c1" style={{ marginRight: 8 }} />
+                  <Text style={styles.expandedSubtitle}>Exercises:</Text>
+                </View>
+                <View style={styles.exerciseList}>
+                  {item.exercises.length === 0 ? (
+                    <Text style={styles.emptyExerciseText}>No exercises yet.</Text>
+                  ) : (
+                    item.exercises.map((e, idx) => (
+                      <View key={e.id || e.name + idx} style={styles.exerciseRowExpanded}>
+                        <Ionicons name="ellipse" size={8} color="#6b46c1" style={{ marginRight: 8 }} />
+                        <Text style={styles.exerciseNameExpanded}>{e.name}</Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+              </View>
+            )}
+          </View>
         )}
         ListEmptyComponent={<Text style={styles.empty}>No presets yet.</Text>}
       />
-      {/* Expanded preset details */}
-      {presets.map((item) => (
-        expandedPresetId === item.id && (
-          <View key={item.id} style={styles.expandedCard}>
-            <View style={styles.expandedHeaderRow}>
-              <Text style={styles.expandedTitle}>{item.name}</Text>
-              <TouchableOpacity style={styles.editBtnTopRight} onPress={() => openModal(item)}>
-                <Ionicons name="create-outline" size={22} color="#6b46c1" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.expandedRow}>
-              <Ionicons name="barbell-outline" size={20} color="#6b46c1" style={{ marginRight: 8 }} />
-              <Text style={styles.expandedSubtitle}>Exercises:</Text>
-            </View>
-            <View style={styles.exerciseList}>
-              {item.exercises.length === 0 ? (
-                <Text style={styles.emptyExerciseText}>No exercises yet.</Text>
-              ) : (
-                item.exercises.map((e, idx) => (
-                  <View key={e.id || e.name + idx} style={styles.exerciseRowExpanded}>
-                    <Ionicons name="ellipse" size={8} color="#6b46c1" style={{ marginRight: 8 }} />
-                    <Text style={styles.exerciseNameExpanded}>{e.name}</Text>
-                  </View>
-                ))
-              )}
-            </View>
-          </View>
-        )
-      ))}
       {/* Move Create Button to Bottom */}
       <TouchableOpacity style={styles.createButton} onPress={() => openModal()}>
         <Ionicons name="add-circle-outline" size={28} color="#fff" />
@@ -213,7 +230,11 @@ const WorkoutPresets = () => {
             <TouchableOpacity style={styles.closeModalXBtn} onPress={() => { setModalVisible(false); navigation.navigate('Profile'); }}>
               <Ionicons name="close" size={28} color="#888" />
             </TouchableOpacity>
-            <ScrollView>
+            <ScrollView
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
               <Text style={styles.modalTitle}>{editingPreset ? "Edit Preset" : "New Preset"}</Text>
               <TextInput
                 style={styles.input}
@@ -228,10 +249,14 @@ const WorkoutPresets = () => {
                   keyExtractor={(item, idx) => item.name + idx}
                   renderItem={({ item }) => (
                     <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                      <Text style={{ fontSize: 15, color: "#222" }}>{item.name}</Text>
+                      <Text style={{ fontSize: 15, color: "#ffffff" }}>{item.name}</Text>
                     </View>
                   )}
                   ListEmptyComponent={<Text style={{ color: "#666" }}>No exercises yet.</Text>}
+                  nestedScrollEnabled={true}
+                  scrollEnabled={true}
+                  showsVerticalScrollIndicator={true}
+                  style={{ maxHeight: 150 }}
                 />
               </View>
               <TouchableOpacity style={styles.createButton} onPress={handleAddExerciseNav}>
@@ -259,53 +284,86 @@ const WorkoutPresets = () => {
 };
 
 const styles = StyleSheet.create({
-  section: { marginTop: 24, paddingHorizontal: 0, marginBottom: 16 },
+  section: { marginTop: 24, paddingHorizontal: 0, marginBottom: 16, flex: 1 },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingHorizontal: 12 },
-  sectionTitle: { fontSize: 20, fontWeight: "bold", color: "#6b46c1", letterSpacing: 1 },
+  sectionTitle: { fontSize: 20, fontWeight: "bold", color: "#ffffff", letterSpacing: 1 },
   presetCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#171923', // Changed to solid dark color matching the app theme
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 18,
     marginBottom: 10,
     marginHorizontal: 12,
-    shadowColor: '#6b46c1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.13,
-    shadowRadius: 6,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#e3d9fa',
+    borderColor: 'rgba(107, 70, 193, 0.3)',
   },
   presetCardActive: {
-    backgroundColor: '#f7f4ff',
+    // Keep the same dark background color, only change border
     borderColor: '#6b46c1',
-    shadowOpacity: 0.2,
+    borderWidth: 2,
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
-  presetName: { fontSize: 16, fontWeight: "bold", color: "#6b46c1", marginBottom: 2 },
-  presetExercises: { color: "#444", fontSize: 13 },
+  presetName: { fontSize: 16, fontWeight: "bold", color: "#ffffff", marginBottom: 2 },
+  presetExercises: { color: "rgba(255, 255, 255, 0.8)", fontSize: 13 },
   editBtn: { color: "#6b46c1", fontWeight: "bold", marginLeft: 10, fontSize: 15 },
-  deleteBtn: { color: "#e53e3e", fontWeight: "bold", marginLeft: 10, fontSize: 15 },
-  empty: { color: "#666", marginTop: 20, textAlign: "center" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  modalContent: { backgroundColor: "#fff", borderRadius: 14, padding: 28, width: "90%", maxHeight: "80%", shadowColor: "#6b46c1", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 7, borderWidth: 1.5, borderColor: "#6b46c1" },
-  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 12, color: "#6b46c1", alignSelf: "center", letterSpacing: 1 },
-  input: { backgroundColor: "#f3f1fa", borderRadius: 8, padding: 12, marginBottom: 14, fontSize: 16, borderWidth: 1, borderColor: "#d1c4e9" },
+  deleteBtn: { color: "#ef4444", fontWeight: "bold", marginLeft: 10, fontSize: 15 },
+  empty: { color: "rgba(255, 255, 255, 0.5)", marginTop: 20, textAlign: "center" },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: "rgba(0,0,0,0.7)", 
+    justifyContent: "center", 
+    alignItems: "center",
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+  },
+  modalContent: { 
+    backgroundColor: "#171923", 
+    borderRadius: 14, 
+    padding: 28, 
+    width: "90%", 
+    maxHeight: "90%", 
+    elevation: 7, 
+    borderWidth: 1.5, 
+    borderColor: "#6b46c1",
+    position: 'relative',
+  },
+  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 12, color: "#ffffff", alignSelf: "center", letterSpacing: 1 },
+  input: { backgroundColor: "rgba(30, 32, 42, 0.9)", borderRadius: 8, padding: 12, marginBottom: 14, fontSize: 16, borderWidth: 1, borderColor: "rgba(107, 70, 193, 0.5)", color: "#ffffff" },
   expandedCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#171923', // Changed from semi-transparent to solid dark color
     borderRadius: 16,
     marginHorizontal: 12,
     marginBottom: 18,
     padding: 20,
     borderWidth: 1.5,
     borderColor: '#6b46c1',
-    shadowColor: '#6b46c1',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
     elevation: 7,
+    minHeight: 100,
+    flexGrow: 1,
+  },
+  expandedCardInline: {
+    backgroundColor: '#171923', 
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    marginHorizontal: 12,
+    marginTop: -10,
+    marginBottom: 18,
+    padding: 20,
+    paddingTop: 10,
+    borderWidth: 1.5,
+    borderTopWidth: 0,
+    borderColor: '#6b46c1',
+    elevation: 5,
+    minHeight: 80,
   },
   expandedHeaderRow: {
     flexDirection: 'row',
@@ -316,15 +374,17 @@ const styles = StyleSheet.create({
   expandedTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#6b46c1',
+    color: '#ffffff',
     marginBottom: 8,
     letterSpacing: 1,
   },
   editBtnTopRight: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: '#f3f1fa',
+    backgroundColor: 'rgba(107, 70, 193, 0.2)',
     marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 70, 193, 0.5)',
   },
   expandedRow: {
     flexDirection: 'row',
@@ -348,10 +408,10 @@ const styles = StyleSheet.create({
   },
   exerciseNameExpanded: {
     fontSize: 15,
-    color: '#444',
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   emptyExerciseText: {
-    color: '#999',
+    color: 'rgba(255, 255, 255, 0.5)',
     fontStyle: 'italic',
     marginBottom: 6,
     marginLeft: 10,
