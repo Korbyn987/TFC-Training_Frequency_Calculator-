@@ -38,24 +38,13 @@ const CircularProgressWeb = ({
     overflow: 'visible',
   };
   
-  // Circle base styles
-  const circleBaseStyle = {
-    fill: 'none',
-    stroke: inActiveStrokeColor,
-    strokeWidth: 10,
-  };
-  
-  // Circle progress style
-  const circleProgressStyle = {
-    fill: 'none',
-    stroke: activeStrokeColor,
-    strokeWidth: 10,
-    strokeDasharray: circumference,
-    strokeDashoffset: strokeDashoffset,
-    strokeLinecap: 'round',
-    transition: `stroke-dashoffset ${duration}ms ease-in-out`,
-    transform: 'rotate(-90deg)',
-    transformOrigin: 'center',
+  // SVG styles as inline styles for web compatibility
+  const svgStyle = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: size,
+    height: size,
   };
   
   // Text styles
@@ -78,22 +67,48 @@ const CircularProgressWeb = ({
     ...titleStyle,
   };
   
+  // Use a div element for SVG rendering to avoid React Native's restrictions
+  // This approach works in React Native Web but not in native React Native
+  const SvgComponent = () => {
+    if (typeof document !== 'undefined') {
+      return (
+        <div
+          style={svgStyle}
+          dangerouslySetInnerHTML={{
+            __html: `
+              <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+                <circle
+                  cx="${radius}"
+                  cy="${radius}"
+                  r="${radius - 10}"
+                  fill="none"
+                  stroke="${inActiveStrokeColor}"
+                  stroke-width="10"
+                />
+                <circle
+                  cx="${radius}"
+                  cy="${radius}"
+                  r="${radius - 10}"
+                  fill="none"
+                  stroke="${activeStrokeColor}"
+                  stroke-width="10"
+                  stroke-dasharray="${circumference}"
+                  stroke-dashoffset="${strokeDashoffset}"
+                  stroke-linecap="round"
+                  style="transform: rotate(-90deg); transform-origin: center; transition: stroke-dashoffset ${duration}ms ease-in-out"
+                />
+              </svg>
+            `
+          }}
+        />
+      );
+    }
+    return null;
+  };
+  
   return (
     <View style={containerStyle}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle
-          cx={radius}
-          cy={radius}
-          r={radius - 10}
-          style={circleBaseStyle}
-        />
-        <circle
-          cx={radius}
-          cy={radius}
-          r={radius - 10}
-          style={circleProgressStyle}
-        />
-      </svg>
+      <SvgComponent />
       <Text style={valueTextStyle}>{value}%</Text>
       {title ? <Text style={titleTextStyle}>{title}</Text> : null}
     </View>
