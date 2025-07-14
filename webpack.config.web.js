@@ -5,7 +5,7 @@ const appJson = require('./app.json');
 
 const appName = appJson.name;
 const isDev = process.env.NODE_ENV !== 'production';
-const webPort = process.env.WEB_PORT || 19006;
+const webPort = process.env.WEB_PORT || 19008;
 
 // Base webpack configuration
 module.exports = {
@@ -22,11 +22,9 @@ module.exports = {
       // Then load core-js polyfills
       'core-js/stable',
       'regenerator-runtime/runtime',
-      // Then webpack dev server
-      'webpack/hot/dev-server',
-      `webpack-dev-server/client?http://localhost:${process.env.WEB_PORT || 19006}`,
-      // Then our app
-      './browser.js',
+      // Skip hot loader to fix the bodyStream error
+      // Use our bootstrap file instead of direct browser.js
+      './web/bootstrap.js',
     ],
   },
   output: {
@@ -105,8 +103,8 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.[jt]sx?$/,
-        exclude: /node_modules\/(?!(@react-native|react-native|@react-navigation|@react-native-community|@react-native-masked-view|@react-native-picker|@react-navigation\/).*))/,
+        test: /\.(js|ts)x?$/,
+        exclude: /node_modules\/(?!(@react-native|react-native|@react-navigation|@react-native-community|@react-native-masked-view|@react-native-picker|@react-navigation\/).*?)$/,
         use: [
           {
             loader: 'babel-loader',
@@ -137,11 +135,15 @@ module.exports = {
                   root: ['./'],
                   extensions: ['.js', '.jsx', '.ts', '.tsx', '.web.js', '.web.jsx', '.web.ts', '.web.tsx'],
                   alias: {
-                    '^react-native$': 'react-native-web',
+                    'react-native$': 'react-native-web',
                     'react-native-svg': 'react-native-svg-web',
+                    'process': require.resolve('process/browser'),
+                    'process/browser': require.resolve('process/browser'),
                     '^@react-native/(.+)': 'react-native-web/dist/\\1',
                     '^@react-navigation/(.+)': '@react-navigation/\\1',
-                    'react-native-web/dist/normalize-colors': 'normalize-css-color'
+                    'normalize-css-color': require.resolve('normalize-css-color'),
+                    'react-native-web/dist/normalize-colors': require.resolve('normalize-css-color'),
+                    'react-native-web/dist/assets-registry/registry': path.resolve(__dirname, 'node_modules/react-native-web/dist/modules/AssetRegistry')
                   }
                 }],
                 'transform-inline-environment-variables',
@@ -198,6 +200,9 @@ module.exports = {
       'process.env.EXPO_DEBUG': JSON.stringify(process.env.EXPO_DEBUG || '1'),
       'process.env.EXPO_DEV_SERVER_ORIGIN': JSON.stringify(`http://localhost:${webPort}`),
       'global.__DEV__': JSON.stringify(isDev)
+    }),
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
     }),
     new HtmlWebpackPlugin({
       template: './web/index.html',

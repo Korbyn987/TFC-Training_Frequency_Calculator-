@@ -152,5 +152,9 @@ module.exports = {
     headers: {
       'Access-Control-Allow-Origin': '*',
     },
+    // Disable client overlay to remove the "compiled with problems" page
+    client: {
+      overlay: false,
+    },
   },
 };
