@@ -9,6 +9,12 @@ for /f "tokens=5" %%a in ('netstat -aon ^| find ":3006" ^| find "LISTENING"') do
 set NODE_ENV=development
 set PORT=3006
 
+:: Set up environment for better React Native Web compatibility
+set REACT_NATIVE_WEB_COMPAT=true
+set NODE_ENV=development
+set PORT=3006
+set PUBLIC_URL=/
+
 :: Start Development Server
 start "Development Server" cmd /k "npm run start-web"
 
@@ -16,6 +22,12 @@ echo.
 echo Development server starting...
 echo Web application should be running at http://localhost:3006
 echo.
+
+:: Wait a few seconds for the server to start
+powershell -Command "Start-Sleep -s 10"
+
+:: Launch Microsoft Edge with the app URL
+start microsoft-edge:http://localhost:3006
 echo If you encounter any issues:
 echo 1. Check the terminal window for errors
 echo 2. Try refreshing the browser after a few seconds

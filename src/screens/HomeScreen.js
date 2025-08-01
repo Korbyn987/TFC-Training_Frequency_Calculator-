@@ -1393,7 +1393,7 @@ const HomeScreen = ({ route, navigation }) => {
           </View>
           <View style={{marginBottom: 8}}>
             {savedWorkout.exercises.map((ex, idx) => (
-              <View key={idx} style={styles.configuredWorkoutExerciseCard}>
+              <View key={idx} style={styles.configuredWorkoutExerciseCard}> 
                 <Text style={styles.configuredWorkoutExerciseName}>{ex.name}</Text>
                 <Text style={styles.configuredWorkoutExerciseDesc}>{ex.description}</Text>
                 {ex.sets && ex.sets.length > 0 && (
