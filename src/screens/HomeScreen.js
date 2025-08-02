@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Platform,
+  InteractionManager
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -28,6 +30,20 @@ import { useFocusEffect } from '@react-navigation/native';
 import ButtonStyles from "../styles/Button";
 import axios from "axios";
 import { safeNavigate, safePush } from '../shims/NavigationWeb';
+
+// Memoize the muscle group components to prevent unnecessary re-renders
+const MuscleGroupItem = memo(({ group, onPress, isSelected, style }) => (
+  <TouchableOpacity
+    style={[
+      styles.muscleGroup,
+      style,
+      isSelected && styles.selectedMuscleGroup
+    ]}
+    onPress={onPress}
+  >
+    <Text style={styles.muscleGroupText}>{group}</Text>
+  </TouchableOpacity>
+));
 
 const HomeScreen = ({ route, navigation }) => {
   const handleCancelWorkout = async () => {
@@ -78,56 +94,146 @@ const HomeScreen = ({ route, navigation }) => {
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity
-          style={[ButtonStyles.headerButton, { 
-            marginRight: 8,
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-            backgroundColor: isAuthenticated ? '#dc3545' : '#6b46c1'
-          }]}
-          onPress={() => {
-            if (isAuthenticated) {
-              dispatch(logout());
-              navigation.navigate('Home');
-            } else {
-              navigation.navigate('Login');
-            }
-          }}
-        >
-          <Text style={[ButtonStyles.headerButtonText, { fontSize: 12 }]}>
-            {isAuthenticated ? 'Logout' : 'Login'}
-          </Text>
-        </TouchableOpacity>
+        isAuthenticated ? (
+          <TouchableOpacity
+            style={[ButtonStyles.headerButton, { 
+              marginRight: 8,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              backgroundColor: '#dc3545'
+            }]}
+            onPress={async () => {
+              try {
+                await dispatch(logout()).unwrap();
+                navigation.navigate('Login');
+              } catch (error) {
+                console.error('Logout failed:', error);
+              }
+            }}
+          >
+            <Text style={[ButtonStyles.headerButtonText, { fontSize: 12 }]}>
+              Logout
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[ButtonStyles.headerButton, { 
+              marginRight: 8,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              backgroundColor: '#6b46c1'
+            }]}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Text style={[ButtonStyles.headerButtonText, { fontSize: 12 }]}>
+              Login
+            </Text>
+          </TouchableOpacity>
+        )
       ),
     });
-  }, [navigation, isAuthenticated]);
+  }, [navigation, isAuthenticated, dispatch]);
   const workoutTimerRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Define muscle groups
-  const UPPER_BODY = [
-    "Biceps",
-    "Triceps",
-    "Chest",
-    "Shoulders",
+  // Memoize muscle groups to prevent recreation on every render
+  const { UPPER_BODY, LOWER_BODY, ALL_MUSCLE_GROUPS } = useMemo(() => ({
+    UPPER_BODY: ["Biceps", "Triceps", "Chest", "Shoulders", "Back"],
+    LOWER_BODY: ["Quads", "Hamstrings", "Calves", "Glutes"],
+    ALL_MUSCLE_GROUPS: ["Biceps", "Triceps", "Chest", "Shoulders", "Back", "Quads", "Hamstrings", "Calves", "Glutes"]
+  }), []);
 
-    "Back",
-  ];
+  // Memoize the getStatus function to prevent recreation on every render
+  const getStatus = useCallback((days) => {
+    if (days === 0) return "red";
+    if (days < 3) return "yellow";
+    return "green";
+  }, []);
 
-  const LOWER_BODY = ["Quads", "Hamstrings", "Calves", "Glutes"];
+  // Memoize the muscle group list components
+  const renderMuscleGroupSection = useCallback((muscles, title) => (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <FlatList
+        data={muscles}
+        renderItem={({ item }) => (
+          <MuscleGroupItem
+            group={item}
+            isSelected={selectedMuscles.includes(item)}
+            onPress={() => handleMusclePress(item)}
+            style={[styles[`${getStatus(muscleData[item]?.days || 0)}Status`], selectedMuscles.includes(item) && styles.selectedMuscleGroup]}
+          />
+        )}
+        keyExtractor={(item) => item}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.muscleGroupList}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={5}
+        updateCellsBatchingPeriod={50}
+        windowSize={5}
+        initialNumToRender={5}
+      />
+    </View>
+  ), [getStatus, muscleData, selectedMuscles, handleMusclePress]);
 
-  const MUSCLE_GROUPS = [...UPPER_BODY, ...LOWER_BODY];
+  // Optimize the muscle press handler with useCallback
+  const handleMusclePress = useCallback((muscle) => {
+    setSelectedMuscles(prev => {
+      if (prev.includes(muscle)) {
+        return prev.filter(m => m !== muscle);
+      } else {
+        return [...prev, muscle];
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isTimerRunning) return;
+    
+    // Use requestAnimationFrame for smoother timer updates
+    let animationFrameId;
+    let lastUpdateTime = Date.now();
+    
+    const updateTimer = () => {
+      const now = Date.now();
+      const delta = now - lastUpdateTime;
+      
+      // Only update the timer every second, not on every frame
+      if (delta >= 1000) {
+        setWorkoutTimer(prev => {
+          const newTime = prev + Math.floor(delta / 1000);
+          lastUpdateTime = now - (delta % 1000); // Account for any extra milliseconds
+          return newTime;
+        });
+      }
+      
+      if (isTimerRunning) {
+        animationFrameId = requestAnimationFrame(updateTimer);
+      }
+    };
+    
+    // Start the animation loop
+    animationFrameId = requestAnimationFrame(updateTimer);
+    
+    // Cleanup function
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [isTimerRunning]);
 
   // Function to determine muscle status based on days
-  const getStatus = (days) => {
-    if (days <= 1) {
-      return "red"; // Do not train
-    } else if (days <= 3) {
-      return "yellow"; // Caution
-    } else {
-      return "green"; // Safe to train
-    }
-  };
+  // const getStatus = (days) => {
+  //   if (days <= 1) {
+  //     return "red"; // Do not train
+  //   } else if (days <= 3) {
+  //     return "yellow"; // Caution
+  //   } else {
+  //     return "green"; // Safe to train
+  //   }
+  // };
 
   // Get muscle status from Redux store
   const muscleStatus = useSelector((state) => state.workout?.muscleStatus) || {};
@@ -1171,99 +1277,53 @@ const HomeScreen = ({ route, navigation }) => {
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    if (isTimerRunning) {
-      workoutTimerRef.current = setInterval(() => {
-        setWorkoutTimer((prev) => prev + 1);
-      }, 1000);
-    } else if (workoutTimerRef.current) {
-      clearInterval(workoutTimerRef.current);
-    }
+  // Clear selected muscles
+  const clearAllMuscles = useCallback(() => {
+    setSelectedMuscles([]);
+  }, []);
 
-    return () => {
-      if (workoutTimerRef.current) {
-        clearInterval(workoutTimerRef.current);
+  // Memoize the quick actions
+  const quickActions = useMemo(() => {
+    const handleStartWorkout = () => {
+      try {
+        console.log('[HomeScreen] Start Workout button pressed - calling startWorkout function');
+        startWorkout();
+      } catch (e) {
+        console.error('[HomeScreen] Start Workout button error:', e);
+        Alert.alert('Error', 'There was an error starting the workout. Please try again.');
       }
     };
-  }, [isTimerRunning]);
-
-  const renderMuscleItem = ({ item: muscle }) => {
-    const days = muscleData[muscle] || 0;
-    const status = getStatus(days);
-    return (
-      <TouchableOpacity
-        style={styles.muscleButton}
-        onPress={() => {
-          if (editMode) {
-            setEditMode(false);
-            setSelectedMuscle(muscle);
-            setEditDays(days.toString());
-          } else {
-            handleMuscleSelect(muscle);
-          }
-        }}
-        onLongPress={() => {
-          setEditMode(true);
-          setSelectedMuscle(muscle);
-          setEditDays(days.toString());
-        }}
-      >
-        <Animated.View
-          style={{
-            transform: [{ scale: scaleAnim }],
-          }}
-        >
-          <View style={styles.muscleStatus(status)}>
-            <Text style={styles.muscleName}>{muscle}</Text>
-            <View style={styles.daysContainer}>
-              <Text style={styles.daysText}>{days} days</Text>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => handleEdit(muscle)}
-              >
-                <Ionicons name="pencil" size={20} color="black" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Animated.View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderMuscleSelectionBanner = () => {
-    if (!workoutInProgress) return null;
-
-    const getStatusColor = (timeLeft) => {
-      if (timeLeft <= 0) return '#10b981'; // Green - Ready to train
-      if (timeLeft < 24) return '#f59e0b'; // Yellow - Almost ready
-      return '#ef4444'; // Red - Needs more recovery
-    };
 
     return (
-      <View style={styles.muscleSelectionBanner}>
-        <Text style={styles.bannerTitle}>Selected Muscles:</Text>
-        <View style={styles.selectedMusclesContainer}>
-          {selectedMuscles.map((muscle, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.selectedMuscleChip}
-              onPress={() => clearMuscle(muscle)}
-            >
-              <Text style={styles.chipText}>{muscle}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+      <View style={[styles.quickActions, { 
+        flexDirection: 'row', 
+        justifyContent: 'center', 
+        marginTop: 24, 
+        marginBottom: 20 
+      }]}>
         <TouchableOpacity
-          style={styles.clearAllButton}
-          onPress={clearAllMuscles}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 1,
+            paddingVertical: 10,
+            paddingHorizontal: 16,
+            width: '45%',
+            backgroundColor: '#6b46c1',
+            borderRadius: 8,
+          }}
+          onPress={handleStartWorkout}
         >
-
+          <Ionicons name="barbell-outline" size={20} color="#ffffff" />
+          <Text style={{ color: '#ffffff', fontSize: 15, marginLeft: 6, fontWeight: '600' }}>Start Workout</Text>
         </TouchableOpacity>
       </View>
     );
+  }, [startWorkout]);
   };
 
   const handleLogout = async () => {
