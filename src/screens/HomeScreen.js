@@ -348,6 +348,51 @@ const HomeScreen = ({ route, navigation }) => {
   // Get next workout information
   const nextWorkoutInfo = getNextWorkoutTime();
 
+  // Use existing muscle status from Redux store (same as Calculator page)
+
+  // Helper function to calculate hours since last workout
+  const getHoursSinceWorkout = (lastWorkout) => {
+    if (!lastWorkout) return Infinity; // No workout = fully recovered
+    const now = new Date();
+    const workoutDate = new Date(lastWorkout);
+    return (now - workoutDate) / (1000 * 60 * 60); // Convert to hours
+  };
+
+  // Memoized live counters using Redux data (same as Calculator page)
+  const readyMusclesCount = useMemo(() => {
+    const muscleGroups = ['chest', 'biceps', 'triceps', 'back', 'shoulders', 'quads', 'hamstrings', 'calves', 'glutes', 'abs'];
+    const recoveryTimes = {
+      chest: 72, biceps: 48, triceps: 48, back: 72, shoulders: 48,
+      quads: 72, hamstrings: 72, calves: 48, glutes: 72, abs: 24
+    };
+    
+    return muscleGroups.filter(muscle => {
+      const muscleData = muscleStatus[muscle];
+      const hoursSince = getHoursSinceWorkout(muscleData?.lastWorkout);
+      const recoveryTime = muscleData?.recoveryTime || recoveryTimes[muscle] || 48;
+      return hoursSince >= recoveryTime; // Fully recovered
+    }).length;
+  }, [muscleStatus]);
+
+  const restingMusclesCount = useMemo(() => {
+    const muscleGroups = ['chest', 'biceps', 'triceps', 'back', 'shoulders', 'quads', 'hamstrings', 'calves', 'glutes', 'abs'];
+    const recoveryTimes = {
+      chest: 72, biceps: 48, triceps: 48, back: 72, shoulders: 48,
+      quads: 72, hamstrings: 72, calves: 48, glutes: 72, abs: 24
+    };
+    
+    return muscleGroups.filter(muscle => {
+      const muscleData = muscleStatus[muscle];
+      const hoursSince = getHoursSinceWorkout(muscleData?.lastWorkout);
+      const recoveryTime = muscleData?.recoveryTime || recoveryTimes[muscle] || 48;
+      return hoursSince < recoveryTime; // Still recovering
+    }).length;
+  }, [muscleStatus]);
+
+  const musclesReadyToTrainCount = useMemo(() => {
+    return Object.values(muscleData).filter((days) => days >= 72).length;
+  }, [muscleData]);
+
   // Function to load streak from AsyncStorage
   const loadStreak = async () => {
     try {
@@ -769,9 +814,10 @@ const HomeScreen = ({ route, navigation }) => {
     setSelectedMuscles((prev) => prev.filter((m) => m !== muscle));
   };
 
-  const clearAllMuscles = () => {
+  // Clear selected muscles
+  const clearAllMuscles = useCallback(() => {
     setSelectedMuscles([]);
-  };
+  }, []);
 
   // Start Workout handler
   const startWorkout = async () => {
@@ -1237,12 +1283,46 @@ const HomeScreen = ({ route, navigation }) => {
     setAffectedMuscles(affectedMuscles);
     setShowCelebrationModal(true);
     
+    // CRITICAL: Update local muscle data to reset recovery timers
+    const updatedMuscleData = { ...muscleData };
+    affectedMuscles.forEach(muscle => {
+      // Reset the muscle to 0 days (just worked out)
+      updatedMuscleData[muscle] = 0;
+      console.log(`Reset ${muscle} recovery timer to 0 days`);
+    });
+    
+    // Update state immediately for live counter refresh
+    setMuscleData(updatedMuscleData);
+    
+    // Save updated muscle data to AsyncStorage
+    try {
+      await AsyncStorage.setItem("muscleData", JSON.stringify(updatedMuscleData));
+      console.log('Updated muscle data saved to AsyncStorage');
+    } catch (error) {
+      console.error('Error saving updated muscle data:', error);
+    }
+    
     // Show appropriate alert with muscles worked
     // Removed Alert.alert calls to ensure only the celebration modal is shown
     if (savedToBackend) {
       console.log('Workout saved to backend successfully');
     } else {
       console.log('Workout saved locally only');
+    }
+    
+    // Clean up workout state
+    setSavedWorkout(null);
+    setWorkoutInProgress(false);
+    setSelectedMuscles([]);
+    setWorkoutTimer(0);
+    
+    // Clear workout from AsyncStorage
+    try {
+      await AsyncStorage.removeItem('savedWorkout');
+      await AsyncStorage.removeItem('workoutInProgress');
+      await AsyncStorage.removeItem('selectedMuscles');
+    } catch (error) {
+      console.error('Error clearing workout data:', error);
     }
   };
 
@@ -1279,11 +1359,6 @@ const HomeScreen = ({ route, navigation }) => {
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
-
-  // Clear selected muscles
-  const clearAllMuscles = useCallback(() => {
-    setSelectedMuscles([]);
-  }, []);
 
   // Memoize the quick actions
   const quickActions = useMemo(() => {
@@ -1324,7 +1399,6 @@ const HomeScreen = ({ route, navigation }) => {
       </View>
     );
   }, [startWorkout]);
-  };
 
   const handleLogout = async () => {
     try {
@@ -1365,6 +1439,35 @@ const HomeScreen = ({ route, navigation }) => {
     setSelectedMuscles(prev => prev.filter(m => m !== muscle));
   };
 
+  // Render muscle selection banner
+  const renderMuscleSelectionBanner = () => {
+    if (selectedMuscles.length === 0) return null;
+    
+    return (
+      <View style={styles.muscleSelectionBanner}>
+        <Text style={styles.bannerTitle}>Selected Muscles ({selectedMuscles.length})</Text>
+        <View style={styles.selectedMusclesList}>
+          {selectedMuscles.map((muscle) => (
+            <TouchableOpacity
+              key={muscle}
+              style={styles.selectedMuscleItem}
+              onPress={() => handleMuscleRemove(muscle)}
+            >
+              <Text style={styles.selectedMuscleText}>{muscle}</Text>
+              <Ionicons name="close-circle" size={16} color="#ff4444" />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          style={styles.clearAllButton}
+          onPress={clearAllMuscles}
+        >
+          <Text style={styles.clearAllText}>Clear All</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -1399,18 +1502,44 @@ const HomeScreen = ({ route, navigation }) => {
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
+        <TouchableOpacity 
+          style={styles.statItem}
+          onPress={() => {
+            try {
+              safeNavigate(navigation, 'Calculator', { 
+                filterType: 'ready',
+                highlightReady: true 
+              });
+            } catch (e) {
+              console.error('Navigation error to Calculator (ready muscles):', e);
+            }
+          }}
+        >
           <Text style={styles.statNumber}>
-            {Object.values(muscleData).filter((days) => days >= 48).length}
+            {readyMusclesCount}
           </Text>
           <Text style={styles.statLabel}>Ready Muscles</Text>
-        </View>
-        <View style={styles.statItem}>
+          <Ionicons name="chevron-forward" size={16} color="#6b46c1" style={{ marginTop: 4 }} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.statItem}
+          onPress={() => {
+            try {
+              safeNavigate(navigation, 'Calculator', { 
+                filterType: 'resting',
+                highlightResting: true 
+              });
+            } catch (e) {
+              console.error('Navigation error to Calculator (resting muscles):', e);
+            }
+          }}
+        >
           <Text style={styles.statNumber}>
-            {Object.values(muscleData).filter((days) => days < 48).length}
+            {restingMusclesCount}
           </Text>
           <Text style={styles.statLabel}>Resting Muscles</Text>
-        </View>
+          <Ionicons name="chevron-forward" size={16} color="#6b46c1" style={{ marginTop: 4 }} />
+        </TouchableOpacity>
       </View>
 
       {/* Next Workout Indicator */}
@@ -1695,6 +1824,53 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 14,
     fontWeight: '500',
+  },
+  muscleSelectionBanner: {
+    backgroundColor: '#2a2d47',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#6b46c1',
+  },
+  bannerTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  selectedMusclesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  selectedMuscleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3d4066',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  selectedMuscleText: {
+    color: '#ffffff',
+    fontSize: 12,
+    marginRight: 4,
+  },
+  clearAllButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  clearAllText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 
