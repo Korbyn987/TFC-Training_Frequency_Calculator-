@@ -68,3 +68,7 @@ npm run start-web
 - Uses Redux for state management
 - Implements React Navigation for routing
 - Custom color implementation for web compatibility
+
+## RUnning Android App
+1. C:\Users\adamh\AppData\Local\Android\Sdk/emulator/emulator @Pixel_9_API_36 # run in command prompt
+2. npx expo run:android -d Pixel_9_API_36 #run in powershell

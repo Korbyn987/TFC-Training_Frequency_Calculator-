@@ -1,0 +1,27 @@
+# Metro ignore file - exclude problematic directories and files
+android/
+ios/
+.git/
+node_modules/
+web-build/
+.expo/
+Backend/
+temp-app/
+scripts/
+web/
+
+# Webpack configs that cause EISDIR errors
+webpack.*.js
+*.webpack.js
+
+# Other problematic files
+*.bat
+*.ps1
+*.db
+.DS_Store
+*.bak
+
+# Build outputs
+build/
+dist/
+.cache/

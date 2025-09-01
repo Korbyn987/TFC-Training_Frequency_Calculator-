@@ -1,6 +1,4 @@
 import { registerRootComponent } from "expo";
-import App from "./src/App.web";
-import { NavigationContainer } from "@react-navigation/native";
+import App from "./src/App";
 
-global = global || window;
 registerRootComponent(App);
