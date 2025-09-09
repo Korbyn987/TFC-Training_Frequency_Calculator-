@@ -8,6 +8,9 @@ config.resolver.platforms = ["native", "android", "ios", "web"];
 // Platform-specific resolver configuration
 config.resolver.resolverMainFields = ["react-native", "browser", "main"];
 
+// Add resolver for network modules
+config.resolver.sourceExts = ["js", "jsx", "ts", "tsx", "json"];
+
 // Block React Native Web entirely for native platforms (Android/iOS)
 config.resolver.blockList = [
   // Block react-native-web for Android and iOS builds

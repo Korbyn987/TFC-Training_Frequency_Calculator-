@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
-import { Text, View, ScrollView } from "react-native";
-import { styles } from "../styles/profileStyles";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ScrollView, Text, View } from "react-native";
+import LoginRequiredModal from "../components/LoginRequiredModal";
 import WorkoutHistory from "../components/WorkoutHistory";
 import WorkoutPresets from "../components/WorkoutPresets";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
-import LoginRequiredModal from "../components/LoginRequiredModal";
+import { getCurrentUser } from "../services/supabaseAuth";
+import { styles } from "../styles/profileStyles";
 
 const ProfileScreen = ({ route }) => {
   const [userId, setUserId] = useState(null);
@@ -13,25 +13,52 @@ const ProfileScreen = ({ route }) => {
   const [email, setEmail] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const navigation = useNavigation();
 
   useEffect(() => {
-    // Try to get user_id, username, and email from AsyncStorage
-    const fetchUserData = async () => {
-      const userStr = await AsyncStorage.getItem("user");
-      if (!userStr) {
-        setShowLoginModal(true);
-        return;
-      }
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        setUserId(user.id);
-        setUsername(user.username || user.name || "");
-        setEmail(user.email || "");
-      }
-    };
     fetchUserData();
   }, []);
+
+  // Re-check authentication when screen comes into focus (e.g., returning from login)
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserData();
+    }, [])
+  );
+
+  // Try to get user_id, username, and email from Supabase session
+  const fetchUserData = async () => {
+    try {
+      setIsLoading(true);
+
+      const user = await getCurrentUser();
+      console.log("Profile: Current user from Supabase:", user);
+
+      if (!user) {
+        console.log(
+          "Profile: No valid user session found, showing login modal"
+        );
+        setShowLoginModal(true);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log(
+        "Profile: Authentication successful for user:",
+        user.username || user.name
+      );
+      setUserId(user.id);
+      setUsername(user.username || user.name || "");
+      setEmail(user.email || "");
+      setShowLoginModal(false); // Hide modal if user is authenticated
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Profile: Error fetching user data:", error);
+      setShowLoginModal(true);
+      setIsLoading(false);
+    }
+  };
 
   // Increment refreshKey whenever refreshHistory param changes
   useEffect(() => {
@@ -53,7 +80,7 @@ const ProfileScreen = ({ route }) => {
   }
 
   return (
-    <ScrollView 
+    <ScrollView
       contentContainerStyle={styles.container}
       nestedScrollEnabled={true}
       showsVerticalScrollIndicator={true}

@@ -1,18 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import {
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
 
 // Static muscle groups data from Workouts.sql
 const MUSCLE_GROUPS = [
-  { id: 1, name: 'Chest' },
-  { id: 2, name: 'Back' },
-  { id: 3, name: 'Legs' },
-  { id: 4, name: 'Shoulders' },
-  { id: 5, name: 'Arms' },
-  { id: 6, name: 'Core' }
+  { id: 1, name: "Chest" },
+  { id: 2, name: "Back" },
+  { id: 3, name: "Quadriceps" },
+  { id: 4, name: "Hamstrings" },
+  { id: 5, name: "Shoulders" },
+  { id: 6, name: "Biceps" },
+  { id: 7, name: "Triceps" },
+  { id: 8, name: "Core" }
 ];
 
-const MuscleGroupSelectionModal = ({ visible, onClose, onSelectMuscleGroup }) => {
+const MuscleGroupSelectionModal = ({
+  visible,
+  onClose,
+  onSelectMuscleGroup
+}) => {
   const [muscleGroups, setMuscleGroups] = useState(MUSCLE_GROUPS);
 
   const renderMuscleGroup = ({ item }) => (
@@ -43,11 +56,11 @@ const MuscleGroupSelectionModal = ({ visible, onClose, onSelectMuscleGroup }) =>
               <Ionicons name="close" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
-          
+
           <FlatList
             data={muscleGroups}
             renderItem={renderMuscleGroup}
-            keyExtractor={item => item.id.toString()}
+            keyExtractor={(item) => item.id.toString()}
             style={styles.list}
             contentContainerStyle={styles.listContent}
           />
@@ -60,52 +73,52 @@ const MuscleGroupSelectionModal = ({ visible, onClose, onSelectMuscleGroup }) =>
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end"
   },
   modalContent: {
-    backgroundColor: '#171923',
+    backgroundColor: "#171923",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    minHeight: '50%',
-    maxHeight: '80%',
+    minHeight: "50%",
+    maxHeight: "80%"
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#2D3748',
+    borderBottomColor: "#2D3748"
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff"
   },
   closeButton: {
-    padding: 5,
+    padding: 5
   },
   list: {
-    flex: 1,
+    flex: 1
   },
   listContent: {
-    padding: 10,
+    padding: 10
   },
   muscleGroupItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 15,
-    backgroundColor: '#2D3748',
+    backgroundColor: "#2D3748",
     borderRadius: 10,
-    marginVertical: 5,
+    marginVertical: 5
   },
   muscleGroupText: {
     fontSize: 16,
-    color: '#fff',
-    fontWeight: '500',
-  },
+    color: "#fff",
+    fontWeight: "500"
+  }
 });
 
 export default MuscleGroupSelectionModal;

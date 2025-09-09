@@ -1,9 +1,9 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Picker } from "@react-native-picker/picker";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   FlatList,
-  Picker,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,12 +11,12 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { safeNavigate, safePush } from "../shims/NavigationWeb";
 
 import { useFocusEffect } from "@react-navigation/native";
-import { Alert } from "react-native";
 import { useDispatch } from "react-redux";
-import { addWorkout } from "../redux/workoutSlice";
+import { supabase } from "../config/supabase";
+import { getExercises, getMuscleGroups } from "../services/exerciseService";
+import { getCurrentUser } from "../services/supabaseAuth";
 
 const setTypes = [
   { label: "Warmup", value: "warmup" },
@@ -25,273 +25,38 @@ const setTypes = [
   { label: "Drop", value: "drop" }
 ];
 
-// Map of exercise IDs to muscle group names
-// Note: These must match the muscle group names used in the Redux store
-// MODIFIED: Only tracking calf exercises now, all other exercises map to null
-const EXERCISE_TO_MUSCLE_GROUP = {
-  // Chest (1)
-  1: "Chest",
-  2: "Chest",
-  3: "Chest",
-  4: "Chest",
-  5: "Chest",
-  6: "Chest",
-  7: "Chest",
-  8: "Chest",
-  9: "Chest",
-  10: "Chest",
-  11: "Chest",
-  12: "Chest",
-  13: "Chest",
-  14: "Chest",
-  15: "Chest",
-  16: "Chest",
-  17: "Chest",
-  18: "Chest",
-  19: "Chest",
-  20: "Chest",
-  21: "Chest",
-  22: "Chest",
-  23: "Chest",
-  24: "Chest",
-  25: "Chest",
-  26: "Chest",
-  27: "Chest",
+// Helper function to get muscle group name from exercise data
+const getMuscleGroupFromExercise = async (exerciseId) => {
+  try {
+    const exercisesResponse = await getExercises();
+    if (!exercisesResponse.success) {
+      console.error("Failed to fetch exercises:", exercisesResponse.error);
+      return null;
+    }
 
-  // Biceps (2)
-  28: "Biceps",
-  29: "Biceps",
-  30: "Biceps",
-  31: "Biceps",
-  32: "Biceps",
-  33: "Biceps",
-  34: "Biceps",
-  35: "Biceps",
-  36: "Biceps",
-  37: "Biceps",
-  38: "Biceps",
-  39: "Biceps",
+    const exercises = exercisesResponse.data;
+    const exercise = exercises.find((ex) => ex.id === exerciseId);
+    if (exercise && exercise.muscle_group_id) {
+      const muscleGroupsResponse = await getMuscleGroups();
+      if (!muscleGroupsResponse.success) {
+        console.error(
+          "Failed to fetch muscle groups:",
+          muscleGroupsResponse.error
+        );
+        return null;
+      }
 
-  // Triceps (3)
-  40: "Triceps",
-  41: "Triceps",
-  42: "Triceps",
-  43: "Triceps",
-  44: "Triceps",
-  45: "Triceps",
-  46: "Triceps",
-  47: "Triceps",
-  48: "Triceps",
-  49: "Triceps",
-  50: "Triceps",
-  51: "Triceps",
-
-  // Back (4)
-  52: "Back",
-  53: "Back",
-  54: "Back",
-  55: "Back",
-  56: "Back",
-  57: "Back",
-  58: "Back",
-  59: "Back",
-  60: "Back",
-  61: "Back",
-  62: "Back",
-  63: "Back",
-  64: "Back",
-  65: "Back",
-  66: "Back",
-  67: "Back",
-  68: "Back",
-  69: "Back",
-  70: "Back",
-  71: "Back",
-  72: "Back",
-  73: "Back",
-  74: "Back",
-  75: "Back",
-  76: "Back",
-  77: "Back",
-  78: "Back",
-
-  // Shoulders (5) - Mapped to 'Shoulders' in Redux store
-  79: "Shoulders",
-  80: "Shoulders",
-  81: "Shoulders",
-  82: "Shoulders",
-  83: "Shoulders",
-  84: "Shoulders",
-  85: "Shoulders",
-  86: "Shoulders",
-  87: "Shoulders",
-  88: "Shoulders",
-  89: "Shoulders",
-  90: "Shoulders",
-  91: "Shoulders",
-  92: "Shoulders",
-  93: "Shoulders",
-  94: "Shoulders",
-  95: "Shoulders",
-  96: "Shoulders",
-  97: "Shoulders",
-  98: "Shoulders",
-  99: "Shoulders",
-  100: "Shoulders",
-  101: "Shoulders",
-  102: "Shoulders",
-  103: "Shoulders",
-  104: "Shoulders",
-  105: "Shoulders",
-  106: "Shoulders",
-  107: "Shoulders",
-  108: "Shoulders",
-  109: "Shoulders",
-  110: "Shoulders",
-  111: "Shoulders",
-  112: "Shoulders",
-  113: "Shoulders",
-  114: "Shoulders",
-  115: "Shoulders",
-  116: "Shoulders",
-  117: "Shoulders",
-  118: "Shoulders",
-  119: "Shoulders",
-  120: "Shoulders",
-  121: "Shoulders",
-  122: "Shoulders",
-  123: "Shoulders",
-  124: "Shoulders",
-  125: "Shoulders",
-  126: "Shoulders",
-  127: "Shoulders",
-  128: "Shoulders",
-  129: "Shoulders",
-  130: "Shoulders",
-  131: "Shoulders",
-  132: "Shoulders",
-  133: "Shoulders",
-  134: "Shoulders",
-  135: "Shoulders",
-  136: "Shoulders",
-  137: "Shoulders",
-  138: "Shoulders",
-  139: "Shoulders",
-  140: "Shoulders",
-  141: "Shoulders",
-  142: "Shoulders",
-  143: "Shoulders",
-  144: "Shoulders",
-  145: "Shoulders",
-  146: "Shoulders",
-  147: "Shoulders",
-  148: "Shoulders",
-  149: "Shoulders",
-  150: "Shoulders",
-  151: "Shoulders",
-  152: "Shoulders",
-
-  // Legs (6) - Mapped to specific leg muscles in Redux store
-  // Quads
-  90: "Quads",
-  91: "Quads",
-  92: "Quads",
-  93: "Quads",
-  94: "Quads",
-  95: "Quads",
-  96: "Quads",
-  97: "Quads",
-  98: "Quads",
-  99: "Quads",
-  100: "Quads",
-  101: "Quads",
-  102: "Quads",
-  103: "Quads",
-  104: "Quads",
-  105: "Quads",
-  106: "Quads",
-  107: "Quads",
-
-  // Hamstrings
-  108: "Hamstrings",
-  109: "Hamstrings",
-  110: "Hamstrings",
-  111: "Hamstrings",
-  112: "Hamstrings",
-  113: "Hamstrings",
-  114: "Hamstrings",
-  115: "Hamstrings",
-  116: "Hamstrings",
-  117: "Hamstrings",
-  118: "Hamstrings",
-  119: "Hamstrings",
-
-  // Calves
-  120: "Calves",
-  121: "Calves",
-  122: "Calves",
-  123: "Calves",
-  124: "Calves",
-  125: "Calves",
-  126: "Calves",
-  127: "Calves",
-  128: "Calves",
-  129: "Calves",
-
-  // Glutes
-  130: "Glutes",
-  131: "Glutes",
-  132: "Glutes",
-  133: "Glutes",
-  134: "Glutes",
-  135: "Glutes",
-  136: "Glutes",
-  137: "Glutes",
-  138: "Glutes",
-  139: "Glutes",
-  140: "Glutes",
-  141: "Glutes",
-  142: "Glutes",
-  143: "Glutes",
-  144: "Glutes",
-  145: "Glutes",
-  146: "Glutes",
-  147: "Glutes",
-  148: "Glutes",
-  149: "Glutes",
-  150: "Glutes",
-  151: "Glutes",
-  152: "Glutes",
-
-  // Core (7) - Mapped to 'Core' in Redux store (matches 'abs' in Redux)
-  153: "Core",
-  154: "Core",
-  155: "Core",
-  156: "Core",
-  157: "Core",
-  158: "Core",
-  159: "Core",
-  160: "Core",
-  161: "Core",
-  162: "Core",
-  163: "Core",
-  164: "Core",
-  165: "Core",
-  166: "Core",
-  167: "Core",
-  168: "Core",
-  169: "Core",
-  170: "Core",
-  171: "Core",
-  172: "Core",
-  173: "Core",
-  174: "Core",
-  175: "Core",
-  176: "Core",
-  177: "Core",
-  178: "Core",
-  179: "Core",
-  180: "Core"
+      const muscleGroups = muscleGroupsResponse.data;
+      const muscleGroup = muscleGroups.find(
+        (mg) => mg.id === exercise.muscle_group_id
+      );
+      return muscleGroup ? muscleGroup.name : null;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error getting muscle group for exercise:", error);
+    return null;
+  }
 };
 
 const ConfigureWorkoutScreen = ({ route, navigation }) => {
@@ -321,14 +86,22 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
   // Handle initial loading of exercises from params or AsyncStorage
   useEffect(() => {
     // If we have exercises from a preset, prioritize those
-    if (Array.isArray(safeExercises) && safeExercises.length > 0 && route.params?.fromPreset) {
-      console.log('[ConfigureWorkoutScreen] Loading exercises from preset:', safeExercises.length);
+    if (
+      Array.isArray(safeExercises) &&
+      safeExercises.length > 0 &&
+      route.params?.fromPreset
+    ) {
+      console.log(
+        "[ConfigureWorkoutScreen] Loading exercises from preset:",
+        safeExercises.length
+      );
       setExerciseConfigs(
         safeExercises.map((exercise) => ({
           ...exercise,
-          sets: Array.isArray(exercise.sets) && exercise.sets.length > 0
-            ? exercise.sets
-            : [{ setType: "numbered", reps: "10", weight: "", notes: "" }]
+          sets:
+            Array.isArray(exercise.sets) && exercise.sets.length > 0
+              ? exercise.sets
+              : [{ setType: "numbered", reps: "10", weight: "", notes: "" }]
         }))
       );
     }
@@ -339,25 +112,18 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
         route.params.selectedExercises.length === 0)
     ) {
       const loadSavedWorkout = async () => {
-        const workoutStr = await AsyncStorage.getItem("savedWorkout");
-        if (workoutStr) {
-          const workout = JSON.parse(workoutStr);
-          setWorkoutName(workout.name || "");
-          setExerciseConfigs(
-            Array.isArray(workout.exercises) ? workout.exercises : []
-          );
-        } else if (Array.isArray(safeExercises) && safeExercises.length > 0) {
-          setExerciseConfigs(
-            safeExercises.map((exercise) => ({
-              ...exercise,
-              sets:
-                exercise.sets &&
-                Array.isArray(exercise.sets) &&
-                exercise.sets.length > 0
-                  ? exercise.sets
-                  : [{ setType: "numbered", reps: "10", weight: "", notes: "" }]
-            }))
-          );
+        // Load from user metadata instead of storage
+        try {
+          const user = await getCurrentUser();
+          if (user && user.user_metadata?.currentWorkout) {
+            const workout = user.user_metadata.currentWorkout;
+            setWorkoutName(workout.name || "");
+            setExerciseConfigs(
+              Array.isArray(workout.exercises) ? workout.exercises : []
+            );
+          }
+        } catch (error) {
+          console.error("Error loading saved workout:", error);
         }
       };
       loadSavedWorkout();
@@ -454,7 +220,6 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
             currentRoute.name !== "AddExercise" &&
             currentRoute.name !== "SelectRoutine"
           ) {
-            AsyncStorage.removeItem("tempWorkoutConfig");
             console.log("Cleared temporary workout configuration");
           }
         } catch (e) {
@@ -475,26 +240,20 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
         }
 
         try {
-          const savedConfig = await AsyncStorage.getItem("tempWorkoutConfig");
-          if (savedConfig) {
-            const parsedConfig = JSON.parse(savedConfig);
+          // Load from user metadata instead of storage
+          const user = await getCurrentUser();
+          if (user && user.user_metadata?.currentWorkout) {
+            const workout = user.user_metadata.currentWorkout;
+            setExerciseConfigs(
+              Array.isArray(workout.exercises) ? workout.exercises : []
+            );
 
-            // Only restore if we have exercise configurations
-            if (parsedConfig.exercises && parsedConfig.exercises.length > 0) {
-              console.log(
-                "Restoring saved workout configuration with",
-                parsedConfig.exercises.length,
-                "exercises"
-              );
-              setExerciseConfigs(parsedConfig.exercises);
-
-              if (parsedConfig.name) {
-                setWorkoutName(parsedConfig.name);
-              }
-
-              // Mark as loaded to prevent duplicate loads
-              setTempWorkoutLoaded(true);
+            if (workout.name) {
+              setWorkoutName(workout.name);
             }
+
+            // Mark as loaded to prevent duplicate loads
+            setTempWorkoutLoaded(true);
           }
         } catch (error) {
           console.error("Error loading temp workout config:", error);
@@ -591,27 +350,51 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
 
   const handleSaveWorkout = async () => {
     try {
-      // Extract unique muscle groups from all exercises
+      // Get current user for authentication
+      const authUser = await getCurrentUser();
+      if (!authUser || !authUser.id) {
+        Alert.alert(
+          "Authentication Required",
+          "Please log in to save workouts."
+        );
+        return;
+      }
+
+      console.log(
+        "Using user ID:",
+        authUser.id,
+        "for auth user:",
+        authUser.auth_id
+      );
+
+      // Extract unique muscle groups from all exercises using Promise.all
       const muscleGroups = new Set();
 
       console.log("Saving workout with exercises:", exerciseConfigs);
 
-      exerciseConfigs.forEach((exercise) => {
-        if (exercise.id && EXERCISE_TO_MUSCLE_GROUP[exercise.id]) {
-          const muscleGroup = EXERCISE_TO_MUSCLE_GROUP[exercise.id];
+      // Use Promise.all to properly await all async operations
+      const muscleGroupPromises = exerciseConfigs.map(async (exercise) => {
+        if (exercise.id) {
+          const muscleGroup = await getMuscleGroupFromExercise(exercise.id);
           console.log(
             `Exercise ${exercise.name} (ID: ${exercise.id}) maps to muscle group:`,
             muscleGroup
           );
+          return muscleGroup;
+        }
+        return null;
+      });
+
+      const muscleGroupResults = await Promise.all(muscleGroupPromises);
+
+      // Add valid muscle groups to the set
+      muscleGroupResults.forEach((muscleGroup) => {
+        if (muscleGroup) {
           muscleGroups.add(muscleGroup);
-        } else {
-          console.warn(
-            `No muscle group mapping found for exercise ID: ${exercise.id} (${exercise.name})`
-          );
         }
       });
 
-      // Convert Set to array for Redux
+      // Convert Set to array for storage
       const muscles = Array.from(muscleGroups);
 
       if (muscles.length === 0) {
@@ -622,71 +405,65 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
 
       console.log("Saving workout with muscle groups:", muscles);
 
-      // Create the workout data
+      // Create the workout data with profile user ID
       const workoutData = {
-        date: new Date().toISOString(),
-        muscles,
-        intensity: "moderate",
+        user_id: authUser.id, // Use user ID directly from getCurrentUser
         name: workoutName || "My Workout",
-        exercises: exerciseConfigs
+        description: `Workout with ${exerciseConfigs.length} exercises`,
+        workout_type: "strength",
+        started_at: new Date().toISOString(),
+        notes: `Muscle groups: ${muscles.join(", ")}`,
+        tags: muscles,
+        is_public: true,
+        allow_comments: true
       };
 
-      console.log("Dispatching addWorkout with data:", workoutData);
+      console.log("Saving workout to Supabase:", workoutData);
 
-      // Dispatch to Redux store
-      dispatch(addWorkout(workoutData));
+      // Save to Supabase workouts table
+      const { data, error } = await supabase
+        .from("workouts")
+        .insert([workoutData])
+        .select();
 
-      // Save the workout to AsyncStorage for the current workout section
-      await AsyncStorage.setItem("savedWorkout", JSON.stringify(workoutData));
-      console.log("Workout saved to AsyncStorage:", workoutData);
-
-      // Only set workout in progress if there are exercises
-      if (exerciseConfigs && exerciseConfigs.length > 0) {
-        await AsyncStorage.setItem("workoutInProgress", "true");
-        await AsyncStorage.setItem("selectedMuscles", JSON.stringify(muscles));
-      } else {
-        // If no exercises, ensure workoutInProgress is false
-        await AsyncStorage.setItem("workoutInProgress", "false");
+      if (error) {
+        console.error("Error saving workout to Supabase:", error);
+        Alert.alert("Error", `Failed to save workout: ${error.message}`);
+        return;
       }
 
-      // Use multiple approaches for more reliable navigation
+      console.log("Workout saved successfully to Supabase:", data);
+
+      // Save as active workout to local storage
+      const activeWorkoutData = {
+        supabase_id: data[0].id,
+        name: workoutData.name,
+        start_time: workoutData.started_at,
+        notes: workoutData.notes,
+        exercises: exerciseConfigs,
+        muscle_groups: muscles
+      };
+
+      // Import and save to local storage
+      const { saveActiveWorkout } = await import(
+        "../services/localWorkoutStorage"
+      );
+      await saveActiveWorkout(activeWorkoutData);
+
+      console.log("Saved as active workout:", activeWorkoutData);
+
+      // Navigate to home screen
       try {
-        // First try the safe navigation method
-        safeNavigate(navigation, "Home", { workoutJustSaved: true });
-
-        // Add fallbacks with timeout for the web environment
-        if (typeof window !== "undefined") {
-          // Attempt normal navigation as fallback
-          setTimeout(() => {
-            console.log("Using standard navigation as fallback...");
-            try {
-              navigation.navigate("Home", { workoutJustSaved: true });
-            } catch (e) {
-              console.warn("Standard navigation fallback failed:", e);
-            }
-          }, 300);
-
-          // Last resort - use reset navigation or direct URL navigation
-          setTimeout(() => {
-            console.log("Using navigation reset as final fallback...");
-            try {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Home", params: { workoutJustSaved: true } }]
-              });
-            } catch (e) {
-              console.warn("Navigation reset fallback failed:", e);
-              // Direct URL redirection as last resort
-              window.location.href = "/";
-            }
-          }, 600);
-        }
+        navigation.reset({
+          index: 0,
+          routes: [
+            { name: "Tabs", params: { screen: "Home", workoutJustSaved: true } }
+          ]
+        });
       } catch (navError) {
         console.error("Navigation error:", navError);
-        // Final fallback - use window.location for web
-        if (typeof window !== "undefined") {
-          window.location.href = "/";
-        }
+        // Fallback navigation
+        navigation.navigate("Tabs", { screen: "Home", workoutJustSaved: true });
       }
     } catch (error) {
       console.error("Error saving workout:", error);
@@ -975,15 +752,18 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={styles.addExerciseButton}
             onPress={async () => {
-              // Save current exercises to AsyncStorage before navigating
+              // Save current exercises to user metadata before navigating
               const workoutData = {
                 name: workoutName,
                 exercises: exerciseConfigs
               };
-              await AsyncStorage.setItem(
-                "tempWorkoutConfig",
-                JSON.stringify(workoutData)
-              );
+              const user = await getCurrentUser();
+              if (user) {
+                user.user_metadata = {
+                  ...user.user_metadata,
+                  currentWorkout: workoutData
+                };
+              }
 
               // Create a list of exercise IDs to pass as previousExercises
               const currentExerciseIds = exerciseConfigs.map((ex) => ({
@@ -994,7 +774,7 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
               }));
 
               // Navigate with the current exercises so they appear selected
-              safeNavigate(navigation, "AddExercise", {
+              navigation.navigate("AddExercise", {
                 previousExercises: currentExerciseIds
               });
             }}
@@ -1012,16 +792,19 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={styles.addExerciseButton}
             onPress={async () => {
-              // Save current exercises to AsyncStorage before navigating
+              // Save current exercises to user metadata before navigating
               const workoutData = {
                 name: workoutName,
                 exercises: exerciseConfigs
               };
-              await AsyncStorage.setItem(
-                "tempWorkoutConfig",
-                JSON.stringify(workoutData)
-              );
-              safePush(navigation, "SelectRoutine");
+              const user = await getCurrentUser();
+              if (user) {
+                user.user_metadata = {
+                  ...user.user_metadata,
+                  currentWorkout: workoutData
+                };
+              }
+              navigation.navigate("SelectRoutine");
             }}
           >
             <View>
@@ -1041,22 +824,53 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
           keyExtractor={(item, index) => index.toString()}
           contentContainerStyle={styles.exerciseList}
           ListFooterComponent={
-            <View style={{ backgroundColor: '#6b46c1', borderRadius: 25, marginTop: 32, marginHorizontal: 16, overflow: 'hidden', shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8 }}>
+            <View
+              style={{
+                backgroundColor: "#6b46c1",
+                borderRadius: 25,
+                marginTop: 32,
+                marginHorizontal: 16,
+                overflow: "hidden",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 6,
+                elevation: 8
+              }}
+            >
               <TouchableOpacity
                 id="save-workout-button"
-                style={{ 
-                  backgroundColor: '#7c4ddb', 
-                  paddingVertical: 18, 
+                style={{
+                  backgroundColor: "#7c4ddb",
+                  paddingVertical: 18,
                   paddingHorizontal: 32,
                   borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.15)',
+                  borderColor: "rgba(255, 255, 255, 0.15)",
                   borderRadius: 22
                 }}
                 onPress={handleSaveWorkout}
                 activeOpacity={0.85}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#7c4ddb' }}>
-                  <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "bold", letterSpacing: 1.2, textTransform: 'uppercase', backgroundColor: '#7c4ddb' }}>SAVE WORKOUT</Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "#7c4ddb"
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#ffffff",
+                      fontSize: 18,
+                      fontWeight: "bold",
+                      letterSpacing: 1.2,
+                      textTransform: "uppercase",
+                      backgroundColor: "#7c4ddb"
+                    }}
+                  >
+                    SAVE WORKOUT
+                  </Text>
                 </View>
               </TouchableOpacity>
             </View>

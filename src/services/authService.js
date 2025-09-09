@@ -70,10 +70,26 @@ const resetPassword = async (token, newPassword) => {
   }
 };
 
+const recoverUsername = async (email) => {
+  try {
+    const response = await axios.post(`${API_URL}/auth/recover-username`, {
+      email
+    });
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Recover username error:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+};
+
 export const authService = {
   login,
   logout,
   createAccount,
   forgotPassword,
   resetPassword,
+  recoverUsername
 };

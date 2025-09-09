@@ -70,5 +70,5 @@ npm run start-web
 - Custom color implementation for web compatibility
 
 ## RUnning Android App
-1. C:\Users\adamh\AppData\Local\Android\Sdk/emulator/emulator @Pixel_9_API_36 # run in command prompt
+1. & "$env:ANDROID_HOME\emulator\emulator" -avd Pixel_9_API_36
 2. npx expo run:android -d Pixel_9_API_36 #run in powershell

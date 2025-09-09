@@ -1,27 +1,19 @@
 console.log("AddExerciseScreen.js loaded (start)");
 
-import React, { memo, useRef, useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  TextInput,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  DeviceEventEmitter,
-} from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import PurpleBackgroundIcon from "../components/PurpleBackgroundIcon";
-import {
-  getExercises,
-  getMuscleGroups,
-  initDatabase,
-} from "../database/database";
 import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  DeviceEventEmitter,
+  FlatList,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { getExercises, getMuscleGroups } from "../services/exerciseService";
 
 const AddExerciseScreen = ({ navigation, route }) => {
   console.log("AddExerciseScreen: component render start");
@@ -30,7 +22,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
     muscleGroupId,
     previousExercises,
     returnToPreset,
-    onReturnToPreset,
+    onReturnToPreset
   } = route?.params || {};
   const safePreviousExercises = Array.isArray(previousExercises)
     ? previousExercises
@@ -42,15 +34,16 @@ const AddExerciseScreen = ({ navigation, route }) => {
   const [activeGroup, setActiveGroup] = useState("All");
   const [muscleGroups, setMuscleGroups] = useState([]);
   const [exercises, setExercises] = useState([]);
+  const [filteredExercises, setFilteredExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const searchInputRef = useRef(null);
 
   // All web-specific styles are consolidated in a single useEffect hook
   useEffect(() => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       // Create a single style element for all web-specific styles
-      const style = document.createElement('style');
+      const style = document.createElement("style");
       style.textContent = `
         /* Input focus styles */
         input:focus, textarea:focus {
@@ -95,7 +88,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
         }
       `;
       document.head.appendChild(style);
-      
+
       // Clean up function to remove the style when component unmounts
       return () => {
         if (style && style.parentNode) {
@@ -122,13 +115,33 @@ const AddExerciseScreen = ({ navigation, route }) => {
     if (muscleGroup && muscleGroupId) {
       setActiveGroup(muscleGroup);
     }
-    loadData();
-    
-    // No need for event listener here anymore
-    return () => {
-      // Cleanup if needed
-    };
-  }, [route, navigation]);
+
+    // Force load static data immediately
+    console.log("Force loading static data...");
+    console.log("Static muscle groups count:", muscleGroups.length);
+    console.log("Static exercises count:", exercises.length);
+
+    getMuscleGroups().then((response) => {
+      if (response.success) {
+        setMuscleGroups(response.data);
+      } else {
+        console.error("Error loading muscle groups:", response.error);
+        setError("Failed to load muscle groups");
+      }
+    });
+    getExercises().then((response) => {
+      if (response.success) {
+        setExercises(response.data);
+        setFilteredExercises(response.data);
+      } else {
+        console.error("Error loading exercises:", response.error);
+        setError("Failed to load exercises");
+      }
+      setLoading(false);
+    });
+
+    console.log("Static data loaded successfully");
+  }, []);
 
   useEffect(() => {
     console.log("AddExerciseScreen: useEffect (muscleGroup)");
@@ -136,88 +149,6 @@ const AddExerciseScreen = ({ navigation, route }) => {
       setActiveGroup(muscleGroup);
     }
   }, [muscleGroup]);
-
-  const loadData = async () => {
-    try {
-      console.log("AddExerciseScreen: loadData start");
-      setLoading(true);
-      setError(null);
-      // Initialize database
-      const dbInitialized = await initDatabase();
-      console.log("AddExerciseScreen: initDatabase result", dbInitialized);
-      if (!dbInitialized) {
-        throw new Error("Failed to initialize database");
-      }
-      // Load muscle groups
-      let groups;
-      if (Platform.OS === "web") {
-        const { STATIC_MUSCLE_GROUPS } = require("../database/database");
-        groups = STATIC_MUSCLE_GROUPS;
-      } else {
-        groups = await getMuscleGroups();
-      }
-      console.log("AddExerciseScreen: muscleGroups", groups);
-      setMuscleGroups(groups);
-      // Load exercises
-      let exercisesData;
-      if (Platform.OS === "web") {
-        const { STATIC_EXERCISES } = require("../database/database");
-        exercisesData = STATIC_EXERCISES;
-      } else {
-        exercisesData = await getExercises();
-      }
-      console.log("AddExerciseScreen: exercisesData", exercisesData);
-      if (route.params?.muscleGroupId) {
-        const filteredExercises = exercisesData.filter(
-          (exercise) => exercise.muscle_group_id === route.params.muscleGroupId
-        );
-        setExercises(filteredExercises);
-        console.log("AddExerciseScreen: filteredExercises", filteredExercises);
-      } else {
-        setExercises(exercisesData);
-      }
-      setLoading(false);
-      console.log("AddExerciseScreen: loadData complete");
-    } catch (err) {
-      setError("Error loading data: " + err);
-      setLoading(false);
-      console.error("AddExerciseScreen: loadData error", err);
-    }
-  };
-
-  // Fallback UI for debugging
-  if (error) {
-    console.log("AddExerciseScreen: rendering error UI", error);
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#171923",
-        }}
-      >
-        <Text style={{ color: "#fc8181", fontSize: 18 }}>Error: {error}</Text>
-      </View>
-    );
-  }
-  if (loading) {
-    console.log("AddExerciseScreen: rendering loading UI");
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#171923",
-        }}
-      >
-        <Text style={{ color: "#fff", fontSize: 18 }}>Loading...</Text>
-      </View>
-    );
-  }
-
-  console.log("AddExerciseScreen: rendering main UI");
 
   const handleSelectExercise = (exercise) => {
     setSelectedExercises((prev) => {
@@ -233,9 +164,9 @@ const AddExerciseScreen = ({ navigation, route }) => {
     console.log("[AddExerciseScreen] selectedExercises:", selectedExercises);
     if (route.params?.returnToPreset) {
       // Use DeviceEventEmitter which works on both native and web
-      DeviceEventEmitter.emit('onReturnToPreset', {
+      DeviceEventEmitter.emit("onReturnToPreset", {
         exercises: [...selectedExercises],
-        presetName: route.params.presetName,
+        presetName: route.params.presetName
       });
       navigation.goBack();
     } else {
@@ -243,31 +174,36 @@ const AddExerciseScreen = ({ navigation, route }) => {
         "[AddExerciseScreen] Navigating to ConfigureWorkout with selectedExercises:",
         selectedExercises
       );
-      
+
       // Determine if we're adding new exercises or replacing the existing ones
       if (route.params?.previousExercises) {
         // We're potentially adding new exercises to existing ones
-        const previousIds = route.params.previousExercises.map(ex => ex.id);
-        const newExercises = selectedExercises.filter(ex => !previousIds.includes(ex.id));
-        
+        const previousIds = route.params.previousExercises.map((ex) => ex.id);
+        const newExercises = selectedExercises.filter(
+          (ex) => !previousIds.includes(ex.id)
+        );
+
         // If user deselected some exercises that were previously added, they should be removed
         const keptPreviousIds = selectedExercises
-          .filter(ex => previousIds.includes(ex.id))
-          .map(ex => ex.id);
-          
+          .filter((ex) => previousIds.includes(ex.id))
+          .map((ex) => ex.id);
+
         if (newExercises.length > 0) {
-          console.log("[AddExerciseScreen] Adding new exercises:", newExercises);
+          console.log(
+            "[AddExerciseScreen] Adding new exercises:",
+            newExercises
+          );
           navigation.navigate({
             name: "ConfigureWorkout",
             params: { addExercises: [...newExercises] },
-            merge: true,
+            merge: true
           });
         } else {
           // If they only deselected exercises or made no changes
           navigation.navigate({
             name: "ConfigureWorkout",
             params: { selectedExercises: [...selectedExercises] },
-            merge: true,
+            merge: true
           });
         }
       } else {
@@ -275,7 +211,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
         navigation.navigate({
           name: "ConfigureWorkout",
           params: { selectedExercises: [...selectedExercises] },
-          merge: true,
+          merge: true
         });
       }
     }
@@ -284,7 +220,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
   // Defensive: exercises fallback
   const safeExercises = Array.isArray(exercises) ? exercises : [];
 
-  const filteredExercises = () => {
+  const getFilteredExercises = () => {
     const query = searchQuery.toLowerCase();
     return safeExercises.filter((exercise) => {
       const matchesQuery = exercise.name.toLowerCase().includes(query);
@@ -301,7 +237,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
       key={group ? group.id : "all"}
       style={[
         styles.groupButton,
-        activeGroup === (group ? group.id : "All") && styles.activeGroupButton,
+        activeGroup === (group ? group.id : "All") && styles.activeGroupButton
       ]}
       onPress={() => {
         console.log("Selected muscle group:", group ? group.name : "All");
@@ -312,7 +248,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
         style={[
           styles.groupButtonText,
           activeGroup === (group ? group.id : "All") &&
-            styles.activeGroupButtonText,
+            styles.activeGroupButtonText
         ]}
         numberOfLines={1}
         ellipsizeMode="tail"
@@ -328,7 +264,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
       <TouchableOpacity
         style={[
           styles.exerciseItem,
-          isSelected ? styles.selectedExerciseItem : null,
+          isSelected ? styles.selectedExerciseItem : null
         ]}
         onPress={() => handleSelectExercise(item)}
       >
@@ -336,14 +272,19 @@ const AddExerciseScreen = ({ navigation, route }) => {
           <Text
             style={[
               styles.exerciseText,
-              isSelected ? styles.selectedExerciseText : null,
+              isSelected ? styles.selectedExerciseText : null
             ]}
           >
             {item.name}
           </Text>
           <Text style={styles.exerciseDescription}>{item.description}</Text>
         </View>
-        <View style={[styles.checkboxContainer, isSelected && styles.checkboxSelected]}>
+        <View
+          style={[
+            styles.checkboxContainer,
+            isSelected && styles.checkboxSelected
+          ]}
+        >
           {isSelected && <MaterialIcons name="check" size={18} color="#fff" />}
         </View>
       </TouchableOpacity>
@@ -351,7 +292,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
   };
 
   // Web-specific scrollbar styles are now consolidated in the first useEffect hook
-  
+
   return (
     <View style={styles.mainContainer}>
       {/* Fixed Header */}
@@ -366,7 +307,10 @@ const AddExerciseScreen = ({ navigation, route }) => {
           />
           <TextInput
             ref={searchInputRef}
-            style={[styles.headerSearchInput, Platform.OS === 'web' && styles.webInputReset]}
+            style={[
+              styles.headerSearchInput,
+              Platform.OS === "web" && styles.webInputReset
+            ]}
             placeholder="Search exercises..."
             placeholderTextColor="#666"
             value={searchQuery}
@@ -374,14 +318,16 @@ const AddExerciseScreen = ({ navigation, route }) => {
             selectionColor="#7c3aed"
           />
           {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery("")}
-              style={styles.clearButton}>
+            <TouchableOpacity
+              onPress={() => setSearchQuery("")}
+              style={styles.clearButton}
+            >
               <MaterialIcons name="cancel" size={18} color="#666" />
             </TouchableOpacity>
           ) : null}
         </View>
       </View>
-      
+
       {/* Filter Section */}
       <View style={styles.filterBoxContainer}>
         <View style={styles.filterHeaderContainer}>
@@ -390,23 +336,27 @@ const AddExerciseScreen = ({ navigation, route }) => {
         <View style={styles.filterGridContainer}>
           <View style={styles.filterRow}>
             {renderMuscleGroupButton(null)}
-            {muscleGroups.slice(0, 3).map((group) => renderMuscleGroupButton(group))}
+            {muscleGroups
+              .slice(0, 3)
+              .map((group) => renderMuscleGroupButton(group))}
           </View>
           <View style={styles.filterRow}>
-            {muscleGroups.slice(3, 7).map((group) => renderMuscleGroupButton(group))}
+            {muscleGroups
+              .slice(3, 7)
+              .map((group) => renderMuscleGroupButton(group))}
           </View>
         </View>
       </View>
 
       {/* Scrollable Content Area */}
-      {Platform.OS === 'web' ? (
-        <div className="exercise-list-container" style={{padding: 16}}>
-          {filteredExercises().map((item) => (
+      {Platform.OS === "web" ? (
+        <div className="exercise-list-container" style={{ padding: 16 }}>
+          {getFilteredExercises().map((item) => (
             <div key={item.id?.toString() || `exercise-${item.name}`}>
-              {renderExerciseItem({item})}
+              {renderExerciseItem({ item })}
             </div>
           ))}
-          {filteredExercises().length === 0 && (
+          {getFilteredExercises().length === 0 && (
             <View style={styles.emptyListContainer}>
               <Text style={styles.emptyListText}>No exercises found</Text>
             </View>
@@ -415,8 +365,10 @@ const AddExerciseScreen = ({ navigation, route }) => {
       ) : (
         <View style={styles.scrollableArea}>
           <FlatList
-            data={filteredExercises()}
-            keyExtractor={(item) => item.id?.toString() || `exercise-${item.name}`}
+            data={getFilteredExercises()}
+            keyExtractor={(item) =>
+              item.id?.toString() || `exercise-${item.name}`
+            }
             renderItem={renderExerciseItem}
             style={styles.scrollContainer}
             contentContainerStyle={styles.scrollContentContainer}
@@ -457,7 +409,9 @@ const AddExerciseScreen = ({ navigation, route }) => {
             <View style={styles.infoIcon}>
               <MaterialIcons name="fitness-center" size={20} color="#7c3aed" />
             </View>
-            <Text style={styles.emptySelectionText}>Select exercises to add to your workout</Text>
+            <Text style={styles.emptySelectionText}>
+              Select exercises to add to your workout
+            </Text>
           </View>
         )}
       </View>

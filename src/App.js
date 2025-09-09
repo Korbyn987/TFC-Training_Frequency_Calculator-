@@ -3,13 +3,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-gesture-handler";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { navigationRef } from "./navigationRef";
 import { persistor, store } from "./redux/store";
+
+// Import database initialization
+import { initDatabase } from "./services/database";
 
 // Import LoginScreen directly (not lazy) since it's the initial screen
 import LoginScreen from "./screens/LoginScreen";
@@ -18,10 +21,10 @@ import LoginScreen from "./screens/LoginScreen";
 import AboutScreen from "./screens/AboutScreen";
 import AddExerciseScreen from "./screens/AddExerciseScreen";
 import ConfigureWorkoutScreen from "./screens/ConfigureWorkoutScreen";
-import HomeScreen from "./screens/HomeScreen";
+import NewHomeScreen from "./screens/NewHomeScreen"; // Import NewHomeScreen
 import ProfileScreen from "./screens/ProfileScreen";
 import RecoveryGuideScreen from "./screens/RecoveryGuideScreen";
-import RecoveryScreen from "./screens/RecoveryScreen";
+import RegisterScreen from "./screens/RegisterScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import SelectRoutineScreen from "./screens/SelectRoutineScreen";
 import WorkoutOptionsScreen from "./screens/WorkoutOptionsScreen";
@@ -83,6 +86,11 @@ function AppContent() {
           name="Login"
           component={LoginScreen}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Register"
+          component={RegisterScreen}
+          options={{ title: "Register" }}
         />
         <Stack.Screen
           name="Tabs"
@@ -158,10 +166,10 @@ function Tabs() {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={NewHomeScreen}
         options={{ title: "TFC" }}
       />
-      <Tab.Screen name="Calculator" component={RecoveryScreen} />
+      <Tab.Screen name="Calculator" component={RecoveryGuideScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
       <Tab.Screen name="About" component={AboutScreen} />
     </Tab.Navigator>
@@ -169,6 +177,43 @@ function Tabs() {
 }
 
 export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        console.log("Initializing TFC app...");
+
+        // Re-enable database initialization
+        await initDatabase();
+
+        console.log("App initialization complete");
+      } catch (error) {
+        console.error("App initialization error:", error);
+        // Don't let initialization errors prevent app from loading
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#23263a"
+        }}
+      >
+        <ActivityIndicator size="large" color="#6b46c1" />
+      </View>
+    );
+  }
+
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>

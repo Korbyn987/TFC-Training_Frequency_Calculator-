@@ -8,7 +8,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#171923",
     paddingTop: 32,
     paddingHorizontal: 0,
-    minHeight: '100%',
+    minHeight: "100%"
   },
   profileHeader: {
     alignItems: "center",
@@ -20,7 +20,7 @@ export const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
     elevation: 7,
     borderWidth: 1,
-    borderColor: "#6b46c1",
+    borderColor: "#6b46c1"
   },
   avatar: {
     width: 80,
@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 2,
     borderColor: "#6b46c1",
-    elevation: 2,
+    elevation: 2
   },
   name: {
     fontSize: 24,
@@ -38,12 +38,12 @@ export const styles = StyleSheet.create({
     color: "#ffffff",
     marginBottom: 4,
     letterSpacing: 1,
-    textTransform: "uppercase",
+    textTransform: "uppercase"
   },
   email: {
     fontSize: 15,
     color: "rgba(255, 255, 255, 0.8)",
-    marginBottom: 2,
+    marginBottom: 2
   },
   text: {
     fontSize: 20,
@@ -51,6 +51,13 @@ export const styles = StyleSheet.create({
     margin: 10,
     color: "#ffffff",
     fontWeight: "bold",
-    letterSpacing: 1,
+    letterSpacing: 1
   },
+  loadingText: {
+    fontSize: 24,
+    color: "#fff",
+    textAlign: "center",
+    padding: 20,
+    fontWeight: "bold"
+  }
 });
