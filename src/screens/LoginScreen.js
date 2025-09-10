@@ -1,7 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -10,12 +14,20 @@ import {
 } from "react-native";
 import { loginUser, resendConfirmationEmail } from "../services/supabaseAuth";
 
-export default function LoginScreen({ navigation }) {
+const LoginScreen = ({ navigation }) => {
   const [formData, setFormData] = useState({
     email: "",
     password: ""
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleLogin = async () => {
     if (!formData.email.trim() || !formData.password) {
@@ -23,246 +35,271 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
-    setLoading(true);
-
     try {
-      console.log("Login: Starting login process for:", formData.email.trim());
-
+      setLoading(true);
       const result = await loginUser(formData.email.trim(), formData.password);
 
-      console.log("Login: Supabase result:", result);
-
       if (result.success) {
-        console.log("Login: Navigation to Tabs starting...");
         navigation.navigate("Tabs");
-        console.log("Login: Navigation to Tabs completed");
       } else {
-        console.log("Login: Login failed - result.success is false");
-
-        // Check if it's an email confirmation issue
-        if (result.message && result.message.includes("confirmation link")) {
-          Alert.alert("Email Not Confirmed", result.message, [
-            {
-              text: "Resend Email",
-              onPress: () => handleResendConfirmation()
-            },
-            {
-              text: "OK",
-              style: "cancel"
-            }
-          ]);
+        if (result.error?.message?.includes("Email not confirmed")) {
+          Alert.alert(
+            "Email Not Confirmed",
+            "Please check your email and click the confirmation link. Would you like us to resend the confirmation email?",
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Resend Email",
+                onPress: async () => {
+                  try {
+                    const resendResult = await resendConfirmationEmail(
+                      formData.email.trim()
+                    );
+                    if (resendResult.success) {
+                      Alert.alert(
+                        "Success",
+                        "Confirmation email sent! Please check your inbox."
+                      );
+                    } else {
+                      Alert.alert(
+                        "Error",
+                        resendResult.error?.message ||
+                          "Failed to resend confirmation email"
+                      );
+                    }
+                  } catch (error) {
+                    console.error("Error resending confirmation:", error);
+                    Alert.alert("Error", "Failed to resend confirmation email");
+                  }
+                }
+              }
+            ]
+          );
         } else {
-          Alert.alert("Login Failed", result.message || "Invalid credentials");
+          Alert.alert(
+            "Login Failed",
+            result.error?.message || "Invalid email or password"
+          );
         }
       }
     } catch (error) {
-      console.error("Login: Login error:", error);
-
-      // Check if it's an email confirmation issue
-      if (error.message && error.message.includes("confirmation link")) {
-        Alert.alert("Email Not Confirmed", error.message, [
-          {
-            text: "Resend Email",
-            onPress: () => handleResendConfirmation()
-          },
-          {
-            text: "OK",
-            style: "cancel"
-          }
-        ]);
-      } else {
-        Alert.alert("Login Failed", error.message || "Invalid credentials");
-      }
+      console.error("Login error:", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendConfirmation = async () => {
-    if (!formData.email.trim()) {
-      Alert.alert("Error", "Please enter your email address");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const result = await resendConfirmationEmail(formData.email.trim());
-
-      if (result.success) {
-        Alert.alert("Email Sent", result.message);
-      }
-    } catch (error) {
-      Alert.alert(
-        "Error",
-        error.message || "Failed to resend confirmation email"
-      );
-    } finally {
-      setLoading(false);
-    }
+  const handleRegister = () => {
+    navigation.navigate("Register");
   };
 
-  const handleGuestLogin = async () => {
-    // Store guest user data for consistency
-    // await AsyncStorage.setItem(
-    //   "user",
-    //   JSON.stringify({
-    //     id: "guest",
-    //     username: "Guest User",
-    //     email: "guest@tfc.app",
-    //     name: "Guest User",
-    //     isGuest: true
-    //   })
-    // );
-
-    navigation.navigate("Tabs");
+  const handleForgotPassword = () => {
+    navigation.navigate("ResetPassword");
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>TFC Training Frequency Calculator</Text>
-      <Text style={styles.subtitle}>Welcome Back</Text>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.email}
-          onChangeText={(value) =>
-            setFormData((prev) => ({ ...prev, email: value }))
-          }
-          placeholder="Enter email"
-          placeholderTextColor="#9ca3af"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.password}
-          onChangeText={(value) =>
-            setFormData((prev) => ({ ...prev, password: value }))
-          }
-          placeholder="Enter password"
-          placeholderTextColor="#9ca3af"
-          secureTextEntry
-          autoCapitalize="none"
-        />
-      </View>
-
-      <TouchableOpacity
-        style={[styles.loginButton, loading && styles.buttonDisabled]}
-        onPress={handleLogin}
-        disabled={loading}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Login</Text>
-        )}
-      </TouchableOpacity>
+        <View style={styles.header}>
+          <Text style={styles.title}>Welcome Back</Text>
+          <Text style={styles.subtitle}>
+            Sign in to continue your fitness journey
+          </Text>
+        </View>
 
-      <TouchableOpacity style={styles.guestButton} onPress={handleGuestLogin}>
-        <Text style={styles.guestButtonText}>Continue as Guest</Text>
-      </TouchableOpacity>
+        <View style={styles.form}>
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="mail-outline"
+              size={20}
+              color="#888"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#888"
+              value={formData.email}
+              onChangeText={(value) => handleInputChange("email", value)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
 
-      <TouchableOpacity
-        style={styles.registerLink}
-        onPress={() => navigation.navigate("Register")}
-      >
-        <Text style={styles.linkText}>
-          Don't have an account?{" "}
-          <Text style={styles.linkTextBold}>Sign Up</Text>
-        </Text>
-      </TouchableOpacity>
-    </View>
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color="#888"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor="#888"
+              value={formData.password}
+              onChangeText={(value) => handleInputChange("password", value)}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons
+                name={showPassword ? "eye-outline" : "eye-off-outline"}
+                size={20}
+                color="#888"
+              />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.forgotPasswordButton}
+            onPress={handleForgotPassword}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.loginButtonText}>Sign In</Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.registerButton}
+            onPress={handleRegister}
+          >
+            <Text style={styles.registerButtonText}>
+              Don't have an account?{" "}
+              <Text style={styles.registerLink}>Sign Up</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#1a1c2e"
+  },
+  scrollContainer: {
+    flexGrow: 1,
     justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#1a1c2e",
     padding: 20
   },
+  header: {
+    alignItems: "center",
+    marginBottom: 40
+  },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: "bold",
     color: "#fff",
-    textAlign: "center",
     marginBottom: 10
   },
   subtitle: {
     fontSize: 16,
-    color: "#9ca3af",
-    marginBottom: 40
+    color: "#888",
+    textAlign: "center"
   },
-  inputContainer: {
-    width: "100%",
-    marginBottom: 20
-  },
-  label: {
-    fontSize: 16,
-    color: "#fff",
-    marginBottom: 8,
-    fontWeight: "500"
-  },
-  input: {
-    backgroundColor: "#2d3748",
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-    color: "#fff",
-    borderWidth: 1,
-    borderColor: "#4a5568",
+  form: {
     width: "100%"
   },
-  loginButton: {
-    backgroundColor: "#6b46c1",
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 8,
-    width: "100%",
-    marginBottom: 15
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#23263a",
+    borderRadius: 12,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    height: 56
   },
-  buttonDisabled: {
-    opacity: 0.6
+  inputIcon: {
+    marginRight: 12
   },
-  buttonText: {
+  input: {
+    flex: 1,
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center"
-  },
-  guestButton: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "#6b46c1",
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 8,
-    width: "100%",
-    marginBottom: 20
-  },
-  guestButtonText: {
-    color: "#6b46c1",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center"
-  },
-  registerLink: {
-    alignItems: "center"
-  },
-  linkText: {
-    color: "#9ca3af",
     fontSize: 16
   },
-  linkTextBold: {
-    color: "#6b46c1",
+  eyeIcon: {
+    padding: 4
+  },
+  forgotPasswordButton: {
+    alignSelf: "flex-end",
+    marginBottom: 24
+  },
+  forgotPasswordText: {
+    color: "#4CAF50",
+    fontSize: 14
+  },
+  loginButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 12,
+    height: 56,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24
+  },
+  loginButtonDisabled: {
+    opacity: 0.6
+  },
+  loginButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold"
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#333"
+  },
+  dividerText: {
+    color: "#888",
+    marginHorizontal: 16,
+    fontSize: 14
+  },
+  registerButton: {
+    alignItems: "center"
+  },
+  registerButtonText: {
+    color: "#888",
+    fontSize: 16
+  },
+  registerLink: {
+    color: "#4CAF50",
     fontWeight: "bold"
   }
 });
+
+export default LoginScreen;

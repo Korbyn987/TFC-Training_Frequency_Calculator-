@@ -55,8 +55,9 @@ export const createWorkout = async (workoutData) => {
         {
           user_id: user.id,
           name: workoutData.name,
-          notes: workoutData.notes || null,
-          started_at: new Date().toISOString()
+          description: workoutData.notes || null,
+          started_at: new Date().toISOString(),
+          workout_type: "strength"
         }
       ])
       .select()
@@ -83,8 +84,11 @@ export const addWorkoutExercise = async (workoutId, exerciseData) => {
         {
           workout_id: workoutId,
           exercise_id: exerciseData.exercise_id,
-          order_index: exerciseData.order_index || 0,
-          notes: exerciseData.notes || null
+          exercise_name: exerciseData.exercise_name || "Unknown Exercise",
+          muscle_group: exerciseData.muscle_group || "Unknown",
+          exercise_order: exerciseData.order_index || 0,
+          target_sets: exerciseData.target_sets || null,
+          sets_completed: 0
         }
       ])
       .select()
@@ -111,11 +115,10 @@ export const addExerciseSet = async (workoutExerciseId, setData) => {
         {
           workout_exercise_id: workoutExerciseId,
           set_number: setData.set_number,
+          set_type: setData.set_type || "working",
+          weight_kg: setData.weight || null,
           reps: setData.reps,
-          weight: setData.weight || null,
-          duration_seconds: setData.duration_seconds || null,
-          distance: setData.distance || null,
-          notes: setData.notes || null
+          rest_seconds: setData.rest_seconds || null
         }
       ])
       .select()
@@ -228,9 +231,9 @@ export const updateUserStats = async (userId, statsUpdate) => {
 // Reset muscle group recovery timers
 export const resetMuscleGroupRecovery = async (userId, muscleGroups) => {
   try {
-    const recoveryData = muscleGroups.map((muscleGroupId) => ({
+    const recoveryData = muscleGroups.map((muscleGroup) => ({
       user_id: userId,
-      muscle_group_id: muscleGroupId,
+      muscle_group: muscleGroup,
       last_worked_date: new Date().toISOString(),
       recovery_hours: 48 // Default recovery time
     }));
@@ -238,7 +241,7 @@ export const resetMuscleGroupRecovery = async (userId, muscleGroups) => {
     const { data, error } = await supabase
       .from("user_muscle_recovery")
       .upsert(recoveryData, {
-        onConflict: "user_id,muscle_group_id"
+        onConflict: "user_id,muscle_group"
       })
       .select();
 
@@ -259,19 +262,7 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
   try {
     const { data, error } = await supabase
       .from("workouts")
-      .select(
-        `
-        *,
-        workout_exercises (
-          *,
-          exercises (
-            name,
-            muscle_groups (name)
-          ),
-          exercise_sets (*)
-        )
-      `
-      )
+      .select("*")
       .eq("user_id", userId)
       .order("completed_at", { ascending: false })
       .limit(limit);
@@ -281,18 +272,7 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
       return { success: false, error: error.message };
     }
 
-    // Transform data to include exercise names for easier display
-    const transformedWorkouts =
-      data?.map((workout) => ({
-        ...workout,
-        exercises:
-          workout.workout_exercises?.map((we) => ({
-            name: we.exercises?.name || "Unknown Exercise",
-            sets: we.exercise_sets || []
-          })) || []
-      })) || [];
-
-    return { success: true, workouts: transformedWorkouts };
+    return { success: true, workouts: data || [] };
   } catch (error) {
     console.error("Error in getUserWorkoutHistory:", error);
     return { success: false, error: error.message };

@@ -1,9 +1,9 @@
-import { MaterialIcons } from "@expo/vector-icons";
-import { Picker } from "@react-native-picker/picker";
-import React, { useCallback, useEffect, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  FlatList,
+  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,872 +11,673 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-
-import { useFocusEffect } from "@react-navigation/native";
-import { useDispatch } from "react-redux";
-import { supabase } from "../config/supabase";
-import { getExercises, getMuscleGroups } from "../services/exerciseService";
+import MuscleGroupSelectionModal from "../components/MuscleGroupSelectionModal";
+import { MUSCLE_GROUPS } from "../constants/muscleGroups";
+import { getExercisesByMuscleGroup } from "../services/exerciseService";
 import { getCurrentUser } from "../services/supabaseAuth";
+import {
+  addWorkoutExercise,
+  createWorkout,
+  getUserWorkoutHistory
+} from "../services/supabaseWorkouts";
 
-const setTypes = [
-  { label: "Warmup", value: "warmup" },
-  { label: "Working Set", value: "numbered" },
-  { label: "Failure", value: "failure" },
-  { label: "Drop", value: "drop" }
-];
+const { width } = Dimensions.get("window");
 
-// Helper function to get muscle group name from exercise data
-const getMuscleGroupFromExercise = async (exerciseId) => {
-  try {
-    const exercisesResponse = await getExercises();
-    if (!exercisesResponse.success) {
-      console.error("Failed to fetch exercises:", exercisesResponse.error);
-      return null;
-    }
+const ConfigureWorkoutScreen = ({ navigation, route }) => {
+  const editingWorkout = route?.params?.editingWorkout;
+  const presetData = route?.params;
 
-    const exercises = exercisesResponse.data;
-    const exercise = exercises.find((ex) => ex.id === exerciseId);
-    if (exercise && exercise.muscle_group_id) {
-      const muscleGroupsResponse = await getMuscleGroups();
-      if (!muscleGroupsResponse.success) {
-        console.error(
-          "Failed to fetch muscle groups:",
-          muscleGroupsResponse.error
-        );
-        return null;
-      }
-
-      const muscleGroups = muscleGroupsResponse.data;
-      const muscleGroup = muscleGroups.find(
-        (mg) => mg.id === exercise.muscle_group_id
-      );
-      return muscleGroup ? muscleGroup.name : null;
-    }
-    return null;
-  } catch (error) {
-    console.error("Error getting muscle group for exercise:", error);
-    return null;
-  }
-};
-
-const ConfigureWorkoutScreen = ({ route, navigation }) => {
-  const dispatch = useDispatch();
-  const { exercises, workoutName: navWorkoutName } = route.params || {};
-  const safeExercises = Array.isArray(exercises) ? exercises : [];
-  const [workoutName, setWorkoutName] = useState(navWorkoutName || "");
-  const [exerciseConfigs, setExerciseConfigs] = useState(
-    safeExercises.map((exercise) => ({
-      ...exercise,
-      sets:
-        exercise.sets &&
-        Array.isArray(exercise.sets) &&
-        exercise.sets.length > 0
-          ? exercise.sets
-          : [
-              {
-                setType: "numbered",
-                reps: "10",
-                weight: "",
-                notes: ""
-              }
-            ]
-    }))
-  );
-
-  // Handle initial loading of exercises from params or AsyncStorage
-  useEffect(() => {
-    // If we have exercises from a preset, prioritize those
-    if (
-      Array.isArray(safeExercises) &&
-      safeExercises.length > 0 &&
-      route.params?.fromPreset
-    ) {
-      console.log(
-        "[ConfigureWorkoutScreen] Loading exercises from preset:",
-        safeExercises.length
-      );
-      setExerciseConfigs(
-        safeExercises.map((exercise) => ({
-          ...exercise,
-          sets:
-            Array.isArray(exercise.sets) && exercise.sets.length > 0
-              ? exercise.sets
-              : [{ setType: "numbered", reps: "10", weight: "", notes: "" }]
-        }))
-      );
-    }
-    // Otherwise, if no exercises are present and no selectedExercises param
-    else if (
-      exerciseConfigs.length === 0 &&
-      (!route.params?.selectedExercises ||
-        route.params.selectedExercises.length === 0)
-    ) {
-      const loadSavedWorkout = async () => {
-        // Load from user metadata instead of storage
-        try {
-          const user = await getCurrentUser();
-          if (user && user.user_metadata?.currentWorkout) {
-            const workout = user.user_metadata.currentWorkout;
-            setWorkoutName(workout.name || "");
-            setExerciseConfigs(
-              Array.isArray(workout.exercises) ? workout.exercises : []
-            );
-          }
-        } catch (error) {
-          console.error("Error loading saved workout:", error);
-        }
-      };
-      loadSavedWorkout();
-    }
-  }, [route.params?.fromPreset]);
-
-  // Always prioritize selectedExercises param if present
-  useEffect(() => {
-    if (
-      route.params?.selectedExercises &&
-      Array.isArray(route.params.selectedExercises)
-    ) {
-      console.log(
-        "[ConfigureWorkoutScreen] Received selectedExercises param:",
-        route.params.selectedExercises
-      );
-      // Initialize all exercises with proper sets arrays
-      const initializedExercises = route.params.selectedExercises.map((ex) => {
-        // Safely ensure the exercise has a valid structure
-        return {
-          id: ex.id,
-          name: ex.name || "Unnamed Exercise",
-          description: ex.description || "",
-          muscle_group_id: ex.muscle_group_id || ex.muscleGroupId,
-          // Ensure sets is properly initialized
-          sets:
-            Array.isArray(ex.sets) && ex.sets.length > 0
-              ? ex.sets
-              : [{ setType: "numbered", reps: "10", weight: "", notes: "" }]
-        };
-      });
-
-      // Update the exercise configs with properly initialized exercises
-      setExerciseConfigs(initializedExercises);
-      navigation.setParams({ selectedExercises: undefined });
-    }
-  }, [route.params?.selectedExercises]);
-
-  // Removed excessive debug logging that was causing infinite console messages
-  // Only log exercise config changes in development mode and limit frequency
-  useEffect(() => {
-    // Debug log exerciseConfigs changes, but only if not empty and only in development
-    if (process.env.NODE_ENV === "development" && exerciseConfigs.length > 0) {
-      console.log(
-        `[ConfigureWorkoutScreen] Working with ${exerciseConfigs.length} exercises`
-      );
-    }
-  }, [exerciseConfigs.length]); // Only track length changes, not the entire object
+  const [user, setUser] = useState(null);
+  const [workoutName, setWorkoutName] = useState("");
+  const [selectedMuscleGroups, setSelectedMuscleGroups] = useState([]);
+  const [availableExercises, setAvailableExercises] = useState([]);
+  const [selectedExercises, setSelectedExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showMuscleGroupModal, setShowMuscleGroupModal] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [expandedExercise, setExpandedExercise] = useState(null);
 
   useEffect(() => {
-    if (
-      route.params?.addExercises &&
-      Array.isArray(route.params.addExercises) &&
-      route.params.addExercises.length > 0
-    ) {
-      setExerciseConfigs((prev) => [
-        ...prev,
-        ...route.params.addExercises
-          .filter((newEx) => !prev.some((existing) => existing.id === newEx.id))
-          .map((exercise) => ({
-            ...exercise,
-            // Make sure each exercise has a properly initialized sets array
-            sets:
-              Array.isArray(exercise.sets) && exercise.sets.length > 0
-                ? exercise.sets
-                : [
-                    {
-                      setType: "numbered",
-                      reps: "10",
-                      weight: "",
-                      notes: ""
-                    }
-                  ]
-          }))
-      ]);
-      // Clear the param to prevent repeated additions
-      navigation.setParams({ addExercises: [] });
-    }
-  }, [route.params?.addExercises]);
-
-  // This tracks if we've already loaded the temp workout to prevent duplicate loads
-  const [tempWorkoutLoaded, setTempWorkoutLoaded] = useState(false);
-
-  // Cleanup effect - this runs when the component unmounts
-  useEffect(() => {
-    return () => {
-      // When navigating away from this screen to a non-exercise related screen,
-      // clear the temp workout config to prevent future duplicate loads
-      if (navigation.getState) {
-        try {
-          const currentRoute =
-            navigation.getState().routes[navigation.getState().index];
-          if (
-            currentRoute.name !== "AddExercise" &&
-            currentRoute.name !== "SelectRoutine"
-          ) {
-            console.log("Cleared temporary workout configuration");
-          }
-        } catch (e) {
-          console.warn("Error checking navigation state:", e);
-        }
-      }
-    };
+    loadUserAndData();
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      // Load temp workout config when returning to this screen
-      const loadTempWorkout = async () => {
-        // Skip if we've already loaded once to prevent infinite loops
-        if (tempWorkoutLoaded) {
-          console.log("Temp workout already loaded, skipping...");
-          return;
-        }
+  const loadUserAndData = async () => {
+    try {
+      setLoading(true);
+      const currentUser = await getCurrentUser();
 
-        try {
-          // Load from user metadata instead of storage
-          const user = await getCurrentUser();
-          if (user && user.user_metadata?.currentWorkout) {
-            const workout = user.user_metadata.currentWorkout;
-            setExerciseConfigs(
-              Array.isArray(workout.exercises) ? workout.exercises : []
-            );
-
-            if (workout.name) {
-              setWorkoutName(workout.name);
-            }
-
-            // Mark as loaded to prevent duplicate loads
-            setTempWorkoutLoaded(true);
-          }
-        } catch (error) {
-          console.error("Error loading temp workout config:", error);
-        }
-      };
-
-      // First handle any newly added exercise from params
-      if (route.params?.addExercise) {
-        const newExercise = route.params.addExercise;
-        // Prevent duplicates
-        if (!exerciseConfigs.some((ex) => ex.id === newExercise.id)) {
-          // Create a properly structured exercise object with safety checks
-          const safeExercise = {
-            id: newExercise.id,
-            name: newExercise.name || "Unnamed Exercise",
-            description: newExercise.description || "",
-            muscle_group_id:
-              newExercise.muscle_group_id || newExercise.muscleGroupId,
-            // Always initialize with a default set
-            sets:
-              Array.isArray(newExercise.sets) && newExercise.sets.length > 0
-                ? newExercise.sets
-                : [
-                    {
-                      setType: "numbered",
-                      reps: "10",
-                      weight: "",
-                      notes: ""
-                    }
-                  ]
-          };
-
-          setExerciseConfigs((prev) => [...prev, safeExercise]);
-        }
-        navigation.setParams({ addExercise: undefined }); // Clear param
-      } else if (!tempWorkoutLoaded) {
-        // Only load temp workout if it hasn't been loaded yet
-        loadTempWorkout();
+      if (!currentUser) {
+        navigation.navigate("Login");
+        return;
       }
 
-      // Return cleanup function for focus effect
-      return () => {
-        // No specific cleanup needed here
-      };
-    }, [route.params?.addExercise, tempWorkoutLoaded])
-  );
+      setUser(currentUser);
 
-  const handleUpdateSet = (exerciseIdx, setIdx, field, value) => {
-    const newConfigs = [...exerciseConfigs];
-    const newSets = [...newConfigs[exerciseIdx].sets];
-    newSets[setIdx] = { ...newSets[setIdx], [field]: value };
-    newConfigs[exerciseIdx].sets = newSets;
-    setExerciseConfigs(newConfigs);
-  };
+      // Handle preset workout data
+      if (presetData?.preset) {
+        setWorkoutName(presetData.workoutName || "");
+        setSelectedMuscleGroups(presetData.muscleGroups || []);
 
-  const handleAddSet = (exerciseIdx) => {
-    const newConfigs = [...exerciseConfigs];
-    newConfigs[exerciseIdx].sets = [
-      ...newConfigs[exerciseIdx].sets,
-      {
-        setType: "numbered",
-        reps: "12",
-        weight: "",
-        notes: ""
+        // Convert preset exercises to the format expected by the screen
+        const formattedExercises =
+          presetData.exercises?.map((exercise, index) => ({
+            id: `preset_${index}`, // Temporary ID for preset exercises
+            name: exercise.name,
+            sets: exercise.sets,
+            reps: exercise.reps,
+            weight: exercise.weight || 0,
+            muscle_group: presetData.muscleGroups?.[0] || "Unknown",
+            set_type: "working"
+          })) || [];
+
+        setSelectedExercises(formattedExercises);
+        setCurrentStep(3); // Skip to review step for presets
+
+        // Load exercises for the preset muscle groups
+        if (presetData.muscleGroups?.length > 0) {
+          await loadExercisesForMuscleGroups(presetData.muscleGroups);
+        }
+      } else if (editingWorkout) {
+        setWorkoutName(editingWorkout.name || "");
+        setSelectedMuscleGroups(editingWorkout.muscle_groups || []);
+        setSelectedExercises(editingWorkout.exercises || []);
+        setCurrentStep(3);
+      } else {
+        // Generate default workout name
+        const result = await getUserWorkoutHistory(currentUser.id);
+        const workoutCount = result.data?.length || []; // Fix: Use correct property name
+        setWorkoutName(`Workout ${(workoutCount?.length || 0) + 1}`);
       }
-    ];
-    setExerciseConfigs(newConfigs);
-  };
-
-  const handleRemoveSet = (exerciseIdx, setIdx) => {
-    const newConfigs = [...exerciseConfigs];
-    const sets = [...newConfigs[exerciseIdx].sets];
-    if (sets.length > 1) {
-      sets.splice(setIdx, 1);
-      newConfigs[exerciseIdx].sets = sets;
-      setExerciseConfigs(newConfigs);
+    } catch (error) {
+      console.error("Error loading user data:", error);
+      Alert.alert("Error", "Failed to load user data");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleUpdateConfig = (index, field, value) => {
-    const newConfigs = [...exerciseConfigs];
-    newConfigs[index] = {
-      ...newConfigs[index],
-      [field]: value
-    };
-    setExerciseConfigs(newConfigs);
+  const loadExercisesForMuscleGroups = async (muscleGroups) => {
+    try {
+      const exercises = [];
+      for (const muscleGroup of muscleGroups) {
+        const groupExercises = await getExercisesByMuscleGroup(muscleGroup);
+        exercises.push(...groupExercises);
+      }
+
+      // Remove duplicates
+      const uniqueExercises = exercises.filter(
+        (exercise, index, self) =>
+          index === self.findIndex((e) => e.id === exercise.id)
+      );
+
+      setAvailableExercises(uniqueExercises);
+    } catch (error) {
+      console.error("Error loading exercises:", error);
+      Alert.alert("Error", "Failed to load exercises");
+    }
   };
 
-  const handleRemoveExercise = (exerciseIdx) => {
-    const newConfigs = [...exerciseConfigs];
-    newConfigs.splice(exerciseIdx, 1);
-    setExerciseConfigs(newConfigs);
+  const handleMuscleGroupSelection = (muscleGroups) => {
+    setSelectedMuscleGroups(muscleGroups);
+    setShowMuscleGroupModal(false);
+
+    if (muscleGroups.length > 0) {
+      loadExercisesForMuscleGroups(muscleGroups);
+      setCurrentStep(2);
+    } else {
+      setAvailableExercises([]);
+      setSelectedExercises([]);
+    }
+  };
+
+  const toggleExerciseSelection = (exercise) => {
+    setSelectedExercises((prev) => {
+      const isSelected = prev.find((e) => e.id === exercise.id);
+      if (isSelected) {
+        return prev.filter((e) => e.id !== exercise.id);
+      } else {
+        return [
+          ...prev,
+          {
+            ...exercise,
+            sets: 3,
+            reps: 10,
+            weight: 0,
+            rest_seconds: 60,
+            set_type: "working"
+          }
+        ];
+      }
+    });
+  };
+
+  const updateExerciseParameter = (exerciseId, parameter, value) => {
+    setSelectedExercises((prev) =>
+      prev.map((exercise) =>
+        exercise.id === exerciseId
+          ? { ...exercise, [parameter]: value }
+          : exercise
+      )
+    );
+  };
+
+  const removeExercise = (exerciseId) => {
+    setSelectedExercises((prev) => prev.filter((e) => e.id !== exerciseId));
+  };
+
+  const duplicateExercise = (exercise) => {
+    const newExercise = {
+      ...exercise,
+      id: `${exercise.id}_copy_${Date.now()}`
+    };
+    setSelectedExercises((prev) => [...prev, newExercise]);
   };
 
   const handleSaveWorkout = async () => {
+    if (!workoutName.trim()) {
+      Alert.alert("Error", "Please enter a workout name");
+      return;
+    }
+
+    if (selectedExercises.length === 0) {
+      Alert.alert("Error", "Please select at least one exercise");
+      return;
+    }
+
     try {
-      // Get current user for authentication
-      const authUser = await getCurrentUser();
-      if (!authUser || !authUser.id) {
-        Alert.alert(
-          "Authentication Required",
-          "Please log in to save workouts."
-        );
-        return;
-      }
+      setSaving(true);
 
-      console.log(
-        "Using user ID:",
-        authUser.id,
-        "for auth user:",
-        authUser.auth_id
-      );
-
-      // Extract unique muscle groups from all exercises using Promise.all
-      const muscleGroups = new Set();
-
-      console.log("Saving workout with exercises:", exerciseConfigs);
-
-      // Use Promise.all to properly await all async operations
-      const muscleGroupPromises = exerciseConfigs.map(async (exercise) => {
-        if (exercise.id) {
-          const muscleGroup = await getMuscleGroupFromExercise(exercise.id);
-          console.log(
-            `Exercise ${exercise.name} (ID: ${exercise.id}) maps to muscle group:`,
-            muscleGroup
-          );
-          return muscleGroup;
-        }
-        return null;
-      });
-
-      const muscleGroupResults = await Promise.all(muscleGroupPromises);
-
-      // Add valid muscle groups to the set
-      muscleGroupResults.forEach((muscleGroup) => {
-        if (muscleGroup) {
-          muscleGroups.add(muscleGroup);
-        }
-      });
-
-      // Convert Set to array for storage
-      const muscles = Array.from(muscleGroups);
-
-      if (muscles.length === 0) {
-        // Fallback in case we couldn't determine muscle groups
-        console.warn("No muscle groups found for exercises, using default");
-        muscles.push("Full Body");
-      }
-
-      console.log("Saving workout with muscle groups:", muscles);
-
-      // Create the workout data with profile user ID
       const workoutData = {
-        user_id: authUser.id, // Use user ID directly from getCurrentUser
-        name: workoutName || "My Workout",
-        description: `Workout with ${exerciseConfigs.length} exercises`,
-        workout_type: "strength",
-        started_at: new Date().toISOString(),
-        notes: `Muscle groups: ${muscles.join(", ")}`,
-        tags: muscles,
-        is_public: true,
-        allow_comments: true
+        user_id: user.id,
+        name: workoutName.trim(),
+        muscle_groups: selectedMuscleGroups,
+        exercises: selectedExercises,
+        status: "active"
       };
 
-      console.log("Saving workout to Supabase:", workoutData);
+      let workoutId;
 
-      // Save to Supabase workouts table
-      const { data, error } = await supabase
-        .from("workouts")
-        .insert([workoutData])
-        .select();
-
-      if (error) {
-        console.error("Error saving workout to Supabase:", error);
-        Alert.alert("Error", `Failed to save workout: ${error.message}`);
-        return;
+      if (editingWorkout) {
+        // Update existing workout
+        workoutId = editingWorkout.id;
+        // Implementation for updating workout would go here
+      } else {
+        // Create new workout
+        const result = await createWorkout(workoutData);
+        workoutId = result.id;
       }
 
-      console.log("Workout saved successfully to Supabase:", data);
-
-      // Save as active workout to local storage
-      const activeWorkoutData = {
-        supabase_id: data[0].id,
-        name: workoutData.name,
-        start_time: workoutData.started_at,
-        notes: workoutData.notes,
-        exercises: exerciseConfigs,
-        muscle_groups: muscles
-      };
-
-      // Import and save to local storage
-      const { saveActiveWorkout } = await import(
-        "../services/localWorkoutStorage"
-      );
-      await saveActiveWorkout(activeWorkoutData);
-
-      console.log("Saved as active workout:", activeWorkoutData);
-
-      // Navigate to home screen
-      try {
-        navigation.reset({
-          index: 0,
-          routes: [
-            { name: "Tabs", params: { screen: "Home", workoutJustSaved: true } }
-          ]
+      // Save individual exercises
+      for (const exercise of selectedExercises) {
+        await addWorkoutExercise({
+          workout_id: workoutId,
+          exercise_id: exercise.id,
+          sets: exercise.sets,
+          reps: exercise.reps,
+          weight: exercise.weight,
+          rest_seconds: exercise.rest_seconds,
+          set_type: exercise.set_type
         });
-      } catch (navError) {
-        console.error("Navigation error:", navError);
-        // Fallback navigation
-        navigation.navigate("Tabs", { screen: "Home", workoutJustSaved: true });
       }
+
+      Alert.alert(
+        "Success",
+        `Workout ${editingWorkout ? "updated" : "created"} successfully!`,
+        [
+          {
+            text: "Start Workout",
+            onPress: () =>
+              navigation.navigate("WorkoutOptions", {
+                workoutId: workoutId,
+                workoutName: workoutName
+              })
+          },
+          {
+            text: "Back to Home",
+            onPress: () => navigation.navigate("Tabs")
+          }
+        ]
+      );
     } catch (error) {
       console.error("Error saving workout:", error);
       Alert.alert("Error", "Failed to save workout. Please try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const renderSet = (exerciseIdx, set, setIdx, setsLength) => (
-    <View key={setIdx} style={styles.setCard}>
-      <Text style={styles.setNumber}>Set {setIdx + 1}</Text>
-      <View style={styles.configRow}>
-        <View style={styles.configItem}>
-          <Text style={styles.label}>Set Type</Text>
-          <Picker
-            selectedValue={set.setType}
-            style={styles.picker}
-            onValueChange={(value) =>
-              handleUpdateSet(exerciseIdx, setIdx, "setType", value)
-            }
-            mode="dropdown"
+  const renderStepIndicator = () => (
+    <View style={styles.stepIndicator}>
+      <View style={styles.stepContainer}>
+        <View style={[styles.step, currentStep >= 1 && styles.stepActive]}>
+          <Text
+            style={[styles.stepText, currentStep >= 1 && styles.stepTextActive]}
           >
-            {setTypes.map((type) => (
-              <Picker.Item
-                key={type.value}
-                label={type.label}
-                value={type.value}
-              />
-            ))}
-          </Picker>
+            1
+          </Text>
         </View>
-        <View style={styles.configItem}>
-          <Text style={styles.label}>Reps</Text>
-          <TextInput
-            style={styles.input}
-            value={set.reps}
-            onChangeText={(value) =>
-              handleUpdateSet(exerciseIdx, setIdx, "reps", value)
-            }
-            keyboardType="numeric"
-            placeholder="12"
-            placeholderTextColor="#666"
-          />
-        </View>
-        <View style={styles.configItem}>
-          <Text style={styles.label}>Weight</Text>
-          <TextInput
-            style={styles.input}
-            value={set.weight}
-            onChangeText={(value) =>
-              handleUpdateSet(exerciseIdx, setIdx, "weight", value)
-            }
-            keyboardType="numeric"
-            placeholder="0"
-            placeholderTextColor="#666"
-          />
-        </View>
-      </View>
-      <View style={styles.notesContainer}>
-        <Text style={styles.label}>Notes</Text>
-        <TextInput
-          style={styles.notesInput}
-          value={set.notes}
-          onChangeText={(value) =>
-            handleUpdateSet(exerciseIdx, setIdx, "notes", value)
-          }
-          placeholder="Add notes here..."
-          placeholderTextColor="#666"
-          multiline
+        <View
+          style={[styles.stepLine, currentStep >= 2 && styles.stepLineActive]}
         />
-      </View>
-      <View style={styles.setActionsRow}>
-        {setsLength > 1 && (
-          <TouchableOpacity
-            style={styles.removeSetButton}
-            onPress={() => handleRemoveSet(exerciseIdx, setIdx)}
+        <View style={[styles.step, currentStep >= 2 && styles.stepActive]}>
+          <Text
+            style={[styles.stepText, currentStep >= 2 && styles.stepTextActive]}
           >
-            <Text style={styles.removeSetButtonText}>Remove Set</Text>
-          </TouchableOpacity>
-        )}
+            2
+          </Text>
+        </View>
+        <View
+          style={[styles.stepLine, currentStep >= 3 && styles.stepLineActive]}
+        />
+        <View style={[styles.step, currentStep >= 3 && styles.stepActive]}>
+          <Text
+            style={[styles.stepText, currentStep >= 3 && styles.stepTextActive]}
+          >
+            3
+          </Text>
+        </View>
+      </View>
+      <View style={styles.stepLabels}>
+        <Text style={styles.stepLabel}>Setup</Text>
+        <Text style={styles.stepLabel}>Exercises</Text>
+        <Text style={styles.stepLabel}>Review</Text>
       </View>
     </View>
   );
 
-  const renderExerciseConfig = ({ item, index }) => {
-    // Defensive check - ensure item has a sets array
-    const sets = Array.isArray(item.sets) ? item.sets : [];
+  const renderWorkoutSetup = () => (
+    <View style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Workout Setup</Text>
+      <Text style={styles.stepSubtitle}>
+        Name your workout and select target muscle groups
+      </Text>
 
-    return (
-      <View style={styles.exerciseCard}>
+      <View style={styles.inputCard}>
+        <Text style={styles.inputLabel}>Workout Name</Text>
+        <TextInput
+          style={styles.nameInput}
+          value={workoutName}
+          onChangeText={setWorkoutName}
+          placeholder="Enter workout name"
+          placeholderTextColor="#666"
+        />
+      </View>
+
+      <View style={styles.inputCard}>
+        <Text style={styles.inputLabel}>Target Muscle Groups</Text>
         <TouchableOpacity
-          style={styles.removeExerciseButton}
-          onPress={() => handleRemoveExercise(index)}
+          style={styles.muscleGroupSelector}
+          onPress={() => setShowMuscleGroupModal(true)}
         >
-          <View>
-            <MaterialIcons name="close" size={24} color="#e53e3e" />
+          <View style={styles.muscleGroupContent}>
+            <Ionicons name="body" size={24} color="#4CAF50" />
+            <Text style={styles.muscleGroupText}>
+              {selectedMuscleGroups.length > 0
+                ? `${selectedMuscleGroups.length} groups selected`
+                : "Select muscle groups"}
+            </Text>
           </View>
+          <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
-        <Text style={styles.exerciseName}>{item.name}</Text>
-        <Text style={styles.exerciseDesc}>{item.description || ""}</Text>
-        {sets.map((set, setIdx) => renderSet(index, set, setIdx, sets.length))}
+
+        {selectedMuscleGroups.length > 0 && (
+          <View style={styles.selectedMuscleGroups}>
+            {selectedMuscleGroups.map((group) => (
+              <View key={group} style={styles.muscleGroupChip}>
+                <Text style={styles.muscleGroupChipText}>{group}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {selectedMuscleGroups.length > 0 && (
         <TouchableOpacity
-          style={styles.addSetButton}
-          onPress={() => handleAddSet(index)}
+          style={styles.nextButton}
+          onPress={() => setCurrentStep(2)}
         >
-          <Text style={styles.addSetButtonText}>+ Add Set</Text>
+          <Text style={styles.nextButtonText}>Continue to Exercises</Text>
+          <Ionicons name="arrow-forward" size={20} color="#fff" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderExerciseSelection = () => (
+    <View style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Select Exercises</Text>
+      <Text style={styles.stepSubtitle}>Choose exercises for your workout</Text>
+
+      <View style={styles.exerciseGrid}>
+        {availableExercises.map((exercise) => {
+          const isSelected = selectedExercises.find(
+            (e) => e.id === exercise.id
+          );
+          return (
+            <TouchableOpacity
+              key={exercise.id}
+              style={[
+                styles.exerciseCard,
+                isSelected && styles.exerciseCardSelected
+              ]}
+              onPress={() => toggleExerciseSelection(exercise)}
+            >
+              <View style={styles.exerciseCardHeader}>
+                <View style={styles.exerciseIcon}>
+                  <Ionicons
+                    name="fitness"
+                    size={20}
+                    color={isSelected ? "#4CAF50" : "#666"}
+                  />
+                </View>
+                <Ionicons
+                  name={isSelected ? "checkmark-circle" : "add-circle-outline"}
+                  size={24}
+                  color={isSelected ? "#4CAF50" : "#666"}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.exerciseCardName,
+                  isSelected && styles.exerciseCardNameSelected
+                ]}
+              >
+                {exercise.name}
+              </Text>
+              <Text style={styles.exerciseCardTarget}>
+                {exercise.target_muscle}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {selectedExercises.length > 0 && (
+        <TouchableOpacity
+          style={styles.nextButton}
+          onPress={() => setCurrentStep(3)}
+        >
+          <Text style={styles.nextButtonText}>
+            Review Workout ({selectedExercises.length})
+          </Text>
+          <Ionicons name="arrow-forward" size={20} color="#fff" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderWorkoutReview = () => (
+    <View style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Review & Configure</Text>
+      <Text style={styles.stepSubtitle}>Fine-tune your workout settings</Text>
+
+      <View style={styles.workoutSummary}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Workout:</Text>
+          <Text style={styles.summaryValue}>{workoutName}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Exercises:</Text>
+          <Text style={styles.summaryValue}>{selectedExercises.length}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Muscle Groups:</Text>
+          <Text style={styles.summaryValue}>
+            {selectedMuscleGroups.join(", ")}
+          </Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.exerciseList}
+        showsVerticalScrollIndicator={false}
+      >
+        {selectedExercises.map((exercise, index) => (
+          <View key={exercise.id} style={styles.exerciseReviewCard}>
+            <View style={styles.exerciseReviewHeader}>
+              <View style={styles.exerciseReviewInfo}>
+                <Text style={styles.exerciseReviewName}>{exercise.name}</Text>
+                <Text style={styles.exerciseReviewTarget}>
+                  {exercise.target_muscle}
+                </Text>
+              </View>
+              <View style={styles.exerciseActions}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => duplicateExercise(exercise)}
+                >
+                  <Ionicons name="copy" size={18} color="#4CAF50" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => removeExercise(exercise.id)}
+                >
+                  <Ionicons name="trash" size={18} color="#FF6B6B" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() =>
+                    setExpandedExercise(
+                      expandedExercise === exercise.id ? null : exercise.id
+                    )
+                  }
+                >
+                  <Ionicons
+                    name={
+                      expandedExercise === exercise.id
+                        ? "chevron-up"
+                        : "chevron-down"
+                    }
+                    size={18}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.exerciseQuickStats}>
+              <View style={styles.quickStat}>
+                <Text style={styles.quickStatValue}>{exercise.sets}</Text>
+                <Text style={styles.quickStatLabel}>Sets</Text>
+              </View>
+              <View style={styles.quickStat}>
+                <Text style={styles.quickStatValue}>{exercise.reps}</Text>
+                <Text style={styles.quickStatLabel}>Reps</Text>
+              </View>
+              <View style={styles.quickStat}>
+                <Text style={styles.quickStatValue}>{exercise.weight}kg</Text>
+                <Text style={styles.quickStatLabel}>Weight</Text>
+              </View>
+            </View>
+
+            {expandedExercise === exercise.id && (
+              <View style={styles.exerciseConfig}>
+                <View style={styles.configRow}>
+                  <View style={styles.configItem}>
+                    <Text style={styles.configLabel}>Sets</Text>
+                    <View style={styles.configInput}>
+                      <TouchableOpacity
+                        onPress={() =>
+                          updateExerciseParameter(
+                            exercise.id,
+                            "sets",
+                            Math.max(1, exercise.sets - 1)
+                          )
+                        }
+                      >
+                        <Ionicons name="remove" size={20} color="#666" />
+                      </TouchableOpacity>
+                      <Text style={styles.configValue}>{exercise.sets}</Text>
+                      <TouchableOpacity
+                        onPress={() =>
+                          updateExerciseParameter(
+                            exercise.id,
+                            "sets",
+                            exercise.sets + 1
+                          )
+                        }
+                      >
+                        <Ionicons name="add" size={20} color="#666" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <View style={styles.configItem}>
+                    <Text style={styles.configLabel}>Reps</Text>
+                    <View style={styles.configInput}>
+                      <TouchableOpacity
+                        onPress={() =>
+                          updateExerciseParameter(
+                            exercise.id,
+                            "reps",
+                            Math.max(1, exercise.reps - 1)
+                          )
+                        }
+                      >
+                        <Ionicons name="remove" size={20} color="#666" />
+                      </TouchableOpacity>
+                      <Text style={styles.configValue}>{exercise.reps}</Text>
+                      <TouchableOpacity
+                        onPress={() =>
+                          updateExerciseParameter(
+                            exercise.id,
+                            "reps",
+                            exercise.reps + 1
+                          )
+                        }
+                      >
+                        <Ionicons name="add" size={20} color="#666" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.configRow}>
+                  <View style={styles.configItem}>
+                    <Text style={styles.configLabel}>Weight (kg)</Text>
+                    <TextInput
+                      style={styles.weightInput}
+                      value={exercise.weight?.toString()}
+                      onChangeText={(value) =>
+                        updateExerciseParameter(
+                          exercise.id,
+                          "weight",
+                          parseFloat(value) || 0
+                        )
+                      }
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor="#666"
+                    />
+                  </View>
+                  <View style={styles.configItem}>
+                    <Text style={styles.configLabel}>Rest (sec)</Text>
+                    <TextInput
+                      style={styles.weightInput}
+                      value={exercise.rest_seconds?.toString()}
+                      onChangeText={(value) =>
+                        updateExerciseParameter(
+                          exercise.id,
+                          "rest_seconds",
+                          parseInt(value) || 60
+                        )
+                      }
+                      keyboardType="numeric"
+                      placeholder="60"
+                      placeholderTextColor="#666"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.setTypeSection}>
+                  <Text style={styles.configLabel}>Set Type</Text>
+                  <View style={styles.setTypeButtons}>
+                    {["working", "failure", "drop"].map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[
+                          styles.setTypeButton,
+                          exercise.set_type === type &&
+                            styles.setTypeButtonActive
+                        ]}
+                        onPress={() =>
+                          updateExerciseParameter(exercise.id, "set_type", type)
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.setTypeButtonText,
+                            exercise.set_type === type &&
+                              styles.setTypeButtonTextActive
+                          ]}
+                        >
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setCurrentStep(2)}
+        >
+          <Ionicons name="arrow-back" size={20} color="#4CAF50" />
+          <Text style={styles.backButtonText}>Add More Exercises</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          onPress={handleSaveWorkout}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="checkmark" size={20} color="#fff" />
+              <Text style={styles.saveButtonText}>
+                {editingWorkout ? "Update Workout" : "Save & Start"}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
+    </View>
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
     );
-  };
-
-  // Reference to the scroll view
-  const scrollViewRef = React.useRef(null);
-
-  // Simplified scrolling functionality with color consistency
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      // Force the page to be scrollable by adding minimum height to content
-      // and ensure consistent dark theme colors
-      const style = document.createElement("style");
-      style.innerHTML = `
-        /* Ensure content is always scrollable */
-        .rn-scrollview-content {
-          min-height: 150vh !important; /* Force content to be taller than viewport */
-          background-color: #171923 !important; /* App dark theme */
-        }
-        
-        /* Make main container scrollable and maintain dark theme */
-        body, html, #root, .scrollable-container {
-          height: 100%;
-          overflow-y: auto !important;
-          background-color: #171923 !important; /* App dark theme */
-          color: #ffffff !important; /* Light text for dark theme */
-        }
-
-        /* Remove any potential scroll blockers */
-        * {
-          overflow: visible !important;
-        }
-
-        /* Add explicit scroll styling with consistent color theme */
-        .scroll-container {
-          max-height: 100vh;
-          overflow-y: auto !important;
-          -webkit-overflow-scrolling: touch;
-          background-color: #171923 !important; /* App dark theme */
-        }
-        
-        /* Ensure all ScrollView parents maintain dark theme */
-        .rn-scrollview, .rn-scrollview-content, .rn-scrollview-container {
-          background-color: #171923 !important; /* App dark theme */
-        }
-        
-        /* Ensure all view containers maintain the theme */
-        .rn-view {
-          background-color: transparent;
-        }
-      `;
-      document.head.appendChild(style);
-
-      // Apply explicit scrolling properties to document
-      document.documentElement.style.overflowY = "auto";
-      document.body.style.overflowY = "auto";
-
-      // Ensure all React Native ScrollView elements can actually scroll
-      setTimeout(() => {
-        const scrollViews = document.querySelectorAll(".rn-scrollview");
-        scrollViews.forEach((sv) => {
-          sv.style.overflowY = "auto";
-          sv.style.maxHeight = "100vh";
-          sv.style.WebkitOverflowScrolling = "touch";
-        });
-
-        console.log(
-          "Applied forced scrolling to",
-          scrollViews.length,
-          "scroll views"
-        );
-      }, 500);
-
-      return () => {
-        if (style.parentNode) {
-          document.head.removeChild(style);
-        }
-      };
-    }
-  }, []);
-
-  // Apply dark theme to the entire document to prevent white backgrounds
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      // Apply the dark theme to the entire document and its parent containers
-      document.body.style.backgroundColor = "#171923";
-      document.documentElement.style.backgroundColor = "#171923";
-
-      // Force dark theme on any parent containers
-      const applyDarkTheme = () => {
-        // Target all potential parent containers
-        const containers = document.querySelectorAll(
-          ".rn-scrollview, .rn-scrollview-content, .rn-scrollview-container, div"
-        );
-        containers.forEach((container) => {
-          // Only set background if it's currently white or undefined
-          const currentBg = window.getComputedStyle(container).backgroundColor;
-          if (
-            currentBg === "rgb(255, 255, 255)" ||
-            currentBg === "rgba(0, 0, 0, 0)"
-          ) {
-            container.style.backgroundColor = "#171923";
-          }
-        });
-      };
-
-      // Apply theme initially and after short delay to catch any late-rendering elements
-      applyDarkTheme();
-      const intervalId = setInterval(applyDarkTheme, 500);
-
-      return () => clearInterval(intervalId);
-    }
-  }, []);
-
-  // Auto-scroll when a new exercise is added
-  useEffect(() => {
-    if (exerciseConfigs.length > 0) {
-      // Delay to ensure the DOM is updated
-      const timeoutId = setTimeout(() => {
-        if (scrollViewRef.current) {
-          // Scroll to a position near the bottom to show the new exercise
-          const scrollHeight = document.documentElement.scrollHeight;
-          const windowHeight = window.innerHeight;
-          window.scrollTo({
-            top: scrollHeight - windowHeight * 0.8,
-            behavior: "smooth"
-          });
-        }
-      }, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [exerciseConfigs.length]);
-
-  // Helper functions for manual scrolling
-  const scrollDown = () => {
-    if (typeof window !== "undefined" && scrollViewRef.current) {
-      const currentPos = window.scrollY || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      window.scrollTo({
-        top: currentPos + windowHeight * 0.7,
-        behavior: "smooth"
-      });
-    }
-  };
-
-  const scrollUp = () => {
-    if (typeof window !== "undefined" && scrollViewRef.current) {
-      const currentPos = window.scrollY || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      window.scrollTo({
-        top: Math.max(0, currentPos - windowHeight * 0.7),
-        behavior: "smooth"
-      });
-    }
-  };
-
-  // This useEffect has been replaced with the enhanced one above
+  }
 
   return (
-    <View style={styles.mainContainer}>
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={true}
-        scrollEventThrottle={16}
-        className="scroll-container"
-        nestedScrollEnabled={true}
-      >
-        <View style={styles.header}>
-          <TextInput
-            style={styles.workoutNameInput}
-            value={workoutName}
-            onChangeText={setWorkoutName}
-            placeholder="Workout Name"
-            placeholderTextColor="#666"
-          />
-        </View>
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={styles.addExerciseButton}
-            onPress={async () => {
-              // Save current exercises to user metadata before navigating
-              const workoutData = {
-                name: workoutName,
-                exercises: exerciseConfigs
-              };
-              const user = await getCurrentUser();
-              if (user) {
-                user.user_metadata = {
-                  ...user.user_metadata,
-                  currentWorkout: workoutData
-                };
-              }
+    <View style={styles.container}>
+      {renderStepIndicator()}
 
-              // Create a list of exercise IDs to pass as previousExercises
-              const currentExerciseIds = exerciseConfigs.map((ex) => ({
-                id: ex.id,
-                name: ex.name,
-                description: ex.description || "",
-                muscle_group_id: ex.muscle_group_id || ex.muscleGroupId
-              }));
-
-              // Navigate with the current exercises so they appear selected
-              navigation.navigate("AddExercise", {
-                previousExercises: currentExerciseIds
-              });
-            }}
-          >
-            <View>
-              <MaterialIcons
-                name="add-circle-outline"
-                size={20}
-                color="#fff"
-                style={{ marginRight: 6 }}
-              />
-            </View>
-            <Text style={styles.addExerciseButtonText}>Add Exercise</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.addExerciseButton}
-            onPress={async () => {
-              // Save current exercises to user metadata before navigating
-              const workoutData = {
-                name: workoutName,
-                exercises: exerciseConfigs
-              };
-              const user = await getCurrentUser();
-              if (user) {
-                user.user_metadata = {
-                  ...user.user_metadata,
-                  currentWorkout: workoutData
-                };
-              }
-              navigation.navigate("SelectRoutine");
-            }}
-          >
-            <View>
-              <MaterialIcons
-                name="playlist-add"
-                size={20}
-                color="#fff"
-                style={{ marginRight: 6 }}
-              />
-            </View>
-            <Text style={styles.addExerciseButtonText}>Select Routine</Text>
-          </TouchableOpacity>
-        </View>
-        <FlatList
-          data={exerciseConfigs}
-          renderItem={renderExerciseConfig}
-          keyExtractor={(item, index) => index.toString()}
-          contentContainerStyle={styles.exerciseList}
-          ListFooterComponent={
-            <View
-              style={{
-                backgroundColor: "#6b46c1",
-                borderRadius: 25,
-                marginTop: 32,
-                marginHorizontal: 16,
-                overflow: "hidden",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 6,
-                elevation: 8
-              }}
-            >
-              <TouchableOpacity
-                id="save-workout-button"
-                style={{
-                  backgroundColor: "#7c4ddb",
-                  paddingVertical: 18,
-                  paddingHorizontal: 32,
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.15)",
-                  borderRadius: 22
-                }}
-                onPress={handleSaveWorkout}
-                activeOpacity={0.85}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: "#7c4ddb"
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: "#ffffff",
-                      fontSize: 18,
-                      fontWeight: "bold",
-                      letterSpacing: 1.2,
-                      textTransform: "uppercase",
-                      backgroundColor: "#7c4ddb"
-                    }}
-                  >
-                    SAVE WORKOUT
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          }
-        />
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {currentStep === 1 && renderWorkoutSetup()}
+        {currentStep === 2 && renderExerciseSelection()}
+        {currentStep === 3 && renderWorkoutReview()}
       </ScrollView>
+
+      <MuscleGroupSelectionModal
+        visible={showMuscleGroupModal}
+        onClose={() => setShowMuscleGroupModal(false)}
+        onSelect={handleMuscleGroupSelection}
+        selectedGroups={selectedMuscleGroups}
+        muscleGroups={MUSCLE_GROUPS}
+      />
     </View>
   );
 };
@@ -884,101 +685,284 @@ const ConfigureWorkoutScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "transparent",
-    padding: 0
+    backgroundColor: "#1a1c2e"
   },
-  actionButtonsContainer: {
-    flexDirection: "row",
-    marginBottom: 16,
-    justifyContent: "space-between"
-  },
-  contentContainer: {
-    paddingBottom: 24,
-    padding: 16
-  },
-  scrollButtonsContainer: {
-    position: "absolute",
-    right: 16,
-    bottom: 100,
-    zIndex: 100,
-    flexDirection: "column",
-    alignItems: "center"
-  },
-  scrollButton: {
-    backgroundColor: "#6b46c1",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  loadingContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    marginVertical: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5
+    backgroundColor: "#1a1c2e"
   },
-  mainContainer: {
+  loadingText: {
+    color: "#fff",
+    marginTop: 10,
+    fontSize: 16
+  },
+  stepIndicator: {
+    height: 60,
+    backgroundColor: "#23263a",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20
+  },
+  stepContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flex: 1
+  },
+  step: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#666",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  stepActive: {
+    backgroundColor: "#4CAF50"
+  },
+  stepText: {
+    fontSize: 12,
+    color: "#666"
+  },
+  stepTextActive: {
+    color: "#fff"
+  },
+  stepLine: {
+    height: 2,
+    backgroundColor: "#666",
     flex: 1,
-    backgroundColor: "#171923",
-    height: "100vh"
+    marginHorizontal: 10
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 20,
-    backgroundColor: "#161616",
-    borderBottomWidth: 1,
-    borderBottomColor: "#222",
-    marginBottom: 0
+  stepLineActive: {
+    backgroundColor: "#4CAF50"
   },
-  workoutNameInput: {
-    fontSize: 26,
+  stepLabels: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20
+  },
+  stepLabel: {
+    fontSize: 12,
+    color: "#666"
+  },
+  content: {
+    flex: 1,
+    backgroundColor: "#1a1c2e",
+    paddingHorizontal: 20
+  },
+  stepContent: {
+    paddingVertical: 20
+  },
+  stepTitle: {
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#ffffff",
-    paddingVertical: 8,
-    borderBottomWidth: 2,
-    borderBottomColor: "#7c3aed",
-    backgroundColor: "transparent"
+    color: "#fff",
+    marginBottom: 10
   },
-  exerciseList: {
-    padding: 20,
-    paddingTop: 16,
-    backgroundColor: "transparent",
-    paddingBottom: 20
+  stepSubtitle: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 20
+  },
+  inputCard: {
+    backgroundColor: "#23263a",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20
+  },
+  inputLabel: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 10
+  },
+  nameInput: {
+    backgroundColor: "#1a1c2e",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 16,
+    color: "#fff",
+    textAlign: "left"
+  },
+  muscleGroupSelector: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10
+  },
+  muscleGroupContent: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+  muscleGroupText: {
+    fontSize: 16,
+    color: "#fff",
+    marginLeft: 10
+  },
+  selectedMuscleGroups: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 10
+  },
+  muscleGroupChip: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    margin: 4
+  },
+  muscleGroupChipText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold"
+  },
+  nextButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 12,
+    padding: 15,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 20
+  },
+  nextButtonText: {
+    fontSize: 16,
+    color: "#fff",
+    marginRight: 10
+  },
+  exerciseGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between"
   },
   exerciseCard: {
-    marginBottom: 24,
-    position: "relative",
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#23263a",
     borderRadius: 12,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
+    padding: 15,
+    width: (width - 40) / 2,
+    marginBottom: 20
   },
-  exerciseName: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#ffffff",
-    paddingRight: 36,
-    letterSpacing: 0.2,
-    lineHeight: 24,
-    marginBottom: 6
+  exerciseCardSelected: {
+    borderWidth: 2,
+    borderColor: "#4CAF50"
   },
-  exerciseLabelText: {
-    color: "rgba(255, 255, 255, 0.9)",
+  exerciseCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10
+  },
+  exerciseIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#4CAF50",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  exerciseCardName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#fff"
+  },
+  exerciseCardNameSelected: {
+    color: "#4CAF50"
+  },
+  exerciseCardTarget: {
     fontSize: 14,
-    minWidth: 80,
-    fontWeight: "500"
+    color: "#666"
   },
-  exerciseDesc: {
-    color: "rgba(200, 210, 220, 0.85)",
+  workoutSummary: {
+    backgroundColor: "#23263a",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10
+  },
+  summaryLabel: {
+    fontSize: 16,
+    color: "#666"
+  },
+  summaryValue: {
+    fontSize: 16,
+    color: "#fff"
+  },
+  exerciseList: {
+    marginBottom: 20
+  },
+  exerciseReviewCard: {
+    backgroundColor: "#23263a",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10
+  },
+  exerciseReviewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10
+  },
+  exerciseReviewInfo: {
+    flex: 1
+  },
+  exerciseReviewName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#fff"
+  },
+  exerciseReviewTarget: {
     fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.1,
-    marginBottom: 0
+    color: "#666"
+  },
+  exerciseActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  actionButton: {
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10
+  },
+  exerciseQuickStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10
+  },
+  quickStat: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  quickStatValue: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff"
+  },
+  quickStatLabel: {
+    fontSize: 12,
+    color: "#666"
+  },
+  exerciseConfig: {
+    backgroundColor: "#1a1c2e",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10
   },
   configRow: {
     flexDirection: "row",
@@ -988,173 +972,94 @@ const styles = StyleSheet.create({
   },
   configItem: {
     flex: 1,
-    marginHorizontal: 4
-  },
-  label: {
-    color: "rgba(255, 255, 255, 0.9)",
-    marginBottom: 6,
-    fontSize: 14,
-    fontWeight: "500",
-    letterSpacing: 0.1
-  },
-  input: {
-    backgroundColor: "#222222",
-    borderRadius: 8,
-    padding: 12,
-    color: "#ffffff",
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: "#333333",
-    textAlign: "center",
-    marginVertical: 6,
-    height: 48
-  },
-  picker: {
-    minWidth: 120,
-    color: "#ffffff",
-    marginVertical: 6,
-    backgroundColor: "#222222",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#333333",
-    height: 48
-  },
-  notesContainer: {
-    marginTop: 12
-  },
-  notesInput: {
-    backgroundColor: "#222222",
-    borderRadius: 8,
-    padding: 12,
-    color: "#ffffff",
-    height: 80,
-    textAlignVertical: "top",
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: "#333333",
-    marginTop: 6
-  },
-  setCard: {
-    marginVertical: 10,
-    marginHorizontal: 2,
-    padding: 16,
-    backgroundColor: "#222222",
-    borderRadius: 8,
-    borderTopWidth: 3,
-    borderTopColor: "#7c3aed"
-  },
-  setNumber: {
-    color: "#a78bfa",
-    fontWeight: "700",
-    marginBottom: 12,
-    fontSize: 16,
-    backgroundColor: "transparent",
-    letterSpacing: 0.3
-  },
-  addSetButton: {
-    backgroundColor: "transparent",
-    padding: 10,
-    alignItems: "center",
-    marginTop: 16,
-    marginBottom: 8,
-    borderRadius: 20,
-    flexDirection: "row",
     justifyContent: "center",
-    width: "auto",
-    borderWidth: 1,
-    borderColor: "#7c3aed",
-    alignSelf: "center",
-    paddingHorizontal: 20
+    alignItems: "center"
   },
-  addSetButtonText: {
-    color: "#b794f4",
-    fontWeight: "bold",
-    fontSize: 14
-  },
-  setActionsRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    marginTop: 8
-  },
-  removeSetButton: {
-    backgroundColor: "transparent",
-    padding: 8,
-    alignSelf: "center",
-    borderWidth: 1,
-    borderColor: "#444",
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    marginLeft: 8
-  },
-  removeSetButtonText: {
-    color: "#888",
+  configLabel: {
     fontSize: 12,
-    fontWeight: "500"
+    color: "#666",
+    marginBottom: 5
   },
-  removeExerciseButton: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    zIndex: 1,
-    backgroundColor: "transparent",
-    padding: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#444"
-  },
-  addExerciseButton: {
-    backgroundColor: "transparent",
-    marginVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
+  configInput: {
     flexDirection: "row",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: "#7c3aed",
-    borderStyle: "dashed"
+    justifyContent: "space-between",
+    alignItems: "center"
   },
-  addExerciseButtonText: {
-    color: "#a78bfa",
-    fontWeight: "600",
+  configValue: {
     fontSize: 16,
-    backgroundColor: "transparent"
+    color: "#fff"
+  },
+  weightInput: {
+    backgroundColor: "#1a1c2e",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 16,
+    color: "#fff",
+    textAlign: "center",
+    width: 50
+  },
+  setTypeSection: {
+    marginBottom: 10
+  },
+  setTypeButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10
+  },
+  setTypeButton: {
+    backgroundColor: "#23263a",
+    borderRadius: 8,
+    padding: 10,
+    width: (width - 40) / 3,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  setTypeButtonActive: {
+    backgroundColor: "#4CAF50"
+  },
+  setTypeButtonText: {
+    fontSize: 14,
+    color: "#fff"
+  },
+  setTypeButtonTextActive: {
+    color: "#fff"
+  },
+  actionButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20
+  },
+  backButton: {
+    backgroundColor: "#23263a",
+    borderRadius: 12,
+    padding: 15,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: "#fff",
+    marginLeft: 10
   },
   saveButton: {
-    backgroundColor: "#6b46c1", // Primary purple color matching the app's theme
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    backgroundColor: "#4CAF50",
     borderRadius: 12,
-    marginTop: 32,
-    marginHorizontal: 16,
-    borderWidth: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-    overflow: 'hidden',
+    padding: 15,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center"
   },
-  saveButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveIcon: {
-    marginRight: 12,
+  saveButtonDisabled: {
+    opacity: 0.6
   },
   saveButtonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "bold",
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
+    fontSize: 16,
+    color: "#fff",
+    marginLeft: 10
+  }
 });
 
 export default ConfigureWorkoutScreen;

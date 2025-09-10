@@ -171,49 +171,15 @@ const AddExerciseScreen = ({ navigation, route }) => {
       navigation.goBack();
     } else {
       console.log(
-        "[AddExerciseScreen] Navigating to ConfigureWorkout with selectedExercises:",
+        "[AddExerciseScreen] Navigating to WorkoutOptions with selectedExercises:",
         selectedExercises
       );
 
-      // Determine if we're adding new exercises or replacing the existing ones
-      if (route.params?.previousExercises) {
-        // We're potentially adding new exercises to existing ones
-        const previousIds = route.params.previousExercises.map((ex) => ex.id);
-        const newExercises = selectedExercises.filter(
-          (ex) => !previousIds.includes(ex.id)
-        );
-
-        // If user deselected some exercises that were previously added, they should be removed
-        const keptPreviousIds = selectedExercises
-          .filter((ex) => previousIds.includes(ex.id))
-          .map((ex) => ex.id);
-
-        if (newExercises.length > 0) {
-          console.log(
-            "[AddExerciseScreen] Adding new exercises:",
-            newExercises
-          );
-          navigation.navigate({
-            name: "ConfigureWorkout",
-            params: { addExercises: [...newExercises] },
-            merge: true
-          });
-        } else {
-          // If they only deselected exercises or made no changes
-          navigation.navigate({
-            name: "ConfigureWorkout",
-            params: { selectedExercises: [...selectedExercises] },
-            merge: true
-          });
-        }
-      } else {
-        // No previous exercises, just set the selected ones
-        navigation.navigate({
-          name: "ConfigureWorkout",
-          params: { selectedExercises: [...selectedExercises] },
-          merge: true
-        });
-      }
+      // Navigate to WorkoutOptions with selected exercises
+      navigation.navigate("WorkoutOptions", {
+        selectedExercises: [...selectedExercises],
+        fromAddExercise: true
+      });
     }
   };
 

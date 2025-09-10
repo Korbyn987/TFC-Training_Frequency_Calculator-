@@ -1,382 +1,341 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useEffect, useState } from "react";
+import { Picker } from "@react-native-picker/picker";
+import React, { useState } from "react";
 import {
-  Alert,
-  FlatList,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
-import { useDispatch, useSelector } from "react-redux";
-import LoginRequiredModal from "../components/LoginRequiredModal";
-import { MUSCLE_GROUPS } from "../constants/muscleGroups";
-import { addWorkout } from "../redux/workoutSlice";
-import { getCurrentUser } from "../services/supabaseAuth";
 
 const CalculatorScreen = ({ navigation }) => {
-  const [userId, setUserId] = useState(null);
-  const [username, setUsername] = useState("");
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [muscleData, setMuscleData] = useState({});
-  const [selectedMuscles, setSelectedMuscles] = useState([]);
-  const [workoutHistory, setWorkoutHistory] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [experienceLevel, setExperienceLevel] = useState("beginner");
+  const [trainingGoal, setTrainingGoal] = useState("strength");
+  const [availableDays, setAvailableDays] = useState(3);
+  const [recoveryCapacity, setRecoveryCapacity] = useState("average");
+  const [results, setResults] = useState(null);
 
-  const dispatch = useDispatch();
-  const muscleStatus =
-    useSelector((state) => state.workout?.muscleStatus) || {};
+  const calculateFrequency = () => {
+    let baseFrequency = 2;
+    let recommendations = [];
 
-  useEffect(() => {
-    checkAuthentication();
-  }, []);
-
-  // Re-check authentication when screen comes into focus (e.g., returning from login)
-  useFocusEffect(
-    useCallback(() => {
-      checkAuthentication();
-    }, [])
-  );
-
-  // Refresh data when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      if (userId) {
-        loadMuscleData();
-        loadWorkoutHistory();
-      }
-    }, [userId])
-  );
-
-  const checkAuthentication = async () => {
-    try {
-      setIsLoading(true);
-
-      const user = await getCurrentUser();
-
-      if (!user) {
-        console.log(
-          "Calculator: No valid user data found, showing login modal"
+    // Adjust based on experience level
+    switch (experienceLevel) {
+      case "beginner":
+        baseFrequency = 2;
+        recommendations.push(
+          "As a beginner, focus on learning proper form and building a foundation."
         );
-        setShowLoginModal(true);
-        setIsLoading(false);
-        return;
-      }
-
-      console.log(
-        "Calculator: Authentication successful for user:",
-        user.username || user.name
-      );
-      setUserId(user.id);
-      setUsername(user.username || user.name || "User");
-      setShowLoginModal(false); // Hide modal if user is authenticated
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Calculator: Error checking authentication:", error);
-      setShowLoginModal(true);
-      setIsLoading(false);
+        break;
+      case "intermediate":
+        baseFrequency = 2.5;
+        recommendations.push(
+          "You can handle moderate training frequency with good recovery."
+        );
+        break;
+      case "advanced":
+        baseFrequency = 3;
+        recommendations.push(
+          "Advanced trainees can benefit from higher frequency training."
+        );
+        break;
     }
-  };
 
-  const loadWorkoutHistory = async () => {
-    try {
-      const historyStr = await AsyncStorage.getItem("workoutHistory");
-      if (historyStr) {
-        const history = JSON.parse(historyStr);
-        setWorkoutHistory(history);
-      }
-    } catch (error) {
-      console.error("Error loading workout history:", error);
+    // Adjust based on training goal
+    switch (trainingGoal) {
+      case "strength":
+        baseFrequency += 0.5;
+        recommendations.push(
+          "Strength goals benefit from higher frequency with lower volume per session."
+        );
+        break;
+      case "hypertrophy":
+        baseFrequency += 0.3;
+        recommendations.push(
+          "Muscle growth requires consistent stimulus with adequate recovery."
+        );
+        break;
+      case "endurance":
+        baseFrequency += 0.2;
+        recommendations.push(
+          "Endurance training can be done more frequently with lighter loads."
+        );
+        break;
+      case "general":
+        recommendations.push(
+          "General fitness allows for flexible training frequency."
+        );
+        break;
     }
-  };
 
-  const loadMuscleData = async () => {
-    try {
-      const savedData = await AsyncStorage.getItem("muscleData");
-      let muscleDataObj = {};
-
-      if (savedData !== null) {
-        muscleDataObj = JSON.parse(savedData);
-      } else {
-        // Initialize with default values
-        muscleDataObj = MUSCLE_GROUPS.reduce((acc, muscle) => {
-          acc[muscle] = 0;
-          return acc;
-        }, {});
-      }
-
-      // Update muscle data based on recent workouts
-      await updateMuscleDataFromWorkouts(muscleDataObj);
-      setMuscleData(muscleDataObj);
-    } catch (error) {
-      console.error("Error loading muscle data:", error);
+    // Adjust based on recovery capacity
+    switch (recoveryCapacity) {
+      case "poor":
+        baseFrequency -= 0.5;
+        recommendations.push(
+          "Focus on recovery: adequate sleep, nutrition, and stress management."
+        );
+        break;
+      case "average":
+        recommendations.push(
+          "Maintain consistent sleep and nutrition for optimal recovery."
+        );
+        break;
+      case "excellent":
+        baseFrequency += 0.3;
+        recommendations.push(
+          "Your excellent recovery allows for higher training frequency."
+        );
+        break;
     }
-  };
 
-  const updateMuscleDataFromWorkouts = async (muscleDataObj) => {
-    try {
-      // Check for recent workout completions
-      const recentWorkouts = await AsyncStorage.getItem("recentWorkouts");
-      if (recentWorkouts) {
-        const workouts = JSON.parse(recentWorkouts);
-        const now = new Date();
+    // Constrain by available days
+    const maxFrequency = Math.min(baseFrequency, availableDays);
+    const recommendedFrequency = Math.max(
+      1,
+      Math.min(Math.round(maxFrequency * 10) / 10, 7)
+    );
 
-        workouts.forEach((workout) => {
-          if (workout.muscles && Array.isArray(workout.muscles)) {
-            workout.muscles.forEach((muscle) => {
-              const workoutDate = new Date(workout.date);
-              const daysSince = Math.floor(
-                (now - workoutDate) / (1000 * 60 * 60 * 24)
-              );
+    // Generate muscle group specific recommendations
+    const muscleGroupFrequencies = {
+      Chest: Math.max(1, Math.round(recommendedFrequency * 0.8)),
+      Back: Math.max(1, Math.round(recommendedFrequency * 0.9)),
+      Shoulders: Math.max(1, Math.round(recommendedFrequency * 0.7)),
+      Arms: Math.max(1, Math.round(recommendedFrequency * 0.8)),
+      Legs: Math.max(1, Math.round(recommendedFrequency * 0.9)),
+      Core: Math.min(7, Math.round(recommendedFrequency * 1.2))
+    };
 
-              // Reset timer for this muscle group
-              if (muscleDataObj.hasOwnProperty(muscle)) {
-                muscleDataObj[muscle] = daysSince;
-              }
-            });
-          }
-        });
-
-        // Save updated muscle data
-        await AsyncStorage.setItem("muscleData", JSON.stringify(muscleDataObj));
-      }
-    } catch (error) {
-      console.error("Error updating muscle data from workouts:", error);
-    }
-  };
-
-  const getStatus = (days) => {
-    if (days === 0) return "ready";
-    if (days <= 1) return "soon";
-    if (days <= 3) return "wait";
-    return "notReady";
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "ready":
-        return "#38a169";
-      case "soon":
-        return "#d69e2e";
-      case "wait":
-        return "#e53e3e";
-      case "notReady":
-        return "#718096";
-      default:
-        return "#718096";
-    }
-  };
-
-  const getStatusText = (days) => {
-    if (days === 0) return "Ready to train!";
-    if (days === 1) return "1 day since last workout";
-    return `${days} days since last workout`;
-  };
-
-  const handleMusclePress = (muscle) => {
-    setSelectedMuscles((prev) => {
-      if (prev.includes(muscle)) {
-        return prev.filter((m) => m !== muscle);
-      }
-      return [...prev, muscle];
+    setResults({
+      overallFrequency: recommendedFrequency,
+      muscleGroupFrequencies,
+      recommendations,
+      weeklyVolume: calculateWeeklyVolume(recommendedFrequency, trainingGoal),
+      restDays: Math.max(1, 7 - recommendedFrequency)
     });
   };
 
-  const handleStartWorkout = async () => {
-    if (selectedMuscles.length === 0) {
-      Alert.alert(
-        "No Muscles Selected",
-        "Please select at least one muscle group to train."
-      );
-      return;
+  const calculateWeeklyVolume = (frequency, goal) => {
+    let baseSets = 12;
+
+    switch (goal) {
+      case "strength":
+        baseSets = 10;
+        break;
+      case "hypertrophy":
+        baseSets = 16;
+        break;
+      case "endurance":
+        baseSets = 20;
+        break;
+      case "general":
+        baseSets = 12;
+        break;
     }
 
-    try {
-      // Navigate to ConfigureWorkout with selected muscles
-      navigation.navigate("ConfigureWorkout", {
-        selectedMuscles: selectedMuscles,
-        fromCalculator: true
-      });
-    } catch (error) {
-      console.error("Error starting workout:", error);
-      Alert.alert("Error", "Failed to start workout configuration.");
-    }
+    return Math.round(baseSets * frequency);
   };
 
-  const resetMuscleTimer = async (muscle) => {
-    try {
-      const updatedMuscleData = { ...muscleData };
-      updatedMuscleData[muscle] = 0;
-
-      setMuscleData(updatedMuscleData);
-      await AsyncStorage.setItem(
-        "muscleData",
-        JSON.stringify(updatedMuscleData)
-      );
-
-      // Add to Redux store for synchronization
-      dispatch(
-        addWorkout({
-          date: new Date().toISOString(),
-          muscles: [muscle.toLowerCase()],
-          intensity: "manual_reset",
-          name: `${muscle} Timer Reset`,
-          exercises: []
-        })
-      );
-
-      Alert.alert(
-        "Timer Reset",
-        `${muscle} recovery timer has been reset to 0 days.`
-      );
-    } catch (error) {
-      console.error("Error resetting muscle timer:", error);
-      Alert.alert("Error", "Failed to reset timer.");
-    }
+  const resetCalculator = () => {
+    setExperienceLevel("beginner");
+    setTrainingGoal("strength");
+    setAvailableDays(3);
+    setRecoveryCapacity("average");
+    setResults(null);
   };
-
-  const getRecommendation = () => {
-    if (selectedMuscles.length === 0) {
-      return "Select muscle groups to get training recommendations";
-    }
-
-    const selectedData = selectedMuscles.map((muscle) => ({
-      muscle,
-      days: muscleData[muscle] || 0
-    }));
-
-    const readyMuscles = selectedData.filter((m) => m.days === 0);
-    const soonMuscles = selectedData.filter((m) => m.days === 1);
-    const waitMuscles = selectedData.filter((m) => m.days > 1);
-
-    if (readyMuscles.length === selectedMuscles.length) {
-      return "✅ All selected muscles are ready to train!";
-    }
-
-    if (readyMuscles.length > 0) {
-      return `✅ ${readyMuscles.length} muscle(s) ready, ${waitMuscles.length} still recovering`;
-    }
-
-    if (soonMuscles.length > 0) {
-      return `⏰ ${soonMuscles.length} muscle(s) ready soon, wait ${Math.max(
-        ...waitMuscles.map((m) => m.days)
-      )} more day(s)`;
-    }
-
-    return `⏳ Wait ${Math.min(
-      ...waitMuscles.map((m) => m.days)
-    )} more day(s) before training`;
-  };
-
-  const renderMuscleGroup = ({ item: muscle }) => {
-    const days = muscleData[muscle] || 0;
-    const status = getStatus(days);
-    const isSelected = selectedMuscles.includes(muscle);
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.muscleGroup,
-          { borderColor: getStatusColor(status) },
-          isSelected && styles.selectedMuscleGroup
-        ]}
-        onPress={() => handleMusclePress(muscle)}
-        onLongPress={() => resetMuscleTimer(muscle)}
-      >
-        <View style={styles.muscleHeader}>
-          <Text style={styles.muscleGroupText}>{muscle}</Text>
-          {isSelected && (
-            <Ionicons name="checkmark-circle" size={20} color="#6b46c1" />
-          )}
-        </View>
-        <Text style={[styles.statusText, { color: getStatusColor(status) }]}>
-          {getStatusText(days)}
-        </Text>
-        <Text style={styles.resetHint}>Long press to reset</Text>
-      </TouchableOpacity>
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
-
-  if (!userId) {
-    return (
-      <View style={styles.container}>
-        <LoginRequiredModal
-          visible={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-        />
-      </View>
-    );
-  }
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Training Frequency Calculator</Text>
-        <Text style={styles.subtitle}>Welcome back, {username}!</Text>
+        <Text style={styles.subtitle}>
+          Get personalized training frequency recommendations
+        </Text>
       </View>
 
-      <View style={styles.recommendationCard}>
-        <Text style={styles.recommendationTitle}>Recommendation</Text>
-        <Text style={styles.recommendationText}>{getRecommendation()}</Text>
-      </View>
+      <View style={styles.inputSection}>
+        <Text style={styles.sectionTitle}>Your Profile</Text>
 
-      {selectedMuscles.length > 0 && (
-        <View style={styles.selectedMusclesCard}>
-          <Text style={styles.selectedTitle}>
-            Selected Muscles ({selectedMuscles.length})
-          </Text>
-          <View style={styles.selectedMusclesList}>
-            {selectedMuscles.map((muscle) => (
+        {/* Experience Level */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Experience Level</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={experienceLevel}
+              style={styles.picker}
+              onValueChange={setExperienceLevel}
+            >
+              <Picker.Item label="Beginner (0-1 years)" value="beginner" />
+              <Picker.Item
+                label="Intermediate (1-3 years)"
+                value="intermediate"
+              />
+              <Picker.Item label="Advanced (3+ years)" value="advanced" />
+            </Picker>
+          </View>
+        </View>
+
+        {/* Training Goal */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Primary Training Goal</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={trainingGoal}
+              style={styles.picker}
+              onValueChange={setTrainingGoal}
+            >
+              <Picker.Item label="Strength" value="strength" />
+              <Picker.Item
+                label="Muscle Growth (Hypertrophy)"
+                value="hypertrophy"
+              />
+              <Picker.Item label="Endurance" value="endurance" />
+              <Picker.Item label="General Fitness" value="general" />
+            </Picker>
+          </View>
+        </View>
+
+        {/* Available Days */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Available Training Days per Week</Text>
+          <View style={styles.daySelector}>
+            {[1, 2, 3, 4, 5, 6, 7].map((day) => (
               <TouchableOpacity
-                key={muscle}
-                style={styles.selectedMuscleChip}
-                onPress={() => handleMusclePress(muscle)}
+                key={day}
+                style={[
+                  styles.dayButton,
+                  availableDays === day && styles.dayButtonSelected
+                ]}
+                onPress={() => setAvailableDays(day)}
               >
-                <Text style={styles.selectedMuscleText}>{muscle}</Text>
-                <Ionicons name="close" size={16} color="#fff" />
+                <Text
+                  style={[
+                    styles.dayButtonText,
+                    availableDays === day && styles.dayButtonTextSelected
+                  ]}
+                >
+                  {day}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.startWorkoutButton}
-              onPress={handleStartWorkout}
+        </View>
+
+        {/* Recovery Capacity */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Recovery Capacity</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={recoveryCapacity}
+              style={styles.picker}
+              onValueChange={setRecoveryCapacity}
             >
-              <Text style={styles.startWorkoutButtonText}>
-                Configure Workout
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={() => setSelectedMuscles([])}
-            >
-              <Text style={styles.clearButtonText}>Clear All</Text>
-            </TouchableOpacity>
+              <Picker.Item
+                label="Poor (High stress, poor sleep)"
+                value="poor"
+              />
+              <Picker.Item label="Average (Normal lifestyle)" value="average" />
+              <Picker.Item
+                label="Excellent (Great sleep, low stress)"
+                value="excellent"
+              />
+            </Picker>
           </View>
         </View>
-      )}
-
-      <View style={styles.muscleGroupsSection}>
-        <Text style={styles.sectionTitle}>Muscle Groups</Text>
-        <FlatList
-          data={MUSCLE_GROUPS.sort()}
-          renderItem={renderMuscleGroup}
-          keyExtractor={(item) => item}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          scrollEnabled={false}
-        />
       </View>
+
+      {/* Calculate Button */}
+      <View style={styles.buttonSection}>
+        <TouchableOpacity
+          style={styles.calculateButton}
+          onPress={calculateFrequency}
+        >
+          <Ionicons name="calculator" size={20} color="#fff" />
+          <Text style={styles.calculateButtonText}>Calculate Frequency</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Results */}
+      {results && (
+        <View style={styles.resultsSection}>
+          <Text style={styles.resultsTitle}>Your Recommendations</Text>
+
+          {/* Overall Frequency */}
+          <View style={styles.resultCard}>
+            <View style={styles.resultHeader}>
+              <Ionicons name="fitness" size={24} color="#4CAF50" />
+              <Text style={styles.resultCardTitle}>
+                Overall Training Frequency
+              </Text>
+            </View>
+            <Text style={styles.frequencyNumber}>
+              {results.overallFrequency}
+            </Text>
+            <Text style={styles.frequencyLabel}>times per week</Text>
+            <Text style={styles.restDays}>
+              Recommended rest days: {results.restDays} per week
+            </Text>
+          </View>
+
+          {/* Muscle Group Frequencies */}
+          <View style={styles.resultCard}>
+            <View style={styles.resultHeader}>
+              <Ionicons name="body" size={24} color="#4CAF50" />
+              <Text style={styles.resultCardTitle}>
+                Muscle Group Frequencies
+              </Text>
+            </View>
+            <View style={styles.muscleGroupGrid}>
+              {Object.entries(results.muscleGroupFrequencies).map(
+                ([muscle, freq]) => (
+                  <View key={muscle} style={styles.muscleGroupItem}>
+                    <Text style={styles.muscleName}>{muscle}</Text>
+                    <Text style={styles.muscleFreq}>{freq}x/week</Text>
+                  </View>
+                )
+              )}
+            </View>
+          </View>
+
+          {/* Weekly Volume */}
+          <View style={styles.resultCard}>
+            <View style={styles.resultHeader}>
+              <Ionicons name="barbell" size={24} color="#4CAF50" />
+              <Text style={styles.resultCardTitle}>
+                Recommended Weekly Volume
+              </Text>
+            </View>
+            <Text style={styles.volumeNumber}>{results.weeklyVolume}</Text>
+            <Text style={styles.volumeLabel}>
+              sets per muscle group per week
+            </Text>
+          </View>
+
+          {/* Recommendations */}
+          <View style={styles.resultCard}>
+            <View style={styles.resultHeader}>
+              <Ionicons name="bulb" size={24} color="#4CAF50" />
+              <Text style={styles.resultCardTitle}>Personalized Tips</Text>
+            </View>
+            {results.recommendations.map((rec, index) => (
+              <View key={index} style={styles.recommendationItem}>
+                <Text style={styles.recommendationBullet}>•</Text>
+                <Text style={styles.recommendationText}>{rec}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Reset Button */}
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={resetCalculator}
+          >
+            <Ionicons name="refresh" size={20} color="#888" />
+            <Text style={styles.resetButtonText}>Calculate Again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -388,151 +347,201 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    alignItems: "center"
+    paddingTop: 40
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
     color: "#fff",
-    textAlign: "center"
+    marginBottom: 8
   },
   subtitle: {
     fontSize: 16,
-    color: "#9ca3af",
-    marginTop: 5
+    color: "#888",
+    lineHeight: 22
   },
-  recommendationCard: {
-    backgroundColor: "#2d3748",
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#4a5568"
-  },
-  recommendationTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 8
-  },
-  recommendationText: {
-    fontSize: 16,
-    color: "#e2e8f0",
-    lineHeight: 24
-  },
-  selectedMusclesCard: {
-    backgroundColor: "#2d3748",
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#6b46c1"
-  },
-  selectedTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 12
-  },
-  selectedMusclesList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 12
-  },
-  selectedMuscleChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#6b46c1",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8
-  },
-  selectedMuscleText: {
-    color: "#fff",
-    fontSize: 14,
-    marginRight: 6
-  },
-  actionButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between"
-  },
-  startWorkoutButton: {
-    backgroundColor: "#38a169",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    flex: 1,
-    marginRight: 8
-  },
-  startWorkoutButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center"
-  },
-  clearButton: {
-    backgroundColor: "#e53e3e",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8
-  },
-  clearButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "bold"
-  },
-  muscleGroupsSection: {
-    padding: 16
+  inputSection: {
+    padding: 20,
+    paddingTop: 0
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "bold",
     color: "#fff",
-    marginBottom: 16
+    marginBottom: 20
   },
-  row: {
-    justifyContent: "space-between"
+  inputGroup: {
+    marginBottom: 25
   },
-  muscleGroup: {
-    flex: 0.48,
-    backgroundColor: "#2d3748",
-    padding: 16,
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+    marginBottom: 10
+  },
+  pickerContainer: {
+    backgroundColor: "#23263a",
     borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 2
+    overflow: "hidden"
   },
-  selectedMuscleGroup: {
-    backgroundColor: "#3d4066",
-    borderColor: "#6b46c1"
+  picker: {
+    color: "#fff",
+    backgroundColor: "#23263a"
   },
-  muscleHeader: {
+  daySelector: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8
+    flexWrap: "wrap"
   },
-  muscleGroupText: {
+  dayButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#23263a",
+    justifyContent: "center",
+    alignItems: "center",
+    margin: 2
+  },
+  dayButtonSelected: {
+    backgroundColor: "#4CAF50"
+  },
+  dayButtonText: {
+    color: "#888",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "bold"
+  },
+  dayButtonTextSelected: {
     color: "#fff"
   },
-  statusText: {
-    fontSize: 14,
-    fontWeight: "500"
+  buttonSection: {
+    padding: 20,
+    paddingTop: 0
   },
-  resetHint: {
-    fontSize: 12,
-    color: "#9ca3af",
-    fontStyle: "italic",
-    marginTop: 4
+  calculateButton: {
+    backgroundColor: "#4CAF50",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    borderRadius: 12
   },
-  loadingText: {
-    fontSize: 24,
+  calculateButtonText: {
     color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginLeft: 8
+  },
+  resultsSection: {
+    padding: 20,
+    paddingTop: 0
+  },
+  resultsTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 20,
+    textAlign: "center"
+  },
+  resultCard: {
+    backgroundColor: "#23263a",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 15
+  },
+  resultHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15
+  },
+  resultCardTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+    marginLeft: 10
+  },
+  frequencyNumber: {
+    fontSize: 48,
+    fontWeight: "bold",
+    color: "#4CAF50",
     textAlign: "center",
-    padding: 20
+    marginBottom: 5
+  },
+  frequencyLabel: {
+    fontSize: 16,
+    color: "#888",
+    textAlign: "center",
+    marginBottom: 10
+  },
+  restDays: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center"
+  },
+  muscleGroupGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between"
+  },
+  muscleGroupItem: {
+    width: "48%",
+    backgroundColor: "#1a1c2e",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    alignItems: "center"
+  },
+  muscleName: {
+    fontSize: 14,
+    color: "#fff",
+    fontWeight: "600",
+    marginBottom: 4
+  },
+  muscleFreq: {
+    fontSize: 16,
+    color: "#4CAF50",
+    fontWeight: "bold"
+  },
+  volumeNumber: {
+    fontSize: 36,
+    fontWeight: "bold",
+    color: "#4CAF50",
+    textAlign: "center",
+    marginBottom: 5
+  },
+  volumeLabel: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center"
+  },
+  recommendationItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 8
+  },
+  recommendationBullet: {
+    color: "#4CAF50",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginRight: 8,
+    marginTop: 2
+  },
+  recommendationText: {
+    color: "#fff",
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1
+  },
+  resetButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    marginTop: 10
+  },
+  resetButtonText: {
+    color: "#888",
+    fontSize: 16,
+    marginLeft: 8
   }
 });
 

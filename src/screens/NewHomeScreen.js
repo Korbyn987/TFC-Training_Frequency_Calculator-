@@ -4,27 +4,39 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
-import { supabase } from "../config/supabase";
-import {
-  clearActiveWorkout,
-  hasActiveWorkout,
-  loadActiveWorkout
-} from "../services/localWorkoutStorage";
+// import { LineChart } from "react-native-chart-kit";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getCurrentUser } from "../services/supabaseAuth";
-import { getUserStats } from "../services/supabaseWorkouts";
+import {
+  addExerciseSet,
+  addWorkoutExercise,
+  completeWorkout,
+  createWorkout,
+  getUserStats,
+  getUserWorkoutHistory
+} from "../services/supabaseWorkouts";
+
+const { width: screenWidth } = Dimensions.get("window");
 
 const NewHomeScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [userStats, setUserStats] = useState(null);
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [startingWorkout, setStartingWorkout] = useState(false);
+  const [recentWorkouts, setRecentWorkouts] = useState([]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserData();
+    }, [])
+  );
 
   useFocusEffect(
     React.useCallback(() => {
@@ -35,314 +47,350 @@ const NewHomeScreen = ({ navigation }) => {
   const loadUserData = async () => {
     try {
       setLoading(true);
-
-      // Get current user
       const currentUser = await getCurrentUser();
+
       if (!currentUser) {
         navigation.navigate("Login");
         return;
       }
+
       setUser(currentUser);
 
       // Load user stats
       const statsResult = await getUserStats(currentUser.id);
-      if (statsResult.success) {
-        setUserStats(statsResult.stats);
-      }
+      const stats = statsResult.success ? statsResult.stats : null;
+      setUserStats(stats);
 
-      // Check for active workout
-      const activeResult = await hasActiveWorkout();
-      if (activeResult.success && activeResult.hasActive) {
-        const workoutResult = await loadActiveWorkout();
-        if (workoutResult.success && workoutResult.workout) {
-          setActiveWorkout(workoutResult.workout);
-        }
+      // Load recent workouts
+      const workoutsResult = await getUserWorkoutHistory(currentUser.id, 7);
+      const workouts = workoutsResult.success ? workoutsResult.workouts : [];
+      setRecentWorkouts(workouts);
+
+      // Check AsyncStorage for active workouts
+      const storedActiveWorkout = await AsyncStorage.getItem("activeWorkout");
+
+      if (storedActiveWorkout) {
+        const parsedWorkout = JSON.parse(storedActiveWorkout);
+        setActiveWorkout(parsedWorkout);
       } else {
-        setActiveWorkout(null);
+        // Set active workout (most recent incomplete workout)
+        const activeWorkout = workouts.find((w) => !w.completed_at) || null;
+        setActiveWorkout(activeWorkout);
       }
     } catch (error) {
       console.error("Error loading user data:", error);
+      Alert.alert("Error", "Failed to load user data");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStartWorkout = async () => {
-    try {
-      setStartingWorkout(true);
-
-      // Navigate directly to ConfigureWorkout screen
-      navigation.navigate("ConfigureWorkout");
-    } catch (error) {
-      console.error("Error starting workout:", error);
-      Alert.alert("Error", "Failed to start workout. Please try again.");
-    } finally {
-      setStartingWorkout(false);
-    }
-  };
-
-  const handleContinueWorkout = () => {
+  const handleStartWorkout = () => {
     navigation.navigate("ConfigureWorkout");
   };
 
-  const handleViewHistory = () => {
-    navigation.navigate("Profile");
-  };
-
-  const handleRecoveryGuide = () => {
-    navigation.navigate("RecoveryGuide");
+  const handleContinueWorkout = () => {
+    if (activeWorkout) {
+      navigation.navigate("WorkoutOptions", {
+        workoutId: activeWorkout.id,
+        continue: true
+      });
+    }
   };
 
   const handleEndWorkout = async () => {
+    if (!activeWorkout) return;
+
     try {
-      setLoading(true);
-
-      if (!activeWorkout || !activeWorkout.supabase_id) {
-        Alert.alert("Error", "No active workout found to complete.");
-        return;
-      }
-
-      // Calculate workout duration
-      const startTime = new Date(activeWorkout.start_time);
-      const endTime = new Date();
-      const durationMinutes = Math.floor((endTime - startTime) / (1000 * 60));
-
-      // Update the existing workout in Supabase to mark it as completed
-      const { data: completedWorkout, error: updateError } = await supabase
-        .from("workouts")
-        .update({
-          completed_at: endTime.toISOString(),
-          duration_minutes: durationMinutes,
-          notes:
-            activeWorkout.notes ||
-            `Completed workout with ${
-              activeWorkout.exercises?.length || 0
-            } exercises`
-        })
-        .eq("id", activeWorkout.supabase_id)
-        .eq("user_id", user.id)
-        .select()
-        .single();
-
-      if (updateError) {
-        console.error("Error completing workout:", updateError);
-        Alert.alert(
-          "Error",
-          "Failed to save workout completion. Please try again."
-        );
-        return;
-      }
-
-      // Update user stats
-      const { data: currentStats } = await supabase
-        .from("user_stats")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      const updatedStats = {
-        user_id: user.id,
-        total_workouts: (currentStats?.total_workouts || 0) + 1,
-        total_duration_minutes:
-          (currentStats?.total_duration_minutes || 0) + durationMinutes,
-        last_workout_date: endTime.toISOString()
+      // Create workout in Supabase
+      const workoutData = {
+        name: activeWorkout.name,
+        notes: `Workout with ${activeWorkout.exercises?.length || 0} exercises`
       };
 
-      await supabase.from("user_stats").upsert([updatedStats]);
+      const result = await createWorkout(workoutData);
 
-      // Clear active workout from local storage
-      await clearActiveWorkout();
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
-      // Update local state
+      const newWorkoutId = result.workout.id;
+
+      // Save individual exercises with their sets
+      for (let i = 0; i < activeWorkout.exercises.length; i++) {
+        const exercise = activeWorkout.exercises[i];
+
+        const exerciseResult = await addWorkoutExercise(newWorkoutId, {
+          exercise_id: exercise.id,
+          exercise_name: exercise.name,
+          muscle_group:
+            exercise.target_muscle || exercise.muscle_group || "Unknown",
+          order_index: i,
+          target_sets: exercise.sets?.length || 0
+        });
+
+        if (!exerciseResult.success) {
+          console.error("Error adding exercise:", exerciseResult.error);
+          continue;
+        }
+
+        const workoutExerciseId = exerciseResult.workoutExercise.id;
+
+        // Add sets for this exercise
+        if (exercise.sets && exercise.sets.length > 0) {
+          for (let j = 0; j < exercise.sets.length; j++) {
+            const set = exercise.sets[j];
+
+            await addExerciseSet(workoutExerciseId, {
+              set_number: j + 1,
+              set_type: set.set_type || "normal",
+              reps: set.reps || 0,
+              weight: set.weight || 0
+            });
+          }
+        }
+      }
+
+      // Complete the workout
+      await completeWorkout(newWorkoutId, {
+        duration_minutes: Math.floor(
+          (new Date() - new Date(activeWorkout.started_at)) / (1000 * 60)
+        ),
+        notes: "Workout completed"
+      });
+
+      // Clear AsyncStorage and local state
+      await AsyncStorage.removeItem("activeWorkout");
       setActiveWorkout(null);
 
-      // Reload user data to refresh stats
-      await loadUserData();
-
-      Alert.alert(
-        "Workout Completed! 🎉",
-        `Great job! You completed your workout in ${durationMinutes} minutes.`,
-        [
-          {
-            text: "View History",
-            onPress: () => navigation.navigate("Profile")
-          },
-          {
-            text: "OK",
-            style: "default"
+      Alert.alert("Success", "Workout completed successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            // Stay on home screen to show "Start New Workout" section
           }
-        ]
-      );
+        }
+      ]);
     } catch (error) {
-      console.error("Error ending workout:", error);
-      Alert.alert("Error", "Failed to end workout. Please try again.");
-    } finally {
-      setLoading(false);
+      console.error("Error completing workout:", error);
+      Alert.alert("Error", "Failed to complete workout. Please try again.");
     }
+  };
+
+  const handleDeleteActiveWorkout = async () => {
+    if (!activeWorkout) return;
+
+    Alert.alert(
+      "Delete Workout",
+      "Are you sure you want to delete this active workout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // await deleteWorkout(activeWorkout.id);
+              setActiveWorkout(null);
+              await AsyncStorage.removeItem("activeWorkout");
+              Alert.alert("Success", "Workout deleted successfully");
+            } catch (error) {
+              console.error("Error deleting workout:", error);
+              Alert.alert("Error", "Failed to delete workout");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const renderChart = () => {
+    if (!recentWorkouts || recentWorkouts.length < 2) {
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Training Volume Trend</Text>
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>
+              Complete more workouts to see your progress chart
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    const chartData = {
+      labels: recentWorkouts.slice(-6).map((_, index) => `W${index + 1}`),
+      datasets: [
+        {
+          data: recentWorkouts
+            .slice(-6)
+            .map((workout) => workout.total_volume || 0),
+          color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
+          strokeWidth: 2
+        }
+      ]
+    };
+
+    return (
+      <View style={styles.chartContainer}>
+        <Text style={styles.chartTitle}>Training Volume Trend</Text>
+        {/* <LineChart
+          data={chartData}
+          width={screenWidth - 40}
+          height={200}
+          chartConfig={{
+            backgroundColor: "#23263a",
+            backgroundGradientFrom: "#23263a",
+            backgroundGradientTo: "#23263a",
+            decimalPlaces: 0,
+            color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+            style: { borderRadius: 16 },
+            propsForDots: {
+              r: "4",
+              strokeWidth: "2",
+              stroke: "#4CAF50"
+            }
+          }}
+          bezier
+          style={styles.chart}
+        /> */}
+      </View>
+    );
+  };
+
+  const renderStats = () => {
+    // TO DO: implement renderStats function
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6b46c1" />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={styles.loadingText}>Loading your data...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {/* Welcome Header */}
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome back,</Text>
-        <Text style={styles.userName}>
-          {user?.username || user?.name || "User"}!
+        <Text style={styles.welcomeText}>
+          Welcome back, {user?.user_metadata?.first_name || user?.email}!
+        </Text>
+        <Text style={styles.dateText}>
+          {new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+          })}
         </Text>
       </View>
 
-      {/* User Stats Card */}
-      <View style={styles.statsCard}>
-        <Text style={styles.cardTitle}>Your Progress</Text>
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {userStats?.total_workouts || 0}
-            </Text>
-            <Text style={styles.statLabel}>Total Workouts</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {Math.round((userStats?.total_duration_minutes || 0) / 60)}h
-            </Text>
-            <Text style={styles.statLabel}>Total Hours</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {userStats?.last_workout_date
-                ? new Date(userStats.last_workout_date).toLocaleDateString()
-                : "Never"}
-            </Text>
-            <Text style={styles.statLabel}>Last Workout</Text>
-          </View>
-        </View>
-      </View>
+      {/* Stats Cards */}
+      {renderStats()}
 
-      {/* Active Workout Card */}
+      {/* Active Workout Section */}
       {activeWorkout ? (
-        <View style={styles.activeWorkoutCard}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <Ionicons name="fitness" size={24} color="#6b46c1" />
-              <Text style={styles.cardTitle}>Active Workout</Text>
+        <View style={styles.activeWorkoutContainer}>
+          <View style={styles.activeWorkoutCard}>
+            <View style={styles.activeWorkoutHeader}>
+              <Ionicons name="fitness" size={24} color="#4CAF50" />
+              <Text style={styles.activeWorkoutTitle}>Active Workout</Text>
             </View>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() =>
-                navigation.navigate("ConfigureWorkout", {
-                  exercises: activeWorkout.exercises || [],
-                  workoutName: activeWorkout.name,
-                  editingActive: true
-                })
-              }
-            >
-              <Ionicons name="create" size={18} color="#6b46c1" />
-              <Text style={styles.editButtonText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.workoutName}>{activeWorkout.name}</Text>
-          <Text style={styles.workoutTime}>
-            Started: {new Date(activeWorkout.start_time).toLocaleTimeString()}
-          </Text>
+            <Text style={styles.activeWorkoutName}>{activeWorkout.name}</Text>
+            <Text style={styles.activeWorkoutDetails}>
+              {activeWorkout.exercises?.length || 0} exercises
+            </Text>
 
-          {/* Display configured exercises if available */}
-          {activeWorkout.exercises && activeWorkout.exercises.length > 0 && (
-            <View style={styles.exercisesList}>
-              <Text style={styles.exercisesTitle}>
-                Exercises ({activeWorkout.exercises.length}):
-              </Text>
-              {activeWorkout.exercises.slice(0, 3).map((exercise, index) => (
-                <Text key={index} style={styles.exerciseItem}>
-                  • {exercise.name}
-                </Text>
-              ))}
-              {activeWorkout.exercises.length > 3 && (
-                <Text style={styles.exerciseItem}>
-                  • +{activeWorkout.exercises.length - 3} more...
-                </Text>
-              )}
-            </View>
-          )}
-
-          {/* Display muscle groups if available */}
-          {activeWorkout.muscle_groups &&
-            activeWorkout.muscle_groups.length > 0 && (
-              <Text style={styles.muscleGroups}>
-                Target: {activeWorkout.muscle_groups.join(", ")}
-              </Text>
+            {/* Exercise List */}
+            {activeWorkout.exercises && activeWorkout.exercises.length > 0 && (
+              <View style={styles.exercisesList}>
+                {activeWorkout.exercises.map((exercise, index) => (
+                  <View key={index} style={styles.exerciseItem}>
+                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    <Text style={styles.exerciseSets}>
+                      {exercise.sets?.length || 0} sets
+                      {exercise.sets && exercise.sets.length > 0 && (
+                        <Text style={styles.setsDetail}>
+                          {" "}
+                          (
+                          {exercise.sets
+                            .map(
+                              (set) =>
+                                `${set.reps}×${set.weight}${
+                                  set.weight ? "lbs" : ""
+                                }`
+                            )
+                            .join(", ")}
+                          )
+                        </Text>
+                      )}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             )}
-
-          <TouchableOpacity style={styles.endButton} onPress={handleEndWorkout}>
-            <Text style={styles.endButtonText}>End Workout</Text>
-            <Ionicons name="stop" size={20} color="#fff" />
-          </TouchableOpacity>
+            <View style={styles.activeWorkoutActions}>
+              <TouchableOpacity
+                style={styles.continueButton}
+                onPress={handleContinueWorkout}
+              >
+                <Ionicons name="create" size={20} color="#fff" />
+                <Text style={styles.continueButtonText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.endButton}
+                onPress={handleEndWorkout}
+              >
+                <Ionicons name="stop" size={20} color="#fff" />
+                <Text style={styles.endButtonText}>End</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={handleDeleteActiveWorkout}
+              >
+                <Ionicons name="trash" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       ) : (
-        <View style={styles.startWorkoutCard}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="add-circle" size={24} color="#6b46c1" />
-            <Text style={styles.cardTitle}>Ready to Train?</Text>
-          </View>
-          <Text style={styles.cardDescription}>
-            Start a new workout session and track your progress
-          </Text>
+        <View style={styles.noWorkoutContainer}>
+          <Text style={styles.sectionTitle}>Ready to Train?</Text>
           <TouchableOpacity
-            style={styles.startButton}
+            style={styles.startWorkoutButton}
             onPress={handleStartWorkout}
-            disabled={startingWorkout}
           >
-            {startingWorkout ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Text style={styles.startButtonText}>Start Workout</Text>
-                <Ionicons name="play" size={20} color="#fff" />
-              </>
-            )}
+            <Ionicons name="fitness" size={24} color="#fff" />
+            <Text style={styles.startWorkoutText}>Start New Workout</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Quick Actions */}
-      <View style={styles.quickActionsCard}>
-        <Text style={styles.cardTitle}>Quick Actions</Text>
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleViewHistory}
-          >
-            <Ionicons name="bar-chart" size={32} color="#6b46c1" />
-            <Text style={styles.actionText}>History</Text>
-          </TouchableOpacity>
+      {/* Progress Chart */}
+      {renderChart()}
 
+      {/* Quick Actions */}
+      <View style={styles.quickActionsContainer}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.quickActionsGrid}>
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleRecoveryGuide}
+            style={styles.quickActionCard}
+            onPress={() => navigation.navigate("Calculator")}
           >
-            <Ionicons name="heart" size={32} color="#6b46c1" />
-            <Text style={styles.actionText}>Recovery</Text>
+            <Ionicons name="calculator" size={32} color="#4CAF50" />
+            <Text style={styles.quickActionText}>Frequency Calculator</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionCard}
+            onPress={() => navigation.navigate("RecoveryGuide")}
+          >
+            <Ionicons name="heart" size={32} color="#4CAF50" />
+            <Text style={styles.quickActionText}>Recovery Guide</Text>
           </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Motivational Quote */}
-      <View style={styles.quoteCard}>
-        <Text style={styles.quote}>
-          "The groundwork for all happiness is good health."
-        </Text>
-        <Text style={styles.quoteAuthor}>- Leigh Hunt</Text>
       </View>
     </ScrollView>
   );
@@ -352,10 +400,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#1a1c2e"
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40
   },
   loadingContainer: {
     flex: 1,
@@ -369,199 +413,209 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
   header: {
-    marginBottom: 30
+    padding: 20,
+    paddingTop: 40
   },
   welcomeText: {
-    fontSize: 18,
-    color: "#999",
-    marginBottom: 5
-  },
-  userName: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff"
-  },
-  statsCard: {
-    backgroundColor: "#23263a",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#333"
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 15
-  },
-  statsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between"
-  },
-  statItem: {
-    alignItems: "center",
-    flex: 1
-  },
-  statValue: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#6b46c1",
+    color: "#fff",
+    marginBottom: 5
+  },
+  dateText: {
+    fontSize: 16,
+    color: "#888",
+    marginBottom: 20
+  },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    marginBottom: 30
+  },
+  statCard: {
+    backgroundColor: "#23263a",
+    padding: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    flex: 1,
+    marginHorizontal: 5
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#4CAF50",
     marginBottom: 5
   },
   statLabel: {
     fontSize: 12,
-    color: "#999",
+    color: "#888",
     textAlign: "center"
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 15,
+    paddingHorizontal: 20
+  },
+  activeWorkoutContainer: {
+    marginBottom: 30
   },
   activeWorkoutCard: {
     backgroundColor: "#23263a",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: "#6b46c1"
+    marginHorizontal: 20,
+    borderRadius: 12,
+    padding: 20
   },
-  startWorkoutCard: {
-    backgroundColor: "#23263a",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#333"
-  },
-  cardHeader: {
+  activeWorkoutHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 10
   },
-  cardHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center"
-  },
-  workoutName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 5
-  },
-  workoutTime: {
-    fontSize: 14,
-    color: "#999",
-    marginBottom: 15
-  },
-  cardDescription: {
-    fontSize: 16,
-    color: "#999",
-    marginBottom: 20,
-    lineHeight: 22
-  },
-  startButton: {
-    backgroundColor: "#6b46c1",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 18,
-    borderRadius: 12
-  },
-  startButtonText: {
-    color: "#fff",
+  activeWorkoutTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginRight: 8
-  },
-  quickActionsCard: {
-    backgroundColor: "#23263a",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#333"
-  },
-  actionsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between"
-  },
-  actionButton: {
-    alignItems: "center",
-    flex: 1,
-    padding: 15
-  },
-  actionText: {
     color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
-    marginTop: 8
+    marginLeft: 10
   },
-  quoteCard: {
-    backgroundColor: "rgba(107, 70, 193, 0.1)",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "rgba(107, 70, 193, 0.3)"
-  },
-  quote: {
-    fontSize: 16,
-    fontStyle: "italic",
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: 10,
-    lineHeight: 24
-  },
-  quoteAuthor: {
-    fontSize: 14,
-    color: "#6b46c1",
-    textAlign: "center",
-    fontWeight: "500"
-  },
-  exercisesList: {
-    marginBottom: 20
-  },
-  exercisesTitle: {
-    fontSize: 16,
-    color: "#999",
-    marginBottom: 10
-  },
-  exerciseItem: {
-    fontSize: 14,
+  activeWorkoutName: {
+    fontSize: 18,
+    fontWeight: "bold",
     color: "#fff",
     marginBottom: 5
   },
-  muscleGroups: {
+  activeWorkoutDetails: {
     fontSize: 14,
-    color: "#999",
+    color: "#888",
     marginBottom: 15
   },
-  editButton: {
-    backgroundColor: "#23263a",
+  exercisesList: {
+    marginBottom: 15
+  },
+  exerciseItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 5
+  },
+  exerciseName: {
+    fontSize: 16,
+    color: "#fff"
+  },
+  exerciseSets: {
+    fontSize: 16,
+    color: "#888"
+  },
+  setsDetail: {
+    fontSize: 14,
+    color: "#888"
+  },
+  activeWorkoutActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  continueButton: {
+    backgroundColor: "#4CAF50",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#6b46c1"
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginRight: 10
   },
-  editButtonText: {
-    color: "#6b46c1",
-    fontSize: 14,
-    fontWeight: "500",
+  continueButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
     marginLeft: 5
   },
   endButton: {
-    backgroundColor: "#6b46c1",
+    backgroundColor: "#f44336",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    padding: 15,
-    borderRadius: 12
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginRight: 10
   },
   endButtonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-    marginRight: 8
+    fontWeight: "bold",
+    marginLeft: 5
+  },
+  deleteButton: {
+    backgroundColor: "#f44336",
+    padding: 10,
+    borderRadius: 8
+  },
+  noWorkoutContainer: {
+    alignItems: "center",
+    marginBottom: 30
+  },
+  startWorkoutButton: {
+    backgroundColor: "#4CAF50",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 12,
+    marginHorizontal: 20
+  },
+  startWorkoutText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginLeft: 10
+  },
+  chartContainer: {
+    marginBottom: 30
+  },
+  chartTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 15,
+    paddingHorizontal: 20
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+    marginHorizontal: 20
+  },
+  noDataContainer: {
+    backgroundColor: "#23263a",
+    marginHorizontal: 20,
+    borderRadius: 12,
+    padding: 40,
+    alignItems: "center"
+  },
+  noDataText: {
+    color: "#888",
+    textAlign: "center",
+    fontSize: 16
+  },
+  quickActionsContainer: {
+    marginBottom: 30
+  },
+  quickActionsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20
+  },
+  quickActionCard: {
+    backgroundColor: "#23263a",
+    padding: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    flex: 1,
+    marginHorizontal: 5
+  },
+  quickActionText: {
+    color: "#fff",
+    marginTop: 10,
+    textAlign: "center",
+    fontSize: 14
   }
 });
 

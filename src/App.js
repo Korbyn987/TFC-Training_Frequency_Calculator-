@@ -1,4 +1,3 @@
-// Import only necessary dependencies at the top level
 import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
@@ -10,18 +9,13 @@ import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { navigationRef } from "./navigationRef";
 import { persistor, store } from "./redux/store";
-
-// Import database initialization
 import { initDatabase } from "./services/database";
 
-// Import LoginScreen directly (not lazy) since it's the initial screen
-import LoginScreen from "./screens/LoginScreen";
-
-// Import all screens directly to avoid lazy loading issues
 import AboutScreen from "./screens/AboutScreen";
 import AddExerciseScreen from "./screens/AddExerciseScreen";
 import ConfigureWorkoutScreen from "./screens/ConfigureWorkoutScreen";
-import NewHomeScreen from "./screens/NewHomeScreen"; // Import NewHomeScreen
+import LoginScreen from "./screens/LoginScreen";
+import NewHomeScreen from "./screens/NewHomeScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import RecoveryGuideScreen from "./screens/RecoveryGuideScreen";
 import RegisterScreen from "./screens/RegisterScreen";
@@ -32,7 +26,6 @@ import WorkoutOptionsScreen from "./screens/WorkoutOptionsScreen";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Loading component shown during lazy loading
 const LoadingFallback = () => (
   <View
     style={{
@@ -46,7 +39,6 @@ const LoadingFallback = () => (
   </View>
 );
 
-// Screen options configuration
 const screenOptions = {
   headerStyle: {
     backgroundColor: "#23263a"
@@ -55,29 +47,20 @@ const screenOptions = {
   headerTitleStyle: {
     fontWeight: "bold"
   },
-  // Enable screens to be released from memory when not in use
   detachPreviousScreen: true,
-  // Optimize screen transitions
   cardStyle: { backgroundColor: "#1a1c2e" }
 };
 
 function AppContent() {
-  // Use useCallback to memoize the screen options
   const memoizedScreenOptions = React.useCallback(() => screenOptions, []);
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      // Enable React Native Screens for better performance
-      documentTitle={{ enabled: false }}
-    >
+    <NavigationContainer ref={navigationRef} documentTitle={{ enabled: false }}>
       <Stack.Navigator
         initialRouteName="Login"
         screenOptions={memoizedScreenOptions}
         screenListeners={{
-          // Add performance monitoring for navigation events
           state: (e) => {
-            // Optional: Add analytics or performance monitoring here
             console.log("Navigation state changed:", e.data.state);
           }
         }}
@@ -169,9 +152,21 @@ function Tabs() {
         component={NewHomeScreen}
         options={{ title: "TFC" }}
       />
-      <Tab.Screen name="Calculator" component={RecoveryGuideScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
-      <Tab.Screen name="About" component={AboutScreen} />
+      <Tab.Screen
+        name="Calculator"
+        component={RecoveryGuideScreen}
+        options={{ title: "Calculator" }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: "Profile" }}
+      />
+      <Tab.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ title: "About" }}
+      />
     </Tab.Navigator>
   );
 }
@@ -184,13 +179,11 @@ export default function App() {
       try {
         console.log("Initializing TFC app...");
 
-        // Re-enable database initialization
         await initDatabase();
 
         console.log("App initialization complete");
       } catch (error) {
         console.error("App initialization error:", error);
-        // Don't let initialization errors prevent app from loading
       } finally {
         setIsLoading(false);
       }

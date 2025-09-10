@@ -24,22 +24,68 @@ const MUSCLE_GROUPS = [
 const MuscleGroupSelectionModal = ({
   visible,
   onClose,
-  onSelectMuscleGroup
+  onSelectMuscleGroup,
+  onSelect,
+  selectedGroups = [],
+  muscleGroups = MUSCLE_GROUPS
 }) => {
-  const [muscleGroups, setMuscleGroups] = useState(MUSCLE_GROUPS);
+  const [selectedMuscleGroups, setSelectedMuscleGroups] =
+    useState(selectedGroups);
 
-  const renderMuscleGroup = ({ item }) => (
-    <TouchableOpacity
-      style={styles.muscleGroupItem}
-      onPress={() => {
-        onSelectMuscleGroup(item);
-        onClose();
-      }}
-    >
-      <Text style={styles.muscleGroupText}>{item.name}</Text>
-      <Ionicons name="chevron-forward" size={24} color="#A0AEC0" />
-    </TouchableOpacity>
-  );
+  const handleMuscleGroupToggle = (muscleGroup) => {
+    const isSelected = selectedMuscleGroups.includes(muscleGroup.name);
+    let newSelection;
+
+    if (isSelected) {
+      newSelection = selectedMuscleGroups.filter(
+        (name) => name !== muscleGroup.name
+      );
+    } else {
+      newSelection = [...selectedMuscleGroups, muscleGroup.name];
+    }
+
+    setSelectedMuscleGroups(newSelection);
+  };
+
+  const handleConfirm = () => {
+    // Support both prop names for backward compatibility
+    if (onSelect) {
+      onSelect(selectedMuscleGroups);
+    } else if (onSelectMuscleGroup) {
+      onSelectMuscleGroup(selectedMuscleGroups[0]); // Legacy single selection
+    }
+    onClose();
+  };
+
+  const renderMuscleGroup = ({ item }) => {
+    // Handle both string and object formats
+    const muscleGroupName = typeof item === "string" ? item : item.name;
+    const isSelected = selectedMuscleGroups.includes(muscleGroupName);
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.muscleGroupItem,
+          isSelected && styles.muscleGroupItemSelected
+        ]}
+        onPress={() => handleMuscleGroupToggle({ name: muscleGroupName })}
+      >
+        <Text
+          style={[
+            styles.muscleGroupText,
+            isSelected && styles.muscleGroupTextSelected
+          ]}
+        >
+          {muscleGroupName}
+        </Text>
+        <Ionicons
+          name={isSelected ? "checkmark-circle" : "add-circle-outline"}
+          size={24}
+          color={isSelected ? "#4CAF50" : "#A0AEC0"}
+        />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <Modal
@@ -51,7 +97,7 @@ const MuscleGroupSelectionModal = ({
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.header}>
-            <Text style={styles.modalTitle}>Select Muscle Group</Text>
+            <Text style={styles.modalTitle}>Select Muscle Groups</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Ionicons name="close" size={24} color="#fff" />
             </TouchableOpacity>
@@ -60,10 +106,26 @@ const MuscleGroupSelectionModal = ({
           <FlatList
             data={muscleGroups}
             renderItem={renderMuscleGroup}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item.id?.toString() || item.name}
             style={styles.list}
             contentContainerStyle={styles.listContent}
           />
+
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={[
+                styles.confirmButton,
+                selectedMuscleGroups.length === 0 &&
+                  styles.confirmButtonDisabled
+              ]}
+              onPress={handleConfirm}
+              disabled={selectedMuscleGroups.length === 0}
+            >
+              <Text style={styles.confirmButtonText}>
+                Confirm ({selectedMuscleGroups.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -114,10 +176,36 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginVertical: 5
   },
+  muscleGroupItemSelected: {
+    backgroundColor: "#4CAF50"
+  },
   muscleGroupText: {
     fontSize: 16,
     color: "#fff",
     fontWeight: "500"
+  },
+  muscleGroupTextSelected: {
+    color: "#fff"
+  },
+  footer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#2D3748"
+  },
+  confirmButton: {
+    backgroundColor: "#4CAF50",
+    padding: 15,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  confirmButtonDisabled: {
+    backgroundColor: "#ccc"
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "bold"
   }
 });
 
