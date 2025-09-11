@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "Android.pt2"
+      "package": "com.anonymous.tfc"
     },
     "web": {
       "favicon": "./assets/favicon.png",

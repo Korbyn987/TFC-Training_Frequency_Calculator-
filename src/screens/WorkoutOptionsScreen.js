@@ -278,10 +278,21 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           }
         }
 
+        // Extract unique muscle groups from exercises
+        const muscleGroups = [
+          ...new Set(
+            selectedExercises.map(
+              (exercise) =>
+                exercise.target_muscle || exercise.muscle_group || "Unknown"
+            )
+          )
+        ].filter((group) => group !== "Unknown");
+
         // Complete the workout
         await completeWorkout(newWorkoutId, {
           duration_minutes: Math.floor((new Date() - new Date()) / (1000 * 60)),
-          notes: "Workout completed"
+          notes: "Workout completed",
+          muscle_groups: muscleGroups
         });
 
         // Clear AsyncStorage

@@ -66,16 +66,34 @@ const NewHomeScreen = ({ navigation }) => {
       const workouts = workoutsResult.success ? workoutsResult.workouts : [];
       setRecentWorkouts(workouts);
 
-      // Check AsyncStorage for active workouts
+      // Check for active workouts with configured exercises
       const storedActiveWorkout = await AsyncStorage.getItem("activeWorkout");
+      let hasActiveWorkoutWithExercises = false;
 
       if (storedActiveWorkout) {
         const parsedWorkout = JSON.parse(storedActiveWorkout);
-        setActiveWorkout(parsedWorkout);
-      } else {
-        // Set active workout (most recent incomplete workout)
-        const activeWorkout = workouts.find((w) => !w.completed_at) || null;
-        setActiveWorkout(activeWorkout);
+        // Only consider it active if it has exercises configured
+        if (
+          parsedWorkout &&
+          parsedWorkout.exercises &&
+          parsedWorkout.exercises.length > 0
+        ) {
+          setActiveWorkout(parsedWorkout);
+          hasActiveWorkoutWithExercises = true;
+        }
+      }
+
+      // If no active workout in AsyncStorage, check database for incomplete workouts with exercises
+      if (!hasActiveWorkoutWithExercises) {
+        const incompleteWorkout = workouts.find((w) => !w.completed_at);
+        if (incompleteWorkout) {
+          // Check if this workout has exercises configured
+          // For now, we'll assume database workouts without exercises are not "active"
+          // You may need to add a check here if you store exercise data in the database
+          // For this implementation, we'll only show active workout if it has exercises in AsyncStorage
+        }
+        // Always set to null if no valid active workout with exercises
+        setActiveWorkout(null);
       }
     } catch (error) {
       console.error("Error loading user data:", error);
@@ -86,7 +104,7 @@ const NewHomeScreen = ({ navigation }) => {
   };
 
   const handleStartWorkout = () => {
-    navigation.navigate("ConfigureWorkout");
+    navigation.navigate("WorkoutOptions");
   };
 
   const handleContinueWorkout = () => {
@@ -276,7 +294,12 @@ const NewHomeScreen = ({ navigation }) => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.welcomeText}>
-          Welcome back, {user?.user_metadata?.first_name || user?.email}!
+          Welcome back,{" "}
+          {user?.username ||
+            user?.user_metadata?.username ||
+            user?.display_name ||
+            "User"}
+          !
         </Text>
         <Text style={styles.dateText}>
           {new Date().toLocaleDateString("en-US", {

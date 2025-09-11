@@ -169,44 +169,38 @@ export const logoutUser = async () => {
 // Get current user session
 export const getCurrentUser = async () => {
   try {
-    const {
-      data: { session },
-      error: sessionError
-    } = await supabase.auth.getSession();
-
-    if (sessionError) {
-      console.error("Session error:", sessionError);
+    const { data: session, error: sessionError } =
+      await supabase.auth.getSession();
+    if (sessionError || !session?.session) {
       return null;
     }
 
-    if (!session?.user) {
-      return null;
-    }
-
-    // Get user profile
-    const { data: userProfile, error: profileError } = await supabase
+    const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("*")
-      .eq("auth_user_id", session.user.id)
+      .select("*, created_at")
+      .eq("auth_user_id", session.session.user.id)
       .single();
 
-    if (profileError) {
-      console.error("Error fetching user profile:", profileError);
+    if (userError) {
+      console.error("Error fetching user profile:", userError);
+      return null;
+    }
+
+    if (!userData) {
+      console.error("User data not found");
       return null;
     }
 
     return {
-      id: userProfile.id,
-      auth_id: session.user.id,
-      username: userProfile.username,
-      email: userProfile.email,
-      display_name: userProfile.display_name,
-      profile_picture_url: userProfile.profile_picture_url,
-      fitness_level: userProfile.fitness_level,
-      session
+      ...session.session.user,
+      created_at: userData.created_at || session.session.user.created_at,
+      user_metadata: {
+        ...session.session.user.user_metadata,
+        ...userData
+      }
     };
   } catch (error) {
-    console.error("Get current user error:", error);
+    console.error("Error in getCurrentUser:", error);
     return null;
   }
 };
