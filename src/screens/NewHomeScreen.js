@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useState } from "react";
 import {
@@ -11,8 +12,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-// import { LineChart } from "react-native-chart-kit";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LineChart } from "react-native-chart-kit";
 import { useDispatch } from "react-redux";
 import { resetMuscleRecovery } from "../redux/workoutSlice";
 import { getCurrentUser } from "../services/supabaseAuth";
@@ -67,6 +67,7 @@ const NewHomeScreen = ({ navigation }) => {
       // Load recent workouts
       const workoutsResult = await getUserWorkoutHistory(currentUser.id, 7);
       const workouts = workoutsResult.success ? workoutsResult.workouts : [];
+      console.log("NewHomeScreen: Loaded workouts:", workouts.length, workouts);
       setRecentWorkouts(workouts);
 
       // Check for active workouts with configured exercises
@@ -306,7 +307,7 @@ const NewHomeScreen = ({ navigation }) => {
   };
 
   const renderChart = () => {
-    if (!recentWorkouts || recentWorkouts.length < 2) {
+    if (!recentWorkouts || recentWorkouts.length < 1) {
       return (
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Training Volume Trend</Text>
@@ -325,17 +326,19 @@ const NewHomeScreen = ({ navigation }) => {
         {
           data: recentWorkouts
             .slice(-6)
-            .map((workout) => workout.total_volume || 0),
+            .map((workout) => workout.total_volume_kg || 0),
           color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
           strokeWidth: 2
         }
       ]
     };
 
+    console.log("NewHomeScreen: Chart data:", chartData);
+
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.chartTitle}>Training Volume Trend</Text>
-        {/* <LineChart
+        <LineChart
           data={chartData}
           width={screenWidth - 40}
           height={200}
@@ -355,7 +358,7 @@ const NewHomeScreen = ({ navigation }) => {
           }}
           bezier
           style={styles.chart}
-        /> */}
+        />
       </View>
     );
   };

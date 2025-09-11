@@ -177,13 +177,37 @@ export const completeWorkout = async (workoutId, completionData) => {
     const userId = user.user_metadata?.id || user.auth_id || user.id;
     console.log("Using user ID for workout completion:", userId);
 
+    // Calculate total volume from workout sets
+    const { data: workoutSets, error: setsError } = await supabase
+      .from("workout_sets")
+      .select("weight_kg, reps")
+      .eq("workout_id", workoutId);
+
+    let totalVolumeKg = 0;
+    if (!setsError && workoutSets) {
+      totalVolumeKg = workoutSets.reduce((total, set) => {
+        const weight = parseFloat(set.weight_kg) || 0;
+        const reps = parseInt(set.reps) || 0;
+        return total + weight * reps;
+      }, 0);
+    }
+
+    console.log(
+      "Calculated total volume:",
+      totalVolumeKg,
+      "kg from",
+      workoutSets?.length || 0,
+      "sets"
+    );
+
     // Update workout status to completed
     const { data: workout, error: workoutError } = await supabase
       .from("workouts")
       .update({
         completed_at: new Date().toISOString(),
         duration_minutes: completionData.duration_minutes,
-        notes: completionData.notes
+        notes: completionData.notes,
+        total_volume_kg: totalVolumeKg
       })
       .eq("id", workoutId)
       .eq("user_id", userId) // Add user_id check for RLS
@@ -272,10 +296,23 @@ export const updateUserStats = async (userId, statsUpdate) => {
 // Get user workout history
 export const getUserWorkoutHistory = async (userId, limit = 50) => {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      console.error("getUserWorkoutHistory: User not authenticated");
+      return { success: false, error: "User not authenticated" };
+    }
+
+    // Use database user ID from user_metadata, not auth user ID
+    const dbUserId = user.user_metadata?.id;
+    console.log("getUserWorkoutHistory: Auth user ID:", user.id);
+    console.log("getUserWorkoutHistory: Database user ID:", dbUserId);
+    console.log("getUserWorkoutHistory: Passed userId:", userId);
+
     const { data, error } = await supabase
       .from("workouts")
       .select("*")
-      .eq("user_id", userId)
+      .eq("user_id", dbUserId)
+      .not("completed_at", "is", null)
       .order("completed_at", { ascending: false })
       .limit(limit);
 
@@ -284,6 +321,7 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
       return { success: false, error: error.message };
     }
 
+    console.log("getUserWorkoutHistory: Found workouts:", data?.length || 0);
     return { success: true, workouts: data || [] };
   } catch (error) {
     console.error("Error in getUserWorkoutHistory:", error);
