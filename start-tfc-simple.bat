@@ -32,23 +32,12 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Step 7: Build and install TFC app directly (bypass Expo Go)...
-echo This will create a standalone APK and install it on emulator...
-echo Setting environment for active emulator...
-for /f "tokens=1" %%i in ('adb devices ^| findstr "device$"') do (
-    set "ANDROID_SERIAL=%%i"
-    echo Found active emulator: %%i
-)
+echo Step 7: Clear any previous Metro cache
+echo Clearing Metro cache...
+npx expo start --clear --tunnel
 
-if defined ANDROID_SERIAL (
-    echo.
-    echo Building TFC app as standalone Android APK...
-    echo This may take 2-3 minutes for first build...
-    echo.
-    npx expo run:android 
-) else (
-    echo No active emulator found. Cannot build app.
-    echo Please ensure emulator is running and try again.
-)
-
+echo.
+echo App should now be running!
+echo Use the Expo Go app on your phone to scan the QR code.
+echo.
 pause

@@ -423,9 +423,43 @@ const workoutSlice = createSlice({
     },
     clearWorkouts: (state) => {
       return initialState;
+    },
+    resetMuscleRecovery: (state, action) => {
+      // Reset specific muscle groups to current date
+      const { muscleGroups } = action.payload;
+      const currentDate = new Date().toISOString();
+      
+      muscleGroups.forEach(muscle => {
+        const muscleKey = getMuscleKey(muscle);
+        if (state.muscleStatus[muscleKey]) {
+          state.muscleStatus[muscleKey].lastWorkout = currentDate;
+          console.log(`Redux: Reset ${muscleKey} recovery timer to current date`);
+        }
+      });
+    },
+    syncMuscleRecoveryData: (state, action) => {
+      const { recoveryData } = action.payload;
+      
+      if (recoveryData) {
+        // Update muscle status with real workout data from Supabase
+        Object.keys(recoveryData).forEach(muscleKey => {
+          if (state.muscleStatus[muscleKey]) {
+            state.muscleStatus[muscleKey] = {
+              ...state.muscleStatus[muscleKey],
+              ...recoveryData[muscleKey]
+            };
+          }
+        });
+        console.log('Redux: Synced muscle recovery data from Supabase');
+      }
     }
   }
 });
 
-export const { addWorkout, clearWorkouts } = workoutSlice.actions;
+export const {
+  addWorkout,
+  clearWorkouts,
+  resetMuscleRecovery,
+  syncMuscleRecoveryData
+} = workoutSlice.actions;
 export default workoutSlice.reducer;

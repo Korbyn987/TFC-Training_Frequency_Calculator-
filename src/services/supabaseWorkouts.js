@@ -201,12 +201,20 @@ export const completeWorkout = async (workoutId, completionData) => {
       total_workout_time_minutes: completionData.duration_minutes || 0
     });
 
-    // Reset muscle group recovery timers
+    // Reset muscle group recovery timers if muscle groups provided
     if (
       completionData.muscle_groups &&
       completionData.muscle_groups.length > 0
     ) {
-      await resetMuscleGroupRecovery(userId, completionData.muscle_groups);
+      // Note: Recovery timer reset is now handled by Redux in the UI components
+      // This avoids the need for a user_muscle_recovery table in Supabase
+      console.log(
+        "Workout completed with muscle groups:",
+        completionData.muscle_groups
+      );
+      console.log(
+        "Recovery timer reset will be handled by Redux dispatch in UI"
+      );
     }
 
     return { success: true, workout };
@@ -257,35 +265,6 @@ export const updateUserStats = async (userId, statsUpdate) => {
     return { success: true, stats: data };
   } catch (error) {
     console.error("Error in updateUserStats:", error);
-    return { success: false, error: error.message };
-  }
-};
-
-// Reset muscle group recovery timers
-export const resetMuscleGroupRecovery = async (userId, muscleGroups) => {
-  try {
-    const recoveryData = muscleGroups.map((muscleGroup) => ({
-      user_id: userId,
-      muscle_group: muscleGroup,
-      last_worked_date: new Date().toISOString(),
-      recovery_hours: 48 // Default recovery time
-    }));
-
-    const { data, error } = await supabase
-      .from("user_muscle_recovery")
-      .upsert(recoveryData, {
-        onConflict: "user_id,muscle_group"
-      })
-      .select();
-
-    if (error) {
-      console.error("Error resetting muscle group recovery:", error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, recoveryData: data };
-  } catch (error) {
-    console.error("Error in resetMuscleGroupRecovery:", error);
     return { success: false, error: error.message };
   }
 };

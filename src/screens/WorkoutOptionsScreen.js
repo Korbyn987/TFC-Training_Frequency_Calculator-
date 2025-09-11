@@ -12,6 +12,8 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { useDispatch } from "react-redux";
+import { resetMuscleRecovery } from "../redux/workoutSlice";
 import { getCurrentUser } from "../services/supabaseAuth";
 import {
   addExerciseSet,
@@ -30,6 +32,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
   const [user, setUser] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [workoutId, setWorkoutId] = useState(null);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     loadUser();
@@ -278,6 +281,12 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           }
         }
 
+        console.log("WorkoutOptionsScreen: Starting workout completion...");
+        console.log(
+          "WorkoutOptionsScreen: Selected exercises:",
+          JSON.stringify(selectedExercises, null, 2)
+        );
+
         // Extract unique muscle groups from exercises
         const muscleGroups = [
           ...new Set(
@@ -288,12 +297,38 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           )
         ].filter((group) => group !== "Unknown");
 
+        console.log(
+          "WorkoutOptionsScreen: Extracted muscle groups:",
+          muscleGroups
+        );
+
         // Complete the workout
+        console.log(
+          "WorkoutOptionsScreen: Completing workout with muscle groups:",
+          muscleGroups
+        );
         await completeWorkout(newWorkoutId, {
           duration_minutes: Math.floor((new Date() - new Date()) / (1000 * 60)),
           notes: "Workout completed",
           muscle_groups: muscleGroups
         });
+
+        // Reset muscle recovery timers in Redux
+        if (muscleGroups.length > 0) {
+          console.log(
+            "WorkoutOptionsScreen: Dispatching resetMuscleRecovery for:",
+            muscleGroups
+          );
+          dispatch(resetMuscleRecovery({ muscleGroups }));
+          console.log(
+            "WorkoutOptionsScreen: Reset recovery timers for muscle groups:",
+            muscleGroups
+          );
+        } else {
+          console.warn(
+            "WorkoutOptionsScreen: No muscle groups found to reset recovery timers"
+          );
+        }
 
         // Clear AsyncStorage
         await AsyncStorage.removeItem("activeWorkout");

@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { useDispatch } from "react-redux";
+import { resetMuscleRecovery } from "../redux/workoutSlice";
 import {
   addActiveExercise,
   addActiveSet,
@@ -38,6 +40,7 @@ const ActiveWorkoutScreen = ({ navigation }) => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [availableExercises, setAvailableExercises] = useState([]);
   const [completing, setCompleting] = useState(false);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     loadWorkoutData();
@@ -203,11 +206,19 @@ const ActiveWorkoutScreen = ({ navigation }) => {
         throw new Error("Failed to calculate workout stats");
       }
 
+      // Extract muscle groups for recovery timer reset
+      const muscleGroups = exercises
+        .flatMap((ex) => ex.muscle_groups || [])
+        .filter(
+          (muscle, index, arr) =>
+            muscle && muscle !== "Unknown" && arr.indexOf(muscle) === index
+        );
+
       // Prepare completion data
       const completionPayload = {
         duration_minutes: statsResult.stats.workoutDuration,
         notes: workout.notes || "",
-        muscle_groups: exercises.flatMap((ex) => ex.muscle_groups || [])
+        muscle_groups: muscleGroups
       };
 
       // Complete workout in Supabase
@@ -217,6 +228,15 @@ const ActiveWorkoutScreen = ({ navigation }) => {
       );
       if (!result.success) {
         throw new Error(result.error || "Failed to complete workout");
+      }
+
+      // Reset muscle recovery timers in Redux
+      if (muscleGroups.length > 0) {
+        dispatch(resetMuscleRecovery({ muscleGroups }));
+        console.log(
+          "ActiveWorkoutScreen: Reset recovery timers for muscle groups:",
+          muscleGroups
+        );
       }
 
       // Save exercises and sets to Supabase

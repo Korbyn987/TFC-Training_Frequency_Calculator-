@@ -13,6 +13,8 @@ import {
 } from "react-native";
 // import { LineChart } from "react-native-chart-kit";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useDispatch } from "react-redux";
+import { resetMuscleRecovery } from "../redux/workoutSlice";
 import { getCurrentUser } from "../services/supabaseAuth";
 import {
   addExerciseSet,
@@ -31,6 +33,7 @@ const NewHomeScreen = ({ navigation }) => {
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recentWorkouts, setRecentWorkouts] = useState([]);
+  const dispatch = useDispatch();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -120,12 +123,58 @@ const NewHomeScreen = ({ navigation }) => {
     if (!activeWorkout) return;
 
     try {
+      console.log("NewHomeScreen: Starting workout completion...");
+      console.log(
+        "NewHomeScreen: Active workout data:",
+        JSON.stringify(activeWorkout, null, 2)
+      );
+
+      // Extract muscle groups from exercises for recovery timer reset
+      const muscleGroups = [];
+      if (activeWorkout.exercises && activeWorkout.exercises.length > 0) {
+        console.log("NewHomeScreen: Processing exercises for muscle groups...");
+        activeWorkout.exercises.forEach((exercise) => {
+          // Try multiple possible muscle group locations in the data structure
+          const muscleGroup =
+            exercise.target_muscle ||
+            exercise.muscle_group ||
+            exercise.muscle_groups?.name ||
+            (exercise.muscle_groups &&
+            typeof exercise.muscle_groups === "string"
+              ? exercise.muscle_groups
+              : null);
+
+          console.log(
+            `NewHomeScreen: Exercise "${exercise.name}" has muscle group: ${muscleGroup}`
+          );
+          console.log(
+            `NewHomeScreen: Exercise data structure:`,
+            JSON.stringify(exercise.muscle_groups, null, 2)
+          );
+
+          if (
+            muscleGroup &&
+            muscleGroup !== "Unknown" &&
+            !muscleGroups.includes(muscleGroup)
+          ) {
+            muscleGroups.push(muscleGroup);
+            console.log(`NewHomeScreen: Added muscle group: ${muscleGroup}`);
+          }
+        });
+      }
+
+      console.log(
+        "NewHomeScreen: Final extracted muscle groups:",
+        muscleGroups
+      );
+
       // Create workout in Supabase
       const workoutData = {
         name: activeWorkout.name,
         notes: `Workout with ${activeWorkout.exercises?.length || 0} exercises`
       };
 
+      console.log("NewHomeScreen: Creating workout with data:", workoutData);
       const result = await createWorkout(workoutData);
 
       if (!result.success) {
@@ -133,26 +182,38 @@ const NewHomeScreen = ({ navigation }) => {
       }
 
       const newWorkoutId = result.workout.id;
+      console.log("NewHomeScreen: Created workout with ID:", newWorkoutId);
 
       // Save individual exercises with their sets
       for (let i = 0; i < activeWorkout.exercises.length; i++) {
         const exercise = activeWorkout.exercises[i];
 
+        console.log(`NewHomeScreen: Adding exercise ${i + 1}:`, exercise.name);
         const exerciseResult = await addWorkoutExercise(newWorkoutId, {
           exercise_id: exercise.id,
           exercise_name: exercise.name,
           muscle_group:
-            exercise.target_muscle || exercise.muscle_group || "Unknown",
+            exercise.muscle_groups?.name ||
+            exercise.target_muscle ||
+            exercise.muscle_group ||
+            "Unknown",
           order_index: i,
           target_sets: exercise.sets?.length || 0
         });
 
         if (!exerciseResult.success) {
-          console.error("Error adding exercise:", exerciseResult.error);
+          console.error(
+            "NewHomeScreen: Error adding exercise:",
+            exerciseResult.error
+          );
           continue;
         }
 
         const workoutExerciseId = exerciseResult.workoutExercise.id;
+        console.log(
+          `NewHomeScreen: Added exercise with workout_exercise ID:`,
+          workoutExerciseId
+        );
 
         // Add sets for this exercise
         if (exercise.sets && exercise.sets.length > 0) {
@@ -169,13 +230,35 @@ const NewHomeScreen = ({ navigation }) => {
         }
       }
 
-      // Complete the workout
+      // Complete the workout with muscle groups for recovery timer reset
+      console.log(
+        "NewHomeScreen: Completing workout with muscle groups:",
+        muscleGroups
+      );
       await completeWorkout(newWorkoutId, {
         duration_minutes: Math.floor(
           (new Date() - new Date(activeWorkout.started_at)) / (1000 * 60)
         ),
-        notes: "Workout completed"
+        notes: "Workout completed",
+        muscle_groups: muscleGroups // Pass muscle groups for recovery reset
       });
+
+      // Reset muscle recovery timers in Redux
+      if (muscleGroups.length > 0) {
+        console.log(
+          "NewHomeScreen: Dispatching resetMuscleRecovery for:",
+          muscleGroups
+        );
+        dispatch(resetMuscleRecovery({ muscleGroups }));
+        console.log(
+          "NewHomeScreen: Reset recovery timers for muscle groups:",
+          muscleGroups
+        );
+      } else {
+        console.warn(
+          "NewHomeScreen: No muscle groups found to reset recovery timers"
+        );
+      }
 
       // Clear AsyncStorage and local state
       await AsyncStorage.removeItem("activeWorkout");
@@ -190,7 +273,7 @@ const NewHomeScreen = ({ navigation }) => {
         }
       ]);
     } catch (error) {
-      console.error("Error completing workout:", error);
+      console.error("NewHomeScreen: Error completing workout:", error);
       Alert.alert("Error", "Failed to complete workout. Please try again.");
     }
   };
