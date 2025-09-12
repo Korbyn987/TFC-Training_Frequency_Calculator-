@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
-import React, { useState } from "react";
+import React from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,99 +12,28 @@ import {
   View
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
-import { useDispatch } from "react-redux";
-import { resetMuscleRecovery } from "../redux/workoutSlice";
-import { getCurrentUser } from "../services/supabaseAuth";
+import { useTabData } from "../context/TabDataContext";
 import {
   addExerciseSet,
   addWorkoutExercise,
   completeWorkout,
-  createWorkout,
-  getUserStats,
-  getUserWorkoutHistory
+  createWorkout
 } from "../services/supabaseWorkouts";
 
 const { width: screenWidth } = Dimensions.get("window");
 
 const NewHomeScreen = ({ navigation }) => {
-  const [user, setUser] = useState(null);
-  const [userStats, setUserStats] = useState(null);
-  const [activeWorkout, setActiveWorkout] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [recentWorkouts, setRecentWorkouts] = useState([]);
-  const dispatch = useDispatch();
-
-  useFocusEffect(
-    React.useCallback(() => {
-      loadUserData();
-    }, [])
-  );
-
-  useFocusEffect(
-    React.useCallback(() => {
-      loadUserData();
-    }, [])
-  );
-
-  const loadUserData = async () => {
-    try {
-      setLoading(true);
-      const currentUser = await getCurrentUser();
-
-      if (!currentUser) {
-        navigation.navigate("Login");
-        return;
-      }
-
-      setUser(currentUser);
-
-      // Load user stats
-      const statsResult = await getUserStats(currentUser.id);
-      const stats = statsResult.success ? statsResult.stats : null;
-      setUserStats(stats);
-
-      // Load recent workouts
-      const workoutsResult = await getUserWorkoutHistory(currentUser.id, 7);
-      const workouts = workoutsResult.success ? workoutsResult.workouts : [];
-      console.log("NewHomeScreen: Loaded workouts:", workouts.length, workouts);
-      setRecentWorkouts(workouts);
-
-      // Check for active workouts with configured exercises
-      const storedActiveWorkout = await AsyncStorage.getItem("activeWorkout");
-      let hasActiveWorkoutWithExercises = false;
-
-      if (storedActiveWorkout) {
-        const parsedWorkout = JSON.parse(storedActiveWorkout);
-        // Only consider it active if it has exercises configured
-        if (
-          parsedWorkout &&
-          parsedWorkout.exercises &&
-          parsedWorkout.exercises.length > 0
-        ) {
-          setActiveWorkout(parsedWorkout);
-          hasActiveWorkoutWithExercises = true;
-        }
-      }
-
-      // If no active workout in AsyncStorage, check database for incomplete workouts with exercises
-      if (!hasActiveWorkoutWithExercises) {
-        const incompleteWorkout = workouts.find((w) => !w.completed_at);
-        if (incompleteWorkout) {
-          // Check if this workout has exercises configured
-          // For now, we'll assume database workouts without exercises are not "active"
-          // You may need to add a check here if you store exercise data in the database
-          // For this implementation, we'll only show active workout if it has exercises in AsyncStorage
-        }
-        // Always set to null if no valid active workout with exercises
-        setActiveWorkout(null);
-      }
-    } catch (error) {
-      console.error("Error loading user data:", error);
-      Alert.alert("Error", "Failed to load user data");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    user,
+    userStats,
+    activeWorkout,
+    loading,
+    recentWorkouts,
+    setActiveWorkout,
+    refreshTabData,
+    setMuscleRecoveryData, // Use for optimistic update
+    muscleRecoveryData
+  } = useTabData();
 
   const handleStartWorkout = () => {
     navigation.navigate("WorkoutOptions");
@@ -124,34 +52,21 @@ const NewHomeScreen = ({ navigation }) => {
     if (!activeWorkout) return;
 
     try {
-      console.log("NewHomeScreen: Starting workout completion...");
-      console.log(
-        "NewHomeScreen: Active workout data:",
-        JSON.stringify(activeWorkout, null, 2)
-      );
-
-      // Extract muscle groups from exercises for recovery timer reset
       const muscleGroups = [];
       if (activeWorkout.exercises && activeWorkout.exercises.length > 0) {
-        console.log("NewHomeScreen: Processing exercises for muscle groups...");
         activeWorkout.exercises.forEach((exercise) => {
-          // Try multiple possible muscle group locations in the data structure
           const muscleGroup =
             exercise.target_muscle ||
             exercise.muscle_group ||
-            exercise.muscle_groups?.name ||
             (exercise.muscle_groups &&
             typeof exercise.muscle_groups === "string"
               ? exercise.muscle_groups
+              : null) ||
+            (exercise.muscle_groups &&
+            typeof exercise.muscle_groups === "object" &&
+            exercise.muscle_groups.name
+              ? exercise.muscle_groups.name
               : null);
-
-          console.log(
-            `NewHomeScreen: Exercise "${exercise.name}" has muscle group: ${muscleGroup}`
-          );
-          console.log(
-            `NewHomeScreen: Exercise data structure:`,
-            JSON.stringify(exercise.muscle_groups, null, 2)
-          );
 
           if (
             muscleGroup &&
@@ -159,129 +74,84 @@ const NewHomeScreen = ({ navigation }) => {
             !muscleGroups.includes(muscleGroup)
           ) {
             muscleGroups.push(muscleGroup);
-            console.log(`NewHomeScreen: Added muscle group: ${muscleGroup}`);
           }
         });
       }
 
-      console.log(
-        "NewHomeScreen: Final extracted muscle groups:",
-        muscleGroups
-      );
-
-      // Create workout in Supabase
       const workoutData = {
         name: activeWorkout.name,
         notes: `Workout with ${activeWorkout.exercises?.length || 0} exercises`
       };
 
-      console.log("NewHomeScreen: Creating workout with data:", workoutData);
       const result = await createWorkout(workoutData);
-
-      if (!result.success) {
-        throw new Error(result.error);
-      }
+      if (!result.success) throw new Error(result.error);
 
       const newWorkoutId = result.workout.id;
-      console.log("NewHomeScreen: Created workout with ID:", newWorkoutId);
 
-      // Save individual exercises with their sets
       for (let i = 0; i < activeWorkout.exercises.length; i++) {
         const exercise = activeWorkout.exercises[i];
-
-        console.log(`NewHomeScreen: Adding exercise ${i + 1}:`, exercise.name);
         const exerciseResult = await addWorkoutExercise(newWorkoutId, {
           exercise_id: exercise.id,
           exercise_name: exercise.name,
+          target_sets: exercise.sets?.length || 0,
           muscle_group:
             exercise.muscle_groups?.name ||
             exercise.target_muscle ||
             exercise.muscle_group ||
-            "Unknown",
-          order_index: i,
-          target_sets: exercise.sets?.length || 0
+            "Unknown"
         });
 
-        if (!exerciseResult.success) {
-          console.error(
-            "NewHomeScreen: Error adding exercise:",
-            exerciseResult.error
-          );
-          continue;
-        }
+        if (!exerciseResult.success) continue;
 
         const workoutExerciseId = exerciseResult.workoutExercise.id;
-        console.log(
-          `NewHomeScreen: Added exercise with workout_exercise ID:`,
-          workoutExerciseId
-        );
 
-        // Add sets for this exercise
         if (exercise.sets && exercise.sets.length > 0) {
           for (let j = 0; j < exercise.sets.length; j++) {
             const set = exercise.sets[j];
-
             await addExerciseSet(workoutExerciseId, {
               set_number: j + 1,
               set_type: set.set_type || "normal",
-              reps: set.reps || 0,
-              weight: set.weight || 0
+              reps: set.reps,
+              weight: set.weight
             });
           }
         }
       }
 
-      // Complete the workout with muscle groups for recovery timer reset
-      console.log(
-        "NewHomeScreen: Completing workout with muscle groups:",
-        muscleGroups
-      );
       await completeWorkout(newWorkoutId, {
         duration_minutes: Math.floor(
           (new Date() - new Date(activeWorkout.started_at)) / (1000 * 60)
         ),
         notes: "Workout completed",
-        muscle_groups: muscleGroups // Pass muscle groups for recovery reset
+        muscle_groups: muscleGroups
       });
 
-      // Reset muscle recovery timers in Redux
+      // Optimistic UI update for recovery timers
       if (muscleGroups.length > 0) {
-        console.log(
-          "NewHomeScreen: Dispatching resetMuscleRecovery for:",
-          muscleGroups
-        );
-        dispatch(resetMuscleRecovery({ muscleGroups }));
-        console.log(
-          "NewHomeScreen: Reset recovery timers for muscle groups:",
-          muscleGroups
-        );
-      } else {
-        console.warn(
-          "NewHomeScreen: No muscle groups found to reset recovery timers"
-        );
+        const newRecoveryData = { ...muscleRecoveryData };
+        const currentDate = new Date().toISOString();
+        muscleGroups.forEach((muscle) => {
+          const normalizedMuscle = muscle.toLowerCase();
+          if (newRecoveryData[normalizedMuscle]) {
+            newRecoveryData[normalizedMuscle].lastWorkout = currentDate;
+          }
+        });
+        setMuscleRecoveryData(newRecoveryData);
       }
 
-      // Clear AsyncStorage and local state
+      // Clear from storage and context, then refresh all data
       await AsyncStorage.removeItem("activeWorkout");
       setActiveWorkout(null);
+      await refreshTabData();
 
-      Alert.alert("Success", "Workout completed successfully!", [
-        {
-          text: "OK",
-          onPress: () => {
-            // Stay on home screen to show "Start New Workout" section
-          }
-        }
-      ]);
+      Alert.alert("Success", "Workout completed successfully!");
     } catch (error) {
       console.error("NewHomeScreen: Error completing workout:", error);
       Alert.alert("Error", "Failed to complete workout. Please try again.");
     }
   };
 
-  const handleDeleteActiveWorkout = async () => {
-    if (!activeWorkout) return;
-
+  const handleDeleteWorkout = () => {
     Alert.alert(
       "Delete Workout",
       "Are you sure you want to delete this active workout?",
@@ -292,13 +162,12 @@ const NewHomeScreen = ({ navigation }) => {
           style: "destructive",
           onPress: async () => {
             try {
-              // await deleteWorkout(activeWorkout.id);
-              setActiveWorkout(null);
               await AsyncStorage.removeItem("activeWorkout");
+              setActiveWorkout(null);
               Alert.alert("Success", "Workout deleted successfully");
             } catch (error) {
               console.error("Error deleting workout:", error);
-              Alert.alert("Error", "Failed to delete workout");
+              Alert.alert("Error", "Failed to delete workout.");
             }
           }
         }
@@ -333,8 +202,6 @@ const NewHomeScreen = ({ navigation }) => {
       ]
     };
 
-    console.log("NewHomeScreen: Chart data:", chartData);
-
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.chartTitle}>Training Volume Trend</Text>
@@ -364,7 +231,7 @@ const NewHomeScreen = ({ navigation }) => {
   };
 
   const renderStats = () => {
-    // TO DO: implement renderStats function
+    // This can be enhanced to use userStats from context
   };
 
   if (loading) {
@@ -397,10 +264,8 @@ const NewHomeScreen = ({ navigation }) => {
         </Text>
       </View>
 
-      {/* Stats Cards */}
       {renderStats()}
 
-      {/* Active Workout Section */}
       {activeWorkout ? (
         <View style={styles.activeWorkoutContainer}>
           <View style={styles.activeWorkoutCard}>
@@ -413,7 +278,6 @@ const NewHomeScreen = ({ navigation }) => {
               {activeWorkout.exercises?.length || 0} exercises
             </Text>
 
-            {/* Exercise List */}
             {activeWorkout.exercises && activeWorkout.exercises.length > 0 && (
               <View style={styles.exercisesList}>
                 {activeWorkout.exercises.map((exercise, index) => (
@@ -458,7 +322,7 @@ const NewHomeScreen = ({ navigation }) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.deleteButton}
-                onPress={handleDeleteActiveWorkout}
+                onPress={handleDeleteWorkout}
               >
                 <Ionicons name="trash" size={20} color="#fff" />
               </TouchableOpacity>
@@ -478,10 +342,8 @@ const NewHomeScreen = ({ navigation }) => {
         </View>
       )}
 
-      {/* Progress Chart */}
       {renderChart()}
 
-      {/* Quick Actions */}
       <View style={styles.quickActionsContainer}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActionsGrid}>

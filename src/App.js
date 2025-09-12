@@ -7,6 +7,7 @@ import { ActivityIndicator, View } from "react-native";
 import "react-native-gesture-handler";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
+import { TabDataProvider } from "./context/TabDataContext";
 import { navigationRef } from "./navigationRef";
 import { persistor, store } from "./redux/store";
 import { initDatabase } from "./services/database";
@@ -55,7 +56,31 @@ function AppContent() {
   const memoizedScreenOptions = React.useCallback(() => screenOptions, []);
 
   return (
-    <NavigationContainer ref={navigationRef} documentTitle={{ enabled: false }}>
+    <NavigationContainer
+      ref={navigationRef}
+      onStateChange={(state) => {
+        console.log(
+          "🧭 App: Navigation state changed:",
+          JSON.stringify(state, null, 2)
+        );
+
+        if (state) {
+          const currentRoute = state.routes[state.index];
+          console.log(`📍 App: Current route: ${currentRoute.name}`);
+
+          if (currentRoute.name === "Tabs") {
+            console.log(
+              "📱 App: Tab navigator loaded - checking tab screens..."
+            );
+            if (currentRoute.state) {
+              const currentTab =
+                currentRoute.state.routes[currentRoute.state.index];
+              console.log(`🏠 App: Active tab: ${currentTab.name}`);
+            }
+          }
+        }
+      }}
+    >
       <Stack.Navigator
         initialRouteName="Login"
         screenOptions={memoizedScreenOptions}
@@ -117,57 +142,59 @@ function AppContent() {
 
 function Tabs() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+    <TabDataProvider>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          tabBarIcon: ({ focused, color, size }) => {
+            let iconName;
 
-          if (route.name === "Home") {
-            iconName = focused ? "ios-home" : "ios-home-outline";
-          } else if (route.name === "Calculator") {
-            iconName = focused ? "ios-calculator" : "ios-calculator-outline";
-          } else if (route.name === "Profile") {
-            iconName = focused ? "ios-person" : "ios-person-outline";
-          } else if (route.name === "About") {
-            iconName = focused
-              ? "ios-information-circle"
-              : "ios-information-circle-outline";
+            if (route.name === "Home") {
+              iconName = focused ? "ios-home" : "ios-home-outline";
+            } else if (route.name === "Calculator") {
+              iconName = focused ? "ios-calculator" : "ios-calculator-outline";
+            } else if (route.name === "Profile") {
+              iconName = focused ? "ios-person" : "ios-person-outline";
+            } else if (route.name === "About") {
+              iconName = focused
+                ? "ios-information-circle"
+                : "ios-information-circle-outline";
+            }
+
+            return <Ionicons name={iconName} size={size} color={color} />;
+          },
+          tabBarActiveTintColor: "#6b46c1",
+          tabBarInactiveTintColor: "gray",
+          headerStyle: {
+            backgroundColor: "#23263a"
+          },
+          headerTintColor: "#fff",
+          headerTitleStyle: {
+            fontWeight: "bold"
           }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: "#6b46c1",
-        tabBarInactiveTintColor: "gray",
-        headerStyle: {
-          backgroundColor: "#23263a"
-        },
-        headerTintColor: "#fff",
-        headerTitleStyle: {
-          fontWeight: "bold"
-        }
-      })}
-    >
-      <Tab.Screen
-        name="Home"
-        component={NewHomeScreen}
-        options={{ title: "TFC" }}
-      />
-      <Tab.Screen
-        name="Calculator"
-        component={RecoveryGuideScreen}
-        options={{ title: "Calculator" }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: "Profile" }}
-      />
-      <Tab.Screen
-        name="About"
-        component={AboutScreen}
-        options={{ title: "About" }}
-      />
-    </Tab.Navigator>
+        })}
+      >
+        <Tab.Screen
+          name="Home"
+          component={NewHomeScreen}
+          options={{ title: "TFC" }}
+        />
+        <Tab.Screen
+          name="Calculator"
+          component={RecoveryGuideScreen}
+          options={{ title: "Calculator" }}
+        />
+        <Tab.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{ title: "Profile" }}
+        />
+        <Tab.Screen
+          name="About"
+          component={AboutScreen}
+          options={{ title: "About" }}
+        />
+      </Tab.Navigator>
+    </TabDataProvider>
   );
 }
 

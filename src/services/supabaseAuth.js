@@ -60,11 +60,19 @@ export const registerUser = async (
 // Login user with Supabase Auth
 export const loginUser = async (email, password) => {
   try {
+    const loginStartTime = Date.now();
+    console.log("🔐 supabaseAuth: Starting login process...");
+
+    const authStartTime = Date.now();
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({
         email,
         password
       });
+    const authEndTime = Date.now();
+    console.log(
+      `⚡ supabaseAuth: Auth login took ${authEndTime - authStartTime}ms`
+    );
 
     if (authError) {
       console.error("Supabase login error:", authError);
@@ -73,15 +81,23 @@ export const loginUser = async (email, password) => {
 
     if (authData.user) {
       // Get user profile from our users table
+      const profileStartTime = Date.now();
       const { data: userProfile, error: profileError } = await supabase
         .from("users")
         .select("*")
         .eq("auth_user_id", authData.user.id)
         .single();
+      const profileEndTime = Date.now();
+      console.log(
+        `📊 supabaseAuth: Profile lookup took ${
+          profileEndTime - profileStartTime
+        }ms`
+      );
 
       if (profileError) {
         console.error("Error fetching user profile:", profileError);
         // If profile doesn't exist, create it
+        const createStartTime = Date.now();
         const { data: newProfile, error: createError } = await supabase
           .from("users")
           .insert({
@@ -96,11 +112,30 @@ export const loginUser = async (email, password) => {
           })
           .select()
           .single();
+        const createEndTime = Date.now();
+        console.log(
+          `👤 supabaseAuth: Profile creation took ${
+            createEndTime - createStartTime
+          }ms`
+        );
 
         if (createError) {
           console.error("Error creating user profile:", createError);
           throw { success: false, message: "Failed to create user profile" };
         }
+
+        // Update last login in background (non-blocking)
+        supabase
+          .from("users")
+          .update({ last_login: new Date().toISOString() })
+          .eq("id", newProfile.id)
+          .then(() => console.log("✅ supabaseAuth: Last login updated"))
+          .catch((err) =>
+            console.error("❌ supabaseAuth: Last login update failed:", err)
+          );
+
+        const totalTime = Date.now() - loginStartTime;
+        console.log(`🏁 supabaseAuth: Total login completed in ${totalTime}ms`);
 
         return {
           success: true,
@@ -116,13 +151,21 @@ export const loginUser = async (email, password) => {
         };
       }
 
-      // Update last login
-      await supabase
+      // Update last login in background (non-blocking)
+      supabase
         .from("users")
         .update({ last_login: new Date().toISOString() })
-        .eq("id", userProfile.id);
+        .eq("id", userProfile.id)
+        .then(() => console.log("✅ supabaseAuth: Last login updated"))
+        .catch((err) =>
+          console.error("❌ supabaseAuth: Last login update failed:", err)
+        );
 
       console.log("Login successful for user:", userProfile.username);
+
+      const totalTime = Date.now() - loginStartTime;
+      console.log(`🏁 supabaseAuth: Total login completed in ${totalTime}ms`);
+
       return {
         success: true,
         user: {

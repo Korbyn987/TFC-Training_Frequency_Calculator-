@@ -30,18 +30,48 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const handleLogin = async () => {
+    const loginStartTime = Date.now();
+    console.log("🔐 LoginScreen: Starting login process...");
+
     if (!formData.email.trim() || !formData.password) {
       Alert.alert("Error", "Please enter both email and password");
       return;
     }
 
+    setLoading(true);
+    console.log(
+      "⏱️ LoginScreen: Login attempt started at",
+      new Date().toISOString()
+    );
+
     try {
-      setLoading(true);
+      const authStartTime = Date.now();
       const result = await loginUser(formData.email.trim(), formData.password);
+      const authEndTime = Date.now();
+
+      console.log(
+        `⚡ LoginScreen: loginUser() took ${authEndTime - authStartTime}ms`
+      );
 
       if (result.success) {
+        console.log("✅ LoginScreen: Login successful, navigating to Tabs");
+        const navigationStartTime = Date.now();
+
         navigation.navigate("Tabs");
+
+        const navigationEndTime = Date.now();
+        console.log(
+          `🧭 LoginScreen: Navigation to Tabs took ${
+            navigationEndTime - navigationStartTime
+          }ms`
+        );
+
+        const totalLoginTime = Date.now() - loginStartTime;
+        console.log(
+          `🏁 LoginScreen: Total login process completed in ${totalLoginTime}ms`
+        );
       } else {
+        console.log("❌ LoginScreen: Login failed:", result.error);
         if (result.error?.message?.includes("Email not confirmed")) {
           Alert.alert(
             "Email Not Confirmed",

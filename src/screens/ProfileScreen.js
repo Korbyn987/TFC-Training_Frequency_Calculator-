@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,19 +11,14 @@ import {
   View
 } from "react-native";
 import LoginRequiredModal from "../components/LoginRequiredModal";
-import { getCurrentUser, logoutUser } from "../services/supabaseAuth";
-import {
-  getUserStats,
-  getUserWorkoutHistory,
-  getWorkoutDetails
-} from "../services/supabaseWorkouts";
+import { useTabData } from "../context/TabDataContext";
+import { logoutUser } from "../services/supabaseAuth";
+import { getWorkoutDetails } from "../services/supabaseWorkouts";
 
 const ProfileScreen = ({ navigation }) => {
-  const [user, setUser] = useState(null);
-  const [userStats, setUserStats] = useState(null);
-  const [recentWorkouts, setRecentWorkouts] = useState([]);
-  const [workoutHistory, setWorkoutHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user, userStats, workoutHistory, loading, error, refreshTabData } =
+    useTabData();
+
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -33,187 +27,14 @@ const ProfileScreen = ({ navigation }) => {
   const [workoutDetails, setWorkoutDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      loadUserData();
-    }, [])
-  );
-
-  const loadUserData = async () => {
-    try {
-      setLoading(true);
-      const currentUser = await getCurrentUser();
-
-      if (!currentUser) {
-        setShowLoginModal(true);
-        setLoading(false);
-        return;
-      }
-
-      setUser(currentUser);
+  useEffect(() => {
+    if (!loading && !user) {
+      setShowLoginModal(true);
+    }
+    if (user) {
       setShowLoginModal(false);
-
-      // Get the database user ID from user_metadata
-      const dbUserId = currentUser.user_metadata?.id;
-
-      if (!dbUserId) {
-        console.error("Database user ID not found in user metadata");
-        Alert.alert("Error", "User profile data not found");
-        setLoading(false);
-        return;
-      }
-
-      console.log("Loading profile data for database user ID:", dbUserId);
-
-      // Load user stats from database
-      const statsResult = await getUserStats(dbUserId);
-      let dbStats = null;
-      if (statsResult.success) {
-        dbStats = statsResult.stats;
-      }
-
-      // Load recent workouts
-      const workoutsResult = await getUserWorkoutHistory(dbUserId, 10);
-      if (workoutsResult.success) {
-        setRecentWorkouts(workoutsResult.workouts);
-      }
-
-      // Load workout history for calendar
-      const historyResult = await getUserWorkoutHistory(dbUserId);
-      if (historyResult.success) {
-        setWorkoutHistory(historyResult.workouts);
-
-        // Calculate enhanced stats from workout history
-        const calculatedStats = calculateStatsFromHistory(
-          historyResult.workouts,
-          dbStats
-        );
-        setUserStats(calculatedStats);
-      } else {
-        // Fallback to database stats if workout history fails
-        setUserStats(dbStats);
-      }
-    } catch (error) {
-      console.error("Error loading user data:", error);
-      Alert.alert("Error", "Failed to load profile data");
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const calculateStatsFromHistory = (workouts, dbStats) => {
-    if (!workouts || workouts.length === 0) {
-      return (
-        dbStats || {
-          totalWorkouts: 0,
-          currentStreak: 0,
-          totalVolume: 0,
-          totalTime: 0
-        }
-      );
-    }
-
-    // Calculate total workouts (completed only)
-    const completedWorkouts = workouts.filter(
-      (workout) => workout.completed_at
-    );
-    const totalWorkouts = completedWorkouts.length;
-
-    // Calculate total time
-    const totalTime = completedWorkouts.reduce((sum, workout) => {
-      return sum + (workout.duration_minutes || 0);
-    }, 0);
-
-    // Calculate current streak
-    let currentStreak = 0;
-    const today = new Date();
-    const sortedWorkouts = completedWorkouts.sort(
-      (a, b) => new Date(b.completed_at) - new Date(a.completed_at)
-    );
-
-    if (sortedWorkouts.length > 0) {
-      const workoutDates = sortedWorkouts.map((workout) => {
-        const date = new Date(workout.completed_at);
-        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      });
-
-      // Remove duplicate dates (multiple workouts on same day)
-      const uniqueDates = [
-        ...new Set(workoutDates.map((date) => date.getTime()))
-      ]
-        .map((time) => new Date(time))
-        .sort((a, b) => b - a);
-
-      // Check if most recent workout was today or yesterday
-      const mostRecentDate = uniqueDates[0];
-      const todayDate = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate()
-      );
-      const yesterdayDate = new Date(todayDate);
-      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-
-      if (
-        mostRecentDate.getTime() === todayDate.getTime() ||
-        mostRecentDate.getTime() === yesterdayDate.getTime()
-      ) {
-        // Count consecutive days
-        let checkDate = mostRecentDate;
-        for (let i = 0; i < uniqueDates.length; i++) {
-          if (uniqueDates[i].getTime() === checkDate.getTime()) {
-            currentStreak++;
-            checkDate = new Date(checkDate);
-            checkDate.setDate(checkDate.getDate() - 1);
-          } else {
-            break;
-          }
-        }
-      }
-    }
-
-    // Use database volume if available, otherwise calculate from workouts
-    const totalVolume =
-      dbStats?.total_volume ||
-      completedWorkouts.reduce(
-        (sum, workout) => sum + (workout.total_volume || 0),
-        0
-      );
-
-    // Calculate average workout time
-    const averageWorkoutTime = Math.round(totalTime / totalWorkouts);
-
-    // Calculate workouts this month
-    const thisMonth = new Date();
-    const workoutsThisMonth = completedWorkouts.filter((workout) => {
-      const workoutDate = new Date(workout.completed_at);
-      return (
-        workoutDate.getFullYear() === thisMonth.getFullYear() &&
-        workoutDate.getMonth() === thisMonth.getMonth()
-      );
-    }).length;
-
-    // Calculate personal record
-    const personalRecord = completedWorkouts.reduce((record, workout) => {
-      if (!record || workout.total_volume > record.total_volume) {
-        return {
-          exercise: workout.name,
-          weight: workout.total_volume
-        };
-      }
-      return record;
-    }, null);
-
-    return {
-      totalWorkouts,
-      currentStreak,
-      totalVolume: Math.round(totalVolume),
-      totalTime,
-      averageWorkoutTime,
-      workoutsThisMonth,
-      personalRecord
-    };
-  };
+  }, [user, loading]);
 
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -224,10 +45,6 @@ const ProfileScreen = ({ navigation }) => {
         onPress: async () => {
           try {
             await logoutUser();
-            setUser(null);
-            setUserStats(null);
-            setRecentWorkouts([]);
-            setWorkoutHistory([]);
             navigation.navigate("Login");
           } catch (error) {
             console.error("Logout error:", error);
@@ -240,7 +57,7 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleLoginSuccess = () => {
     setShowLoginModal(false);
-    loadUserData();
+    refreshTabData();
   };
 
   const formatDate = (dateString) => {
@@ -267,12 +84,10 @@ const ProfileScreen = ({ navigation }) => {
 
     const days = [];
 
-    // Add empty cells for days before the first day of the month
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
 
-    // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(new Date(year, month, day));
     }
