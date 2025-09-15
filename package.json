@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "start-web": "webpack serve --config webpack.config.simple.js --mode development --port 3006 --hot",
     "build-web": "webpack --config webpack.config.prod.js --mode production",
-    "serve-web": "webpack serve --config webpack.config.prod.js --mode development --open"
+    "serve-web": "webpack serve --config webpack.config.prod.js --mode development --open",
+    "start:dev": "expo start --dev-client --clear"
   },
   "browser": {
     "crypto": false,

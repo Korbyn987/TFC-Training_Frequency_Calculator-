@@ -11,11 +11,6 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import {
-  checkEmailExists,
-  checkUsernameExists,
-  registerUser
-} from "../services/supabaseAuth";
 
 export default function RegisterScreen({ navigation }) {
   const [formData, setFormData] = useState({
@@ -35,8 +30,11 @@ export default function RegisterScreen({ navigation }) {
       newErrors.username = "Username is required";
     } else if (formData.username.length < 3) {
       newErrors.username = "Username must be at least 3 characters";
-    } else if (await checkUsernameExists(formData.username)) {
-      newErrors.username = "Username already exists";
+    } else {
+      const { checkUsernameExists } = await import("../services/supabaseAuth");
+      if (await checkUsernameExists(formData.username)) {
+        newErrors.username = "Username already exists";
+      }
     }
 
     // Email validation
@@ -45,8 +43,11 @@ export default function RegisterScreen({ navigation }) {
       newErrors.email = "Email is required";
     } else if (!emailRegex.test(formData.email)) {
       newErrors.email = "Please enter a valid email";
-    } else if (await checkEmailExists(formData.email)) {
-      newErrors.email = "Email already registered";
+    } else {
+      const { checkEmailExists } = await import("../services/supabaseAuth");
+      if (await checkEmailExists(formData.email)) {
+        newErrors.email = "Email already registered";
+      }
     }
 
     // Password validation
@@ -75,6 +76,7 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
 
+      const { registerUser } = await import("../services/supabaseAuth");
       const result = await registerUser(
         formData.username.trim(),
         formData.email.trim().toLowerCase(),

@@ -177,18 +177,16 @@ export const completeWorkout = async (workoutId, completionData) => {
     const userId = user.user_metadata?.id || user.auth_id || user.id;
     console.log("Using user ID for workout completion:", userId);
 
-    // Calculate total volume from workout sets
-    const { data: workoutSets, error: setsError } = await supabase
-      .from("workout_sets")
-      .select("weight_kg, reps")
-      .eq("workout_id", workoutId);
-
+    // Calculate total volume from the exercises data passed in completionData
     let totalVolumeKg = 0;
-    if (!setsError && workoutSets) {
-      totalVolumeKg = workoutSets.reduce((total, set) => {
-        const weight = parseFloat(set.weight_kg) || 0;
-        const reps = parseInt(set.reps) || 0;
-        return total + weight * reps;
+    if (completionData.exercises && completionData.exercises.length > 0) {
+      totalVolumeKg = completionData.exercises.reduce((total, exercise) => {
+        const exerciseVolume = exercise.sets.reduce((vol, set) => {
+          const weight = parseFloat(set.weight) || 0;
+          const reps = parseInt(set.reps) || 0;
+          return vol + weight * reps;
+        }, 0);
+        return total + exerciseVolume;
       }, 0);
     }
 
@@ -196,8 +194,8 @@ export const completeWorkout = async (workoutId, completionData) => {
       "Calculated total volume:",
       totalVolumeKg,
       "kg from",
-      workoutSets?.length || 0,
-      "sets"
+      completionData.exercises?.length || 0,
+      "exercises"
     );
 
     // Update workout status to completed
@@ -310,7 +308,15 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
 
     const { data, error } = await supabase
       .from("workouts")
-      .select("*")
+      .select(
+        `
+        *,
+        workout_exercises (
+          *,
+          exercise_sets (*)
+        )
+      `
+      )
       .eq("user_id", dbUserId)
       .not("completed_at", "is", null)
       .order("completed_at", { ascending: false })

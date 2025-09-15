@@ -10,7 +10,6 @@ import {
   View
 } from "react-native";
 import { supabase } from "../config/supabase";
-import { getCurrentUser } from "../services/supabaseAuth";
 
 const SelectRoutineScreen = ({ navigation }) => {
   const [presets, setPresets] = useState([]);
@@ -20,6 +19,7 @@ const SelectRoutineScreen = ({ navigation }) => {
     const fetchPresets = async () => {
       setLoading(true);
       try {
+        const { getCurrentUser } = await import("../services/supabaseAuth");
         const user = await getCurrentUser();
         const { data, error } = await supabase
           .from("profiles")

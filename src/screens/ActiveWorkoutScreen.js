@@ -23,12 +23,6 @@ import {
   removeActiveSet,
   updateActiveSet
 } from "../services/localWorkoutStorage";
-import {
-  addExerciseSet,
-  addWorkoutExercise,
-  completeWorkout,
-  getExercises
-} from "../services/supabaseWorkouts";
 
 const ActiveWorkoutScreen = ({ navigation }) => {
   const [workout, setWorkout] = useState(null);
@@ -76,6 +70,7 @@ const ActiveWorkoutScreen = ({ navigation }) => {
 
   const loadAvailableExercises = async () => {
     try {
+      const { getExercises } = await import("../services/supabaseWorkouts");
       const result = await getExercises();
       if (result.success) {
         setAvailableExercises(result.exercises);
@@ -222,6 +217,7 @@ const ActiveWorkoutScreen = ({ navigation }) => {
       };
 
       // Complete workout in Supabase
+      const { completeWorkout } = await import("../services/supabaseWorkouts");
       const result = await completeWorkout(
         workout.supabase_id,
         completionPayload
@@ -240,6 +236,9 @@ const ActiveWorkoutScreen = ({ navigation }) => {
       }
 
       // Save exercises and sets to Supabase
+      const { addWorkoutExercise, addExerciseSet } = await import(
+        "../services/supabaseWorkouts"
+      );
       for (const exercise of exercises) {
         const exerciseResult = await addWorkoutExercise(workout.supabase_id, {
           exercise_id: exercise.id,

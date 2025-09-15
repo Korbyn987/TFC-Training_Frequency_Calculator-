@@ -1,21 +1,19 @@
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
   Alert,
   Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
 import { useDispatch } from "react-redux";
-import { authService } from "../services/authService";
 import { login } from "../redux/authSlice";
 import ButtonStyles from "../styles/Button";
-import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../styles/loginStyles";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = () => {
   const [identifier, setIdentifier] = useState("");
@@ -51,13 +49,14 @@ const LoginScreen = () => {
     setError("");
     setIsLoading(true);
     try {
+      const { authService } = await import("../services/authService");
       const response = await authService.login(identifier, password);
 
       // Dispatch login action with user data
       dispatch(login(response.user));
 
       // Persist user to AsyncStorage for React Native
-      await AsyncStorage.setItem('user', JSON.stringify(response.user));
+      await AsyncStorage.setItem("user", JSON.stringify(response.user));
 
       // Navigate to main app
       navigation.reset({
@@ -69,11 +68,11 @@ const LoginScreen = () => {
               screen: "Home",
               params: {
                 screen: "HomeScreen",
-                params: { username: response.user.username },
-              },
-            },
-          },
-        ],
+                params: { username: response.user.username }
+              }
+            }
+          }
+        ]
       });
 
       // Show success message after navigation
@@ -137,7 +136,7 @@ const LoginScreen = () => {
         <TouchableOpacity
           style={[
             ButtonStyles.button,
-            isLoading && ButtonStyles.buttonDisabled,
+            isLoading && ButtonStyles.buttonDisabled
           ]}
           onPress={handleLogin}
           disabled={isLoading}

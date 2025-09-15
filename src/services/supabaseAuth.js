@@ -212,11 +212,22 @@ export const logoutUser = async () => {
 // Get current user session
 export const getCurrentUser = async () => {
   try {
+    console.log("--- getCurrentUser: Starting ---");
     const { data: session, error: sessionError } =
       await supabase.auth.getSession();
     if (sessionError || !session?.session) {
+      console.error(
+        "getCurrentUser: No session found or session error:",
+        sessionError
+      );
+      console.log("--- getCurrentUser: Finished (no session) ---");
       return null;
     }
+
+    console.log(
+      "getCurrentUser: Session found for user:",
+      session.session.user.id
+    );
 
     const { data: userData, error: userError } = await supabase
       .from("users")
@@ -225,16 +236,23 @@ export const getCurrentUser = async () => {
       .single();
 
     if (userError) {
-      console.error("Error fetching user profile:", userError);
+      console.error(
+        "getCurrentUser: Error fetching user profile from 'users' table:",
+        userError
+      );
+      console.log("--- getCurrentUser: Finished (profile fetch error) ---");
       return null;
     }
 
     if (!userData) {
-      console.error("User data not found");
+      console.error("getCurrentUser: User data not found in 'users' table.");
+      console.log("--- getCurrentUser: Finished (no profile data) ---");
       return null;
     }
 
-    return {
+    console.log("getCurrentUser: Successfully fetched user profile.");
+
+    const finalUserObject = {
       ...session.session.user,
       created_at: userData.created_at || session.session.user.created_at,
       user_metadata: {
@@ -242,8 +260,12 @@ export const getCurrentUser = async () => {
         ...userData
       }
     };
+
+    console.log("--- getCurrentUser: Finished (Success) ---");
+    return finalUserObject;
   } catch (error) {
     console.error("Error in getCurrentUser:", error);
+    console.log("--- getCurrentUser: Finished (catch block) ---");
     return null;
   }
 };

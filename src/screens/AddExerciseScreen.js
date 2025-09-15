@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { getExercises, getMuscleGroups } from "../services/exerciseService";
 
 const AddExerciseScreen = ({ navigation, route }) => {
   console.log("AddExerciseScreen: component render start");
@@ -110,37 +109,41 @@ const AddExerciseScreen = ({ navigation, route }) => {
   );
 
   useEffect(() => {
-    console.log("AddExerciseScreen: useEffect (mount)");
-    const { muscleGroup, muscleGroupId } = route.params || {};
-    if (muscleGroup && muscleGroupId) {
-      setActiveGroup(muscleGroup);
-    }
+    const loadInitialData = async () => {
+      setLoading(true);
+      try {
+        const { getMuscleGroups, getExercises } = await import(
+          "../services/exerciseService"
+        );
 
-    // Force load static data immediately
-    console.log("Force loading static data...");
-    console.log("Static muscle groups count:", muscleGroups.length);
-    console.log("Static exercises count:", exercises.length);
+        const muscleGroupsResponse = await getMuscleGroups();
+        if (muscleGroupsResponse.success) {
+          setMuscleGroups(muscleGroupsResponse.data);
+        } else {
+          console.error(
+            "Error loading muscle groups:",
+            muscleGroupsResponse.error
+          );
+          setError("Failed to load muscle groups");
+        }
 
-    getMuscleGroups().then((response) => {
-      if (response.success) {
-        setMuscleGroups(response.data);
-      } else {
-        console.error("Error loading muscle groups:", response.error);
-        setError("Failed to load muscle groups");
+        const exercisesResponse = await getExercises();
+        if (exercisesResponse.success) {
+          setExercises(exercisesResponse.data);
+          setFilteredExercises(exercisesResponse.data);
+        } else {
+          console.error("Error loading exercises:", exercisesResponse.error);
+          setError("Failed to load exercises");
+        }
+      } catch (err) {
+        console.error("Error loading initial data:", err);
+        setError("Failed to load data.");
+      } finally {
+        setLoading(false);
       }
-    });
-    getExercises().then((response) => {
-      if (response.success) {
-        setExercises(response.data);
-        setFilteredExercises(response.data);
-      } else {
-        console.error("Error loading exercises:", response.error);
-        setError("Failed to load exercises");
-      }
-      setLoading(false);
-    });
+    };
 
-    console.log("Static data loaded successfully");
+    loadInitialData();
   }, []);
 
   useEffect(() => {

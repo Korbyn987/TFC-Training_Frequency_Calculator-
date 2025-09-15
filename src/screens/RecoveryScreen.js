@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
-import { authService } from '../services/authService';
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { useDispatch, useSelector } from "react-redux";
 import ButtonStyles from '../styles/Button';
 
 const RecoveryScreen = ({ navigation }) => {
@@ -21,6 +26,8 @@ const RecoveryScreen = ({ navigation }) => {
         setError('Please enter your email address');
         return;
       }
+
+      const { authService } = await import("../services/authService");
 
       if (mode === 'password') {
         await authService.forgotPassword(email);

@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { loginUser, resendConfirmationEmail } from "../services/supabaseAuth";
 
 const LoginScreen = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -46,6 +45,7 @@ const LoginScreen = ({ navigation }) => {
 
     try {
       const authStartTime = Date.now();
+      const { loginUser } = await import("../services/supabaseAuth");
       const result = await loginUser(formData.email.trim(), formData.password);
       const authEndTime = Date.now();
 
@@ -82,6 +82,9 @@ const LoginScreen = ({ navigation }) => {
                 text: "Resend Email",
                 onPress: async () => {
                   try {
+                    const { resendConfirmationEmail } = await import(
+                      "../services/supabaseAuth"
+                    );
                     const resendResult = await resendConfirmationEmail(
                       formData.email.trim()
                     );

@@ -13,12 +13,6 @@ import {
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import { useTabData } from "../context/TabDataContext";
-import {
-  addExerciseSet,
-  addWorkoutExercise,
-  completeWorkout,
-  createWorkout
-} from "../services/supabaseWorkouts";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -52,6 +46,13 @@ const NewHomeScreen = ({ navigation }) => {
     if (!activeWorkout) return;
 
     try {
+      const {
+        createWorkout,
+        addWorkoutExercise,
+        addExerciseSet,
+        completeWorkout
+      } = await import("../services/supabaseWorkouts");
+
       const muscleGroups = [];
       if (activeWorkout.exercises && activeWorkout.exercises.length > 0) {
         activeWorkout.exercises.forEach((exercise) => {

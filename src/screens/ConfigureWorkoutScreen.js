@@ -13,17 +13,12 @@ import {
 } from "react-native";
 import MuscleGroupSelectionModal from "../components/MuscleGroupSelectionModal";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
-import { getExercisesByMuscleGroup } from "../services/exerciseService";
-import { getCurrentUser } from "../services/supabaseAuth";
-import {
-  addWorkoutExercise,
-  createWorkout,
-  getUserWorkoutHistory
-} from "../services/supabaseWorkouts";
+import { useTabData } from "../context/TabDataContext";
 
 const { width } = Dimensions.get("window");
 
 const ConfigureWorkoutScreen = ({ navigation, route }) => {
+  const { refreshTabData } = useTabData();
   const editingWorkout = route?.params?.editingWorkout;
   const presetData = route?.params;
 
@@ -45,6 +40,7 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
   const loadUserAndData = async () => {
     try {
       setLoading(true);
+      const { getCurrentUser } = await import("../services/supabaseAuth");
       const currentUser = await getCurrentUser();
 
       if (!currentUser) {
@@ -85,6 +81,9 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
         setCurrentStep(3);
       } else {
         // Generate default workout name
+        const { getUserWorkoutHistory } = await import(
+          "../services/supabaseWorkouts"
+        );
         const result = await getUserWorkoutHistory(currentUser.id);
         const workoutCount = result.data?.length || []; // Fix: Use correct property name
         setWorkoutName(`Workout ${(workoutCount?.length || 0) + 1}`);
@@ -99,6 +98,9 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
 
   const loadExercisesForMuscleGroups = async (muscleGroups) => {
     try {
+      const { getExercisesByMuscleGroup } = await import(
+        "../services/exerciseService"
+      );
       const exercises = [];
       for (const muscleGroup of muscleGroups) {
         const groupExercises = await getExercisesByMuscleGroup(muscleGroup);
@@ -204,11 +206,15 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
         // Implementation for updating workout would go here
       } else {
         // Create new workout
+        const { createWorkout } = await import("../services/supabaseWorkouts");
         const result = await createWorkout(workoutData);
         workoutId = result.id;
       }
 
       // Save individual exercises
+      const { addWorkoutExercise } = await import(
+        "../services/supabaseWorkouts"
+      );
       for (const exercise of selectedExercises) {
         await addWorkoutExercise({
           workout_id: workoutId,
@@ -220,6 +226,9 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
           set_type: exercise.set_type
         });
       }
+
+      // Refresh data before showing success alert
+      await refreshTabData();
 
       Alert.alert(
         "Success",
@@ -235,7 +244,11 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
           },
           {
             text: "Back to Home",
-            onPress: () => navigation.navigate("Tabs")
+            onPress: () =>
+              navigation.navigate("Tabs", {
+                screen: "Home",
+                params: { workoutJustSaved: true }
+              })
           }
         ]
       );

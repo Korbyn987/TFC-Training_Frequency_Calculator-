@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { getUserWorkoutHistory } from "../services/supabaseWorkouts";
 
 const WorkoutHistory = ({ userId }) => {
   const [workouts, setWorkouts] = useState([]);
@@ -61,6 +60,9 @@ const WorkoutHistory = ({ userId }) => {
           return;
         }
 
+        const { getUserWorkoutHistory } = await import(
+          "../services/supabaseWorkouts"
+        );
         const response = await getUserWorkoutHistory(userId);
         console.log("Fetched workout history:", response);
         

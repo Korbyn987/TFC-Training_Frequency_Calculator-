@@ -3,7 +3,7 @@ const { getDefaultConfig } = require("expo/metro-config");
 const config = getDefaultConfig(__dirname);
 
 // Enable all platforms
-config.resolver.platforms = ["native", "android", "ios", "web"];
+config.resolver.platforms = ["ios", "android", "native", "web"];
 
 // Platform-specific resolver configuration
 config.resolver.resolverMainFields = ["react-native", "browser", "main"];
@@ -19,6 +19,30 @@ config.resolver.blockList = [
 
 // Only enable React Native Web aliases for web platform
 config.resolver.alias = {};
+
+// Improve cache management
+config.transformer.minifierConfig = {
+  keep_fnames: true,
+  mangle: {
+    keep_fnames: true
+  }
+};
+
+// Better reload handling
+config.server = {
+  ...config.server,
+  enhanceMiddleware: (middleware) => {
+    return (req, res, next) => {
+      // Add headers to prevent caching issues during development
+      if (req.url.includes("hot-reload") || req.url.includes("reload")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      }
+      return middleware(req, res, next);
+    };
+  }
+};
 
 // Platform-specific configuration
 config.transformer = {

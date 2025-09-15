@@ -12,8 +12,6 @@ import {
 } from "react-native";
 import LoginRequiredModal from "../components/LoginRequiredModal";
 import { useTabData } from "../context/TabDataContext";
-import { logoutUser } from "../services/supabaseAuth";
-import { getWorkoutDetails } from "../services/supabaseWorkouts";
 
 const ProfileScreen = ({ navigation }) => {
   const { user, userStats, workoutHistory, loading, error, refreshTabData } =
@@ -44,6 +42,7 @@ const ProfileScreen = ({ navigation }) => {
         style: "destructive",
         onPress: async () => {
           try {
+            const { logoutUser } = await import("../services/supabaseAuth");
             await logoutUser();
             navigation.navigate("Login");
           } catch (error) {
@@ -117,6 +116,9 @@ const ProfileScreen = ({ navigation }) => {
     setLoadingDetails(true);
 
     try {
+      const { getWorkoutDetails } = await import(
+        "../services/supabaseWorkouts"
+      );
       const result = await getWorkoutDetails(workout.id);
       if (result.success) {
         setWorkoutDetails(result.workout);
@@ -291,6 +293,17 @@ const ProfileScreen = ({ navigation }) => {
       {/* Settings Section */}
       <View style={styles.settingsSection}>
         <Text style={styles.sectionTitle}>Settings</Text>
+
+        {user?.is_premium && (
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => navigation.navigate("Analytics")}
+          >
+            <Ionicons name="stats-chart" size={24} color="#4CAF50" />
+            <Text style={styles.settingText}>Advanced Analytics</Text>
+            <Ionicons name="chevron-forward" size={20} color="#888" />
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.settingItem}
