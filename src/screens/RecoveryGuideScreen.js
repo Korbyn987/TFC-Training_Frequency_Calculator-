@@ -83,15 +83,10 @@ const useRecoveryCountdown = (
         const minutes = Math.floor((timeLeftInSeconds % 3600) / 60);
 
         if (days > 0) {
-          if (hours === 0 && minutes < 1) {
-            statusDetails = `Ready in ~${days}d`;
-          } else {
-            statusDetails = `Ready in ~${days}d ${hours}h`;
-          }
-        } else if (hours > 0) {
-          statusDetails = `Ready in ~${hours}h ${minutes}m`;
+          statusDetails = `Ready in ~${days}d ${hours}h ${minutes}m`;
         } else {
-          statusDetails = `Ready in ~${minutes}m`;
+          const seconds = Math.floor(timeLeftInSeconds % 60);
+          statusDetails = `Ready in ${hours}h ${minutes}m ${seconds}s`;
         }
       }
 
@@ -132,19 +127,17 @@ const MuscleRecoveryMeter = ({ muscleName, lastWorkout, recoveryTime }) => {
     const days = Math.floor(totalSeconds / 86400);
     const hoursRemaining = Math.floor((totalSeconds % 86400) / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
 
     if (days > 0) {
       return `${days}d ${hoursRemaining}h ${minutes}m`;
-    } else if (hoursRemaining > 0) {
-      return `${hoursRemaining}h ${minutes}m ${seconds}s`;
     } else {
-      return `${minutes}m ${seconds}s`;
+      const seconds = totalSeconds % 60;
+      return `${hoursRemaining}h ${minutes}m ${seconds}s`;
     }
   };
 
   const getStatusColor = () => {
-    if (status === "Fully Recovered") return "#10b981";
+    if (status === "Fully Recovered") return "#4CAF50"; // Use the consistent app green
     if (status === "Recovering") return timeLeft < 24 ? "#f59e0b" : "#ef4444";
     return "#ef4444";
   };
@@ -168,12 +161,7 @@ const MuscleRecoveryMeter = ({ muscleName, lastWorkout, recoveryTime }) => {
           activeStrokeColor={getStatusColor()}
           inActiveStrokeColor="#e5e7eb"
           maxValue={100}
-          title={`${
-            status === "Fully Recovered" ? "Ready" : formatTimeLeft(timeLeft)
-          }`}
-          titleStyle={[styles.progressTitle, { color: getStatusColor() }]}
-          titleFontSize={14}
-          progressValueFontSize={16}
+          progressValueSuffix="%"
           progressValueStyle={{ fontWeight: "bold" }}
         />
         <View style={styles.recoveryInfo}>
