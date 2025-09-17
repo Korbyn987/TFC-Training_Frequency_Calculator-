@@ -441,16 +441,26 @@ const workoutSlice = createSlice({
       const { recoveryData } = action.payload;
       
       if (recoveryData) {
-        // Update muscle status with real workout data from Supabase
-        Object.keys(recoveryData).forEach(muscleKey => {
+        // Smart merge: keep the most recent workout date
+        Object.keys(recoveryData).forEach((muscleKey) => {
           if (state.muscleStatus[muscleKey]) {
-            state.muscleStatus[muscleKey] = {
-              ...state.muscleStatus[muscleKey],
-              ...recoveryData[muscleKey]
-            };
+            const existingDate = state.muscleStatus[muscleKey].lastWorkout
+              ? new Date(state.muscleStatus[muscleKey].lastWorkout)
+              : null;
+            const newDate = recoveryData[muscleKey].lastWorkout
+              ? new Date(recoveryData[muscleKey].lastWorkout)
+              : null;
+
+            // If new data is more recent or there's no existing date, update.
+            if (!existingDate || (newDate && newDate > existingDate)) {
+              state.muscleStatus[muscleKey] = {
+                ...state.muscleStatus[muscleKey],
+                ...recoveryData[muscleKey]
+              };
+            }
           }
         });
-        console.log('Redux: Synced muscle recovery data from Supabase');
+        console.log("Redux: Smart-synced muscle recovery data from Supabase");
       }
     }
   }

@@ -1,5 +1,4 @@
-import { format } from "date-fns";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import CircularProgress from "react-native-circular-progress-indicator";
 import { useTabData } from "../context/TabDataContext";
@@ -16,47 +15,64 @@ const useRecoveryCountdown = (
   const [statusDetails, setStatusDetails] = useState("");
   const [nextAvailable, setNextAvailable] = useState(null);
 
+  // Use a ref to hold the latest props to avoid stale closures in setInterval
+  const latestProps = useRef({ lastWorkout, recoveryTime });
   useEffect(() => {
-    if (!lastWorkout) {
-      setPercentage(100);
-      setTimeLeft(0);
-      setStatus("Fully Recovered");
-      setStatusDetails("No workout recorded");
-      setNextAvailable(new Date());
-      return;
-    }
+    latestProps.current = { lastWorkout, recoveryTime };
+  });
 
+  useEffect(() => {
     const calculateRecovery = () => {
+      const { lastWorkout, recoveryTime } = latestProps.current;
       const now = new Date();
-      const workoutDate = new Date(lastWorkout);
 
+      if (!lastWorkout) {
+        setPercentage(100);
+        setTimeLeft(0);
+        setStatus("Fully Recovered");
+        setStatusDetails("Ready to train");
+        setNextAvailable(new Date());
+        return;
+      }
+
+      const workoutDate = new Date(lastWorkout);
       if (isNaN(workoutDate.getTime())) {
         setPercentage(100);
         setTimeLeft(0);
         setStatus("Fully Recovered");
-        setStatusDetails("Invalid workout date");
-        setNextAvailable(now);
+        setStatusDetails("Invalid date");
+        setNextAvailable(new Date());
         return;
       }
 
-      const timeDiffInSeconds = (now - workoutDate) / 1000;
-      const recoveryTimeInSeconds = recoveryTime * 3600;
-      const timeLeftInSeconds = Math.max(
-        0,
-        recoveryTimeInSeconds - timeDiffInSeconds
-      );
-      const timeLeftInHours = timeLeftInSeconds / 3600;
-      const percentage = Math.min(
-        100,
-        ((recoveryTimeInSeconds - timeLeftInSeconds) / recoveryTimeInSeconds) *
-          100
+      // Ensure we're working with the correct UTC time
+      // The lastWorkout timestamp from the database is already in UTC
+      const workoutDateUTC = new Date(
+        lastWorkout + (lastWorkout.includes("Z") ? "" : "Z")
       );
 
-      const nextAvailableTime = new Date(workoutDate);
-      nextAvailableTime.setHours(nextAvailableTime.getHours() + recoveryTime);
+      const recoveryTimeInSeconds = recoveryTime * 3600;
+      const nextAvailableTime = new Date(
+        workoutDateUTC.getTime() + recoveryTimeInSeconds * 1000
+      );
+
+      let timeLeftInSeconds = Math.max(0, (nextAvailableTime - now) / 1000);
+
+      if (timeLeftInSeconds > recoveryTimeInSeconds) {
+        timeLeftInSeconds = recoveryTimeInSeconds;
+      }
+
+      const percentage =
+        recoveryTimeInSeconds > 0
+          ? Math.min(
+              100,
+              ((recoveryTimeInSeconds - timeLeftInSeconds) /
+                recoveryTimeInSeconds) *
+                100
+            )
+          : 100;
 
       let status, statusDetails;
-
       if (timeLeftInSeconds <= 0) {
         status = "Fully Recovered";
         statusDetails = "Ready to train";
@@ -65,29 +81,37 @@ const useRecoveryCountdown = (
         const days = Math.floor(timeLeftInSeconds / 86400);
         const hours = Math.floor((timeLeftInSeconds % 86400) / 3600);
         const minutes = Math.floor((timeLeftInSeconds % 3600) / 60);
-        const seconds = Math.floor(timeLeftInSeconds % 60);
 
         if (days > 0) {
-          statusDetails = `Ready in ~${days}d ${hours}h ${minutes}m`;
+          if (hours === 0 && minutes < 1) {
+            statusDetails = `Ready in ~${days}d`;
+          } else {
+            statusDetails = `Ready in ~${days}d ${hours}h`;
+          }
         } else if (hours > 0) {
-          statusDetails = `Ready in ~${hours}h ${minutes}m ${seconds}s`;
+          statusDetails = `Ready in ~${hours}h ${minutes}m`;
         } else {
-          statusDetails = `Ready in ~${minutes}m ${seconds}s`;
+          statusDetails = `Ready in ~${minutes}m`;
         }
       }
 
-      setTimeLeft(timeLeftInHours);
+      setTimeLeft(timeLeftInSeconds / 3600);
       setPercentage(percentage);
       setStatus(status);
       setStatusDetails(statusDetails);
-      setNextAvailable(nextAvailableTime);
+      setNextAvailable(
+        new Date(
+          nextAvailableTime.getTime() +
+            workoutDate.getTimezoneOffset() * 60 * 1000
+        )
+      );
     };
 
-    calculateRecovery();
+    calculateRecovery(); // Initial call
     const interval = setInterval(calculateRecovery, 1000);
 
     return () => clearInterval(interval);
-  }, [lastWorkout, recoveryTime, muscleName]);
+  }, []); // Run this effect only once
 
   return {
     timeLeft,
@@ -159,7 +183,21 @@ const MuscleRecoveryMeter = ({ muscleName, lastWorkout, recoveryTime }) => {
           </Text>
           {nextAvailable && status !== "Fully Recovered" && (
             <Text style={[styles.recoveryText, { fontSize: 12, opacity: 0.8 }]}>
-              Ready by: {format(nextAvailable, "MMM d, h:mm a")}
+              Ready by:{" "}
+              {(() => {
+                // Convert UTC time to local time for display
+                const localTime = new Date(
+                  nextAvailable.getTime() -
+                    new Date().getTimezoneOffset() * 60000
+                );
+                return localTime.toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true
+                });
+              })()}
             </Text>
           )}
         </View>
@@ -170,6 +208,12 @@ const MuscleRecoveryMeter = ({ muscleName, lastWorkout, recoveryTime }) => {
 
 const RecoveryGuideScreen = () => {
   const { userStats, muscleRecoveryData, loading } = useTabData();
+  const [workoutCount, setWorkoutCount] = useState(0);
+  const [muscleGroups, setMuscleGroups] = useState(muscleRecoveryData);
+
+  useEffect(() => {
+    setMuscleGroups(muscleRecoveryData);
+  }, [muscleRecoveryData]);
 
   const defaultMuscleGroups = {
     Chest: { recoveryTime: 72, lastWorkout: null },
@@ -184,23 +228,33 @@ const RecoveryGuideScreen = () => {
     Glutes: { recoveryTime: 72, lastWorkout: null }
   };
 
-  // Merge data from context with default structure
-  const muscleGroups = { ...defaultMuscleGroups };
-  if (muscleRecoveryData) {
-    Object.entries(muscleRecoveryData).forEach(([muscleKey, data]) => {
-      const displayName =
-        muscleKey.charAt(0).toUpperCase() + muscleKey.slice(1);
-      const displayNameToUse = muscleKey === "abs" ? "Core" : displayName;
+  // Robust, case-insensitive merging logic
+  const finalMergedMuscleGroups = {};
+  const normalizedRecoveryData = {};
 
-      if (muscleGroups[displayNameToUse]) {
-        muscleGroups[displayNameToUse] = {
-          ...muscleGroups[displayNameToUse],
-          lastWorkout: data.lastWorkout,
-          recoveryTime:
-            data.recoveryTime || muscleGroups[displayNameToUse].recoveryTime
-        };
-      }
-    });
+  if (muscleRecoveryData) {
+    for (const [key, value] of Object.entries(muscleRecoveryData)) {
+      const normalizedKey =
+        key.toLowerCase() === "abs" ? "core" : key.toLowerCase();
+      normalizedRecoveryData[normalizedKey] = value;
+    }
+  }
+
+  for (const [defaultKey, defaultValue] of Object.entries(
+    defaultMuscleGroups
+  )) {
+    const normalizedDefaultKey = defaultKey.toLowerCase();
+    const recoveryData = normalizedRecoveryData[normalizedDefaultKey];
+
+    if (recoveryData) {
+      finalMergedMuscleGroups[defaultKey] = {
+        ...defaultValue,
+        lastWorkout: recoveryData.lastWorkout,
+        recoveryTime: recoveryData.recoveryTime || defaultValue.recoveryTime
+      };
+    } else {
+      finalMergedMuscleGroups[defaultKey] = defaultValue;
+    }
   }
 
   if (loading) {
@@ -228,9 +282,9 @@ const RecoveryGuideScreen = () => {
       </View>
 
       <View style={styles.content}>
-        {Object.entries(muscleGroups).map(([muscle, data]) => (
+        {Object.entries(finalMergedMuscleGroups).map(([muscle, data]) => (
           <MuscleRecoveryMeter
-            key={muscle}
+            key={`${muscle}-${data.lastWorkout}`}
             muscleName={muscle}
             lastWorkout={data.lastWorkout}
             recoveryTime={data.recoveryTime}
