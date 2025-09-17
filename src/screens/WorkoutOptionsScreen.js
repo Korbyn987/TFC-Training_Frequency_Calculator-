@@ -34,7 +34,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
 
     // Handle exercises from AddExercise screen
     if (route.params?.selectedExercises && route.params?.fromAddExercise) {
-      const exercisesWithDefaults = route.params.selectedExercises.map(
+      const newExercisesWithDefaults = route.params.selectedExercises.map(
         (exercise) => ({
           ...exercise,
           sets: [
@@ -64,7 +64,12 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
         })
       );
 
-      setSelectedExercises(exercisesWithDefaults);
+      // Merge with existing exercises instead of replacing them
+      setSelectedExercises((prevExercises) => [
+        ...prevExercises,
+        ...newExercisesWithDefaults
+      ]);
+
       setWorkoutName(`Custom Workout ${new Date().toLocaleDateString()}`);
 
       // Clear params to prevent re-processing
@@ -81,7 +86,14 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
 
     if (route.params?.fromActiveWorkout) {
       setEditMode(true);
-      loadWorkoutFromStorage();
+      // Use the editingWorkout data if provided, otherwise load from storage
+      if (route.params?.editingWorkout) {
+        const workout = route.params.editingWorkout;
+        setSelectedExercises(workout.exercises || []);
+        setWorkoutName(workout.name || "");
+      } else {
+        loadWorkoutFromStorage();
+      }
     }
   }, [route.params]);
 
@@ -229,11 +241,29 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
       setSaving(true);
 
       if (editMode) {
-        // End workout - save to Supabase and clear AsyncStorage
-        console.log(
-          "Ending workout - saving to Supabase with new consolidated function"
-        );
+        // First save the workout to the database
+        const { saveWorkout } = await import("../services/supabaseWorkouts");
 
+        const workoutToSave = {
+          name: workoutName.trim(),
+          notes: `Workout with ${selectedExercises.length} exercises`,
+          exercises: selectedExercises.map((ex) => ({
+            ...ex,
+            sets: ex.sets.map((set, index) => ({
+              set_number: index + 1,
+              reps: set.reps,
+              weight_kg: set.weight,
+              set_type: set.set_type || "working"
+            }))
+          }))
+        };
+
+        const saveResult = await saveWorkout(workoutToSave);
+        if (!saveResult.success) {
+          throw new Error(saveResult.error || "Failed to save workout.");
+        }
+
+        // Now complete the workout with the actual workout ID
         const { completeWorkout } = await import(
           "../services/supabaseWorkouts"
         );
@@ -264,7 +294,10 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           exercises: selectedExercises
         };
 
-        const result = await completeWorkout(completionData);
+        const result = await completeWorkout(
+          saveResult.workout.id,
+          completionData
+        );
 
         if (!result.success) {
           throw new Error(result.error || "Failed to complete workout.");
@@ -275,16 +308,30 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           dispatch(resetMuscleRecovery({ muscleGroups }));
         }
 
-        // Clear AsyncStorage
-        await AsyncStorage.removeItem("activeWorkout");
+        // Update AsyncStorage with the modified workout before clearing
+        const updatedWorkoutData = {
+          ...workoutData,
+          name: workoutName.trim(),
+          exercises: selectedExercises
+        };
+        await AsyncStorage.setItem(
+          "activeWorkout",
+          JSON.stringify(updatedWorkoutData)
+        );
+        setActiveWorkout(updatedWorkoutData); // Update the context
+
+        // Clear AsyncStorage after a brief delay to allow home screen to update
+        setTimeout(async () => {
+          await AsyncStorage.removeItem("activeWorkout");
+        }, 100);
 
         Alert.alert("Success", "Workout completed successfully!", [
           {
-            text: "View Profile",
+            text: "View Home",
             onPress: () => {
               navigation.reset({
                 index: 0,
-                routes: [{ name: "Tabs", params: { screen: "Profile" } }]
+                routes: [{ name: "Tabs", params: { screen: "Home" } }]
               });
             }
           }
@@ -296,7 +343,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           name: workoutName.trim(),
           exercises: selectedExercises.map((ex) => ({
             ...ex,
-            sets: Array.from({ length: 3 }, () => ({ reps: 10, weight: 50 }))
+            sets: ex.sets || [] // Use the actual configured sets, not hardcoded values
           })),
           started_at: new Date().toISOString()
         };
@@ -378,7 +425,12 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
         </View>
         <TouchableOpacity
           style={styles.addExerciseButton}
-          onPress={() => navigation.navigate("AddExercise")}
+          onPress={() =>
+            navigation.navigate("AddExercise", {
+              currentlySelected: selectedExercises,
+              fromWorkoutOptions: true
+            })
+          }
         >
           <Ionicons name="add" size={20} color="#4CAF50" />
         </TouchableOpacity>

@@ -33,12 +33,39 @@ const NewHomeScreen = ({ navigation }) => {
     navigation.navigate("WorkoutOptions");
   };
 
-  const handleContinueWorkout = () => {
+  const handleContinueWorkout = async () => {
     if (activeWorkout) {
-      navigation.navigate("WorkoutOptions", {
-        workoutId: activeWorkout.id,
-        continue: true
-      });
+      try {
+        // For local workouts (created from WorkoutOptionsScreen), navigate directly
+        if (!activeWorkout.id) {
+          console.log("Editing local workout, navigating to WorkoutOptions");
+          navigation.navigate("WorkoutOptions", {
+            editingWorkout: activeWorkout,
+            fromActiveWorkout: true
+          });
+          return;
+        }
+
+        // For database workouts, fetch fresh data first
+        console.log("Editing database workout, fetching fresh data");
+        const { getWorkoutDetails } = await import(
+          "../services/supabaseWorkouts"
+        );
+        const result = await getWorkoutDetails(activeWorkout.id);
+
+        if (result.success) {
+          navigation.navigate("WorkoutOptions", {
+            editingWorkout: result.workout,
+            fromActiveWorkout: true
+          });
+        } else {
+          console.error("Failed to load workout details:", result.error);
+          Alert.alert("Error", "Could not load workout details to edit.");
+        }
+      } catch (error) {
+        console.error("Error in handleContinueWorkout:", error);
+        Alert.alert("Error", "Failed to open workout for editing.");
+      }
     }
   };
 
@@ -247,22 +274,24 @@ const NewHomeScreen = ({ navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>
-          Welcome back,{" "}
-          {user?.username ||
-            user?.user_metadata?.username ||
-            user?.display_name ||
-            "User"}
-          !
-        </Text>
-        <Text style={styles.dateText}>
-          {new Date().toLocaleDateString("en-US", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric"
-          })}
-        </Text>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.welcomeText}>
+            Welcome back,{" "}
+            {user?.username ||
+              user?.user_metadata?.username ||
+              user?.display_name ||
+              "User"}
+            !
+          </Text>
+          <Text style={styles.dateText}>
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric"
+            })}
+          </Text>
+        </View>
       </View>
 
       {renderStats()}
@@ -273,6 +302,12 @@ const NewHomeScreen = ({ navigation }) => {
             <View style={styles.activeWorkoutHeader}>
               <Ionicons name="fitness" size={24} color="#4CAF50" />
               <Text style={styles.activeWorkoutTitle}>Active Workout</Text>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={handleDeleteWorkout}
+              >
+                <Ionicons name="trash" size={20} color="#fff" />
+              </TouchableOpacity>
             </View>
             <Text style={styles.activeWorkoutName}>{activeWorkout.name}</Text>
             <Text style={styles.activeWorkoutDetails}>
@@ -283,27 +318,34 @@ const NewHomeScreen = ({ navigation }) => {
               <View style={styles.exercisesList}>
                 {activeWorkout.exercises.map((exercise, index) => (
                   <View key={index} style={styles.exerciseItem}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    <Text style={styles.exerciseSets}>
-                      {exercise.sets?.length || 0} sets
-                      {exercise.sets && exercise.sets.length > 0 && (
-                        <Text style={styles.setsDetail}>
-                          {" "}
-                          (
-                          {exercise.sets
-                            .map(
-                              (set) =>
-                                `${set.reps}×${set.weight}${
-                                  set.weight ? "lbs" : ""
-                                }`
+                    <View style={styles.exerciseInfo}>
+                      <Text style={styles.exerciseName}>{exercise.name}</Text>
+                      <Text style={styles.exerciseSets}>
+                        {exercise.sets?.length || 0} sets
+                        {exercise.sets && exercise.sets.length > 0 && (
+                          <Text style={styles.setsDetail}>
+                            {" "}
+                            (
+                            {exercise.sets
+                              .map(
+                                (set) =>
+                                  `${set.reps}×${set.weight}${
+                                    set.weight ? "kg" : ""
+                                  }`
+                              )
+                              .join(", ")}
                             )
-                            .join(", ")}
-                          )
-                        </Text>
-                      )}
-                    </Text>
+                          </Text>
+                        )}
+                      </Text>
+                    </View>
                   </View>
                 ))}
+                {activeWorkout.exercises.length > 3 && (
+                  <Text style={styles.moreExercisesText}>
+                    + {activeWorkout.exercises.length - 3} more exercises
+                  </Text>
+                )}
               </View>
             )}
             <View style={styles.activeWorkoutActions}>
@@ -320,12 +362,6 @@ const NewHomeScreen = ({ navigation }) => {
               >
                 <Ionicons name="stop" size={20} color="#fff" />
                 <Text style={styles.endButtonText}>End</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={handleDeleteWorkout}
-              >
-                <Ionicons name="trash" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
@@ -386,18 +422,23 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    paddingTop: 40
+    paddingTop: 40,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  headerTextContainer: {
+    flexDirection: "column"
   },
   welcomeText: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 5
+    color: "#fff"
   },
   dateText: {
     fontSize: 16,
-    color: "#888",
-    marginBottom: 20
+    color: "#aaa",
+    marginTop: 4
   },
   statsContainer: {
     flexDirection: "row",
@@ -443,6 +484,7 @@ const styles = StyleSheet.create({
   activeWorkoutHeader: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 10
   },
   activeWorkoutTitle: {
@@ -466,22 +508,36 @@ const styles = StyleSheet.create({
     marginBottom: 15
   },
   exerciseItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 5
+    marginBottom: 8,
+    paddingVertical: 4
+  },
+  exerciseInfo: {
+    flex: 1
   },
   exerciseName: {
     fontSize: 16,
-    color: "#fff"
+    color: "#fff",
+    marginBottom: 2,
+    fontWeight: "500"
   },
   exerciseSets: {
-    fontSize: 16,
-    color: "#888"
+    fontSize: 14,
+    color: "#888",
+    lineHeight: 18
   },
   setsDetail: {
+    fontSize: 13,
+    color: "#666"
+  },
+  moreExercisesText: {
     fontSize: 14,
-    color: "#888"
+    color: "#888",
+    fontStyle: "italic",
+    textAlign: "center",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#333"
   },
   activeWorkoutActions: {
     flexDirection: "row",
@@ -517,9 +573,11 @@ const styles = StyleSheet.create({
     marginLeft: 5
   },
   deleteButton: {
-    backgroundColor: "#f44336",
-    padding: 10,
-    borderRadius: 8
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 107, 107, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 107, 107, 0.3)"
   },
   noWorkoutContainer: {
     alignItems: "center",

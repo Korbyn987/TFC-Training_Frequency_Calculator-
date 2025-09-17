@@ -18,7 +18,7 @@ import { useTabData } from "../context/TabDataContext";
 const { width } = Dimensions.get("window");
 
 const ConfigureWorkoutScreen = ({ navigation, route }) => {
-  const { refreshTabData } = useTabData();
+  const { refreshTabData, saveWorkout } = useTabData();
   const editingWorkout = route?.params?.editingWorkout;
   const presetData = route?.params;
 
@@ -77,7 +77,30 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
       } else if (editingWorkout) {
         setWorkoutName(editingWorkout.name || "");
         setSelectedMuscleGroups(editingWorkout.muscle_groups || []);
-        setSelectedExercises(editingWorkout.exercises || []);
+
+        // Transform exercises to handle different data formats
+        const transformedExercises = (editingWorkout.exercises || []).map(
+          (exercise) => {
+            // Check if sets is an array (from WorkoutOptionsScreen) or a number (from ConfigureWorkoutScreen)
+            if (Array.isArray(exercise.sets)) {
+              // Convert from WorkoutOptionsScreen format
+              const firstSet = exercise.sets[0] || { reps: 10, weight: 0 };
+              return {
+                ...exercise,
+                sets: exercise.sets.length, // Number of sets
+                reps: firstSet.reps, // Reps from first set
+                weight: firstSet.weight, // Weight from first set
+                rest_seconds: exercise.rest_seconds || 60,
+                set_type: firstSet.set_type || "working"
+              };
+            } else {
+              // Already in ConfigureWorkoutScreen format
+              return exercise;
+            }
+          }
+        );
+
+        setSelectedExercises(transformedExercises);
         setCurrentStep(3);
       } else {
         // Generate default workout name
@@ -190,71 +213,67 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
     try {
       setSaving(true);
 
+      // Transform the local state into the structure the backend expects
+      const formattedExercises = selectedExercises.map((exercise) => {
+        // The `exercise` object in state holds the UI-configured values
+        const configuredReps = exercise.reps;
+        const configuredWeight = exercise.weight;
+
+        return {
+          ...exercise,
+          // Create an array of set objects with the correct property name
+          sets: Array.from({ length: exercise.sets }, (_, i) => ({
+            set_number: i + 1,
+            reps: configuredReps, // Use the value from the UI
+            weight_kg: configuredWeight, // Use the value from the UI
+            set_type: exercise.set_type
+          }))
+        };
+      });
+
       const workoutData = {
         user_id: user.id,
         name: workoutName.trim(),
         muscle_groups: selectedMuscleGroups,
-        exercises: selectedExercises,
+        exercises: formattedExercises, // Use the correctly formatted exercises
         status: "active"
       };
 
-      let workoutId;
+      // Call the context function to save the workout
+      const result = await saveWorkout(workoutData);
 
-      if (editingWorkout) {
-        // Update existing workout
-        workoutId = editingWorkout.id;
-        // Implementation for updating workout would go here
+      if (result.success) {
+        // Refresh data before showing success alert
+        await refreshTabData();
+
+        Alert.alert(
+          "Success",
+          `Workout ${editingWorkout ? "updated" : "created"} successfully!`,
+          [
+            {
+              text: "Start Workout",
+              onPress: () =>
+                navigation.navigate("WorkoutOptions", {
+                  workoutId: result.workout.id,
+                  workoutName: workoutName
+                })
+            },
+            {
+              text: "Back to Home",
+              onPress: () =>
+                navigation.navigate("Tabs", {
+                  screen: "Home",
+                  params: { workoutJustSaved: true }
+                })
+            }
+          ]
+        );
       } else {
-        // Create new workout
-        const { createWorkout } = await import("../services/supabaseWorkouts");
-        const result = await createWorkout(workoutData);
-        workoutId = result.id;
+        throw new Error(result.error || "Failed to save workout.");
       }
-
-      // Save individual exercises
-      const { addWorkoutExercise } = await import(
-        "../services/supabaseWorkouts"
-      );
-      for (const exercise of selectedExercises) {
-        await addWorkoutExercise({
-          workout_id: workoutId,
-          exercise_id: exercise.id,
-          sets: exercise.sets,
-          reps: exercise.reps,
-          weight: exercise.weight,
-          rest_seconds: exercise.rest_seconds,
-          set_type: exercise.set_type
-        });
-      }
-
-      // Refresh data before showing success alert
-      await refreshTabData();
-
-      Alert.alert(
-        "Success",
-        `Workout ${editingWorkout ? "updated" : "created"} successfully!`,
-        [
-          {
-            text: "Start Workout",
-            onPress: () =>
-              navigation.navigate("WorkoutOptions", {
-                workoutId: workoutId,
-                workoutName: workoutName
-              })
-          },
-          {
-            text: "Back to Home",
-            onPress: () =>
-              navigation.navigate("Tabs", {
-                screen: "Home",
-                params: { workoutJustSaved: true }
-              })
-          }
-        ]
-      );
     } catch (error) {
       console.error("Error saving workout:", error);
-      Alert.alert("Error", "Failed to save workout. Please try again.");
+      Alert.alert("Error", `Failed to save workout: ${error.message}`);
     } finally {
       setSaving(false);
     }

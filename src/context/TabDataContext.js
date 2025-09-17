@@ -47,7 +47,7 @@ const mockMuscleRecoveryData = {
 };
 
 // Check if we're in development mode
-const isDevelopment = false;
+const isDevelopment = false; // Set to false to use production logic
 
 export const TabDataProvider = ({ children }) => {
   const [user, setUser] = useState(isDevelopment ? mockUser : null);
@@ -170,22 +170,42 @@ export const TabDataProvider = ({ children }) => {
   };
 
   const saveWorkout = async (workoutData) => {
-    if (isDevelopment) {
-      console.log(" Mock saveWorkout called with:", workoutData.name);
-      const mockWorkout = {
-        id: Date.now().toString(),
-        name: workoutData.name,
-        exercises: workoutData.exercises,
-        created_at: new Date().toISOString()
-      };
-      setActiveWorkout(mockWorkout);
-      await AsyncStorage.setItem("activeWorkout", JSON.stringify(mockWorkout));
-      return { success: true };
-    } else {
-      // Production save logic would go here
-      console.log(" Production saveWorkout called.");
-      return { success: false, error: "Not implemented" };
+    // Always use production logic now
+    console.log("Production saveWorkout called with:", workoutData.name);
+    const { saveWorkout: saveWorkoutToSupabase, getWorkoutDetails } =
+      await import("../services/supabaseWorkouts");
+
+    const result = await saveWorkoutToSupabase(workoutData);
+
+    if (result.success) {
+      // Fetch the complete workout details to ensure we have all sets data
+      const detailsResult = await getWorkoutDetails(result.workout.id);
+
+      if (detailsResult.success) {
+        const completeWorkout = detailsResult.workout;
+        setActiveWorkout(completeWorkout);
+        await AsyncStorage.setItem(
+          "activeWorkout",
+          JSON.stringify(completeWorkout)
+        );
+        console.log(
+          "Saving new workout to AsyncStorage with complete details:",
+          completeWorkout
+        );
+      } else {
+        // Fallback to the original workout if details fetch fails
+        setActiveWorkout(result.workout);
+        await AsyncStorage.setItem(
+          "activeWorkout",
+          JSON.stringify(result.workout)
+        );
+      }
+
+      // Refresh other data that might be affected by a new workout
+      await refreshTabData();
     }
+
+    return result;
   };
 
   const value = {

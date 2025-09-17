@@ -20,15 +20,24 @@ const AddExerciseScreen = ({ navigation, route }) => {
     muscleGroup,
     muscleGroupId,
     previousExercises,
+    currentlySelected,
     returnToPreset,
     onReturnToPreset
   } = route?.params || {};
   const safePreviousExercises = Array.isArray(previousExercises)
     ? previousExercises
     : [];
-  const [selectedExercises, setSelectedExercises] = useState(
-    safePreviousExercises
-  );
+  const safeCurrentlySelected = Array.isArray(currentlySelected)
+    ? currentlySelected
+    : [];
+
+  // Use currentlySelected if available (from WorkoutOptions), otherwise use previousExercises
+  const initialExercises =
+    safeCurrentlySelected.length > 0
+      ? safeCurrentlySelected
+      : safePreviousExercises;
+
+  const [selectedExercises, setSelectedExercises] = useState(initialExercises);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("All");
   const [muscleGroups, setMuscleGroups] = useState([]);
@@ -165,6 +174,7 @@ const AddExerciseScreen = ({ navigation, route }) => {
   const handleSaveExercises = () => {
     console.log("[AddExerciseScreen] handleSaveExercises called");
     console.log("[AddExerciseScreen] selectedExercises:", selectedExercises);
+
     if (route.params?.returnToPreset) {
       // Use DeviceEventEmitter which works on both native and web
       DeviceEventEmitter.emit("onReturnToPreset", {
@@ -173,14 +183,31 @@ const AddExerciseScreen = ({ navigation, route }) => {
       });
       navigation.goBack();
     } else {
+      // If we came from WorkoutOptions with currentlySelected exercises,
+      // only send back the newly added exercises (not the ones that were already there)
+      let exercisesToSend = selectedExercises;
+
+      if (safeCurrentlySelected.length > 0) {
+        // Find only the newly added exercises
+        const currentlySelectedIds = safeCurrentlySelected.map((ex) => ex.id);
+        const newlyAddedExercises = selectedExercises.filter(
+          (exercise) => !currentlySelectedIds.includes(exercise.id)
+        );
+        exercisesToSend = newlyAddedExercises;
+        console.log(
+          "[AddExerciseScreen] Sending only newly added exercises:",
+          exercisesToSend
+        );
+      }
+
       console.log(
         "[AddExerciseScreen] Navigating to WorkoutOptions with selectedExercises:",
-        selectedExercises
+        exercisesToSend
       );
 
       // Navigate to WorkoutOptions with selected exercises
       navigation.navigate("WorkoutOptions", {
-        selectedExercises: [...selectedExercises],
+        selectedExercises: [...exercisesToSend],
         fromAddExercise: true
       });
     }

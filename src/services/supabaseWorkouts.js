@@ -136,7 +136,7 @@ export const addExerciseSet = async (workoutExerciseId, setData) => {
           workout_exercise_id: workoutExerciseId,
           set_number: setData.set_number,
           set_type: setData.set_type || "working",
-          weight_kg: setData.weight || null,
+          weight_kg: setData.weight_kg || null,
           reps: setData.reps,
           rest_seconds: setData.rest_seconds || null
         }
@@ -491,12 +491,16 @@ export const getWorkoutDetails = async (workoutId) => {
       return { success: false, error: "User not authenticated" };
     }
 
-    // Get workout basic info
+    const dbUserId = user.user_metadata?.id;
+    if (!dbUserId) {
+      return { success: false, error: "Database user ID not found" };
+    }
+
     const { data: workout, error: workoutError } = await supabase
       .from("workouts")
       .select("*")
       .eq("id", workoutId)
-      .eq("user_id", user.id)
+      .eq("user_id", dbUserId)
       .single();
 
     if (workoutError) {
@@ -554,6 +558,47 @@ export const getWorkoutDetails = async (workoutId) => {
     };
   } catch (error) {
     console.error("Error in getWorkoutDetails:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+// New comprehensive save workout function
+export const saveWorkout = async (workoutData) => {
+  try {
+    // 1. Create the main workout
+    const workoutResult = await createWorkout(workoutData);
+    if (!workoutResult.success) {
+      return workoutResult; // Propagate error
+    }
+    const workoutId = workoutResult.workout.id;
+
+    // 2. Add exercises and their sets
+    for (const exercise of workoutData.exercises) {
+      const workoutExerciseResult = await addWorkoutExercise(workoutId, {
+        exercise_id: exercise.id,
+        exercise_name: exercise.name,
+        muscle_group:
+          exercise.muscle_group || exercise.target_muscle || "Unknown",
+        target_sets: exercise.sets?.length || 0,
+        order_index: 0
+      });
+
+      if (!workoutExerciseResult.success) {
+        // Optional: Add cleanup logic to delete the workout if an exercise fails
+        return workoutExerciseResult;
+      }
+      const workoutExerciseId = workoutExerciseResult.workoutExercise.id;
+
+      // 3. Add sets for the exercise
+      for (const set of exercise.sets) {
+        await addExerciseSet(workoutExerciseId, set);
+      }
+    }
+
+    // 4. Fetch the complete workout details to return
+    return await getWorkoutDetails(workoutId);
+  } catch (error) {
+    console.error("Error in comprehensive saveWorkout:", error);
     return { success: false, error: error.message };
   }
 };
