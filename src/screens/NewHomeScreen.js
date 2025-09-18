@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import {
   View
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
+import WorkoutPresets from "../components/WorkoutPresets";
 import { useTabData } from "../context/TabDataContext";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -28,6 +30,146 @@ const NewHomeScreen = ({ navigation }) => {
     setMuscleRecoveryData, // Use for optimistic update
     muscleRecoveryData
   } = useTabData();
+
+  const [showPresetsModal, setShowPresetsModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+
+  // Check if user has premium access (placeholder - implement based on your premium system)
+  const isPremiumUser = () => {
+    // For now, return true to show all users the premium features
+    // In production, check user.subscription_status or similar
+    return user?.subscription_status === "premium" || user?.is_premium || true;
+  };
+
+  const handlePremiumFeature = (action) => {
+    if (isPremiumUser()) {
+      action();
+    } else {
+      setShowPremiumModal(true);
+    }
+  };
+
+  const handleCreateTemplate = () => {
+    handlePremiumFeature(() => {
+      setShowPresetsModal(true);
+    });
+  };
+
+  const handleLoadTemplate = async () => {
+    handlePremiumFeature(async () => {
+      try {
+        const presetsData = await AsyncStorage.getItem("workout_presets");
+        const presets = presetsData ? JSON.parse(presetsData) : [];
+
+        if (presets.length === 0) {
+          Alert.alert(
+            "No Templates Found",
+            "You haven't created any workout templates yet. Create one to get started!",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Create Template", onPress: handleCreateTemplate }
+            ]
+          );
+          return;
+        }
+
+        // Show preset selection modal
+        setShowPresetsModal(true);
+      } catch (error) {
+        console.error("Error loading templates:", error);
+        Alert.alert("Error", "Failed to load workout templates.");
+      }
+    });
+  };
+
+  const handleSaveCurrentAsTemplate = () => {
+    handlePremiumFeature(() => {
+      if (
+        !activeWorkout ||
+        !activeWorkout.exercises ||
+        activeWorkout.exercises.length === 0
+      ) {
+        Alert.alert(
+          "No Active Workout",
+          "You need an active workout with exercises to save it as a template.",
+          [
+            { text: "OK" },
+            { text: "Start Workout", onPress: handleStartWorkout }
+          ]
+        );
+        return;
+      }
+
+      Alert.alert(
+        "Save as Template",
+        `Do you want to save "${activeWorkout.name}" as a new workout template?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Save Template",
+            onPress: async () => {
+              try {
+                const presetsData = await AsyncStorage.getItem(
+                  "workout_presets"
+                );
+                const presets = presetsData ? JSON.parse(presetsData) : [];
+
+                const newTemplate = {
+                  id: Date.now(),
+                  name: `${activeWorkout.name} Template`,
+                  exercises: activeWorkout.exercises.map((exercise) => ({
+                    id: exercise.id,
+                    name: exercise.name,
+                    muscle_groups: exercise.muscle_groups,
+                    target_muscle: exercise.target_muscle,
+                    muscle_group: exercise.muscle_group,
+                    sets: exercise.sets || [],
+                    rest_seconds: exercise.rest_seconds || 60
+                  })),
+                  created_at: new Date().toISOString()
+                };
+
+                const updatedPresets = [...presets, newTemplate];
+                await AsyncStorage.setItem(
+                  "workout_presets",
+                  JSON.stringify(updatedPresets)
+                );
+
+                Alert.alert(
+                  "Success!",
+                  "Your workout has been saved as a template."
+                );
+              } catch (error) {
+                console.error("Error saving template:", error);
+                Alert.alert(
+                  "Error",
+                  "Could not save the workout as a template."
+                );
+              }
+            }
+          }
+        ]
+      );
+    });
+  };
+
+  const handleUpgradeToPremium = () => {
+    setShowPremiumModal(false);
+    Alert.alert(
+      "Upgrade to Premium",
+      "Unlock workout templates, advanced analytics, and more!",
+      [
+        { text: "Maybe Later", style: "cancel" },
+        {
+          text: "Upgrade Now",
+          onPress: () => {
+            // You can navigate to your premium upgrade screen here
+            console.log("Navigate to premium upgrade screen");
+          }
+        }
+      ]
+    );
+  };
 
   const handleStartWorkout = () => {
     navigation.navigate("WorkoutOptions");
@@ -386,10 +528,10 @@ const NewHomeScreen = ({ navigation }) => {
         <View style={styles.quickActionsGrid}>
           <TouchableOpacity
             style={styles.quickActionCard}
-            onPress={() => navigation.navigate("Calculator")}
+            onPress={handleLoadTemplate}
           >
-            <Ionicons name="calculator" size={32} color="#4CAF50" />
-            <Text style={styles.quickActionText}>Frequency Calculator</Text>
+            <Ionicons name="add-circle" size={32} color="#4CAF50" />
+            <Text style={styles.quickActionText}>Create Preset</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickActionCard}
@@ -399,7 +541,110 @@ const NewHomeScreen = ({ navigation }) => {
             <Text style={styles.quickActionText}>Recovery Guide</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Premium Template Features */}
+        <View style={styles.premiumSection}>
+          {activeWorkout && (
+            <TouchableOpacity
+              style={[
+                styles.quickActionCard,
+                styles.premiumActionCard,
+                styles.fullWidthCard
+              ]}
+              onPress={handleSaveCurrentAsTemplate}
+            >
+              <Ionicons name="bookmark" size={32} color="#fff" />
+              <Text style={styles.quickActionText}>
+                Save Current as Template
+              </Text>
+              {!isPremiumUser() && (
+                <Ionicons
+                  name="lock-closed"
+                  size={16}
+                  color="#FFD700"
+                  style={styles.lockIcon}
+                />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
+
+      {/* Workout Presets Modal */}
+      <Modal
+        visible={showPresetsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPresetsModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Workout Templates</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowPresetsModal(false)}
+            >
+              <Ionicons name="close" size={28} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <WorkoutPresets />
+        </View>
+      </Modal>
+
+      {/* Premium Upgrade Modal */}
+      <Modal
+        visible={showPremiumModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowPremiumModal(false)}
+      >
+        <View style={styles.premiumModalOverlay}>
+          <View style={styles.premiumModalContent}>
+            <View style={styles.premiumModalHeader}>
+              <Ionicons name="star" size={48} color="#FFD700" />
+              <Text style={styles.premiumModalTitle}>Unlock Premium</Text>
+            </View>
+            <Text style={styles.premiumModalText}>
+              Create, save, and load custom workout templates to streamline your
+              training and reach your goals faster!
+            </Text>
+            <View style={styles.premiumFeaturesList}>
+              <View style={styles.premiumFeatureItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.premiumFeatureText}>
+                  Unlimited workout templates
+                </Text>
+              </View>
+              <View style={styles.premiumFeatureItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.premiumFeatureText}>
+                  Save active workouts as templates
+                </Text>
+              </View>
+              <View style={styles.premiumFeatureItem}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.premiumFeatureText}>
+                  Load templates in one tap
+                </Text>
+              </View>
+            </View>
+            <View style={styles.premiumModalButtons}>
+              <TouchableOpacity
+                style={styles.upgradeButton}
+                onPress={handleUpgradeToPremium}
+              >
+                <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowPremiumModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Maybe Later</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -646,6 +891,142 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: "center",
     fontSize: 14
+  },
+  premiumSection: {
+    marginTop: 30
+  },
+  premiumHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+    paddingHorizontal: 20
+  },
+  premiumBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFD700",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    color: "#000",
+    fontWeight: "bold",
+    marginLeft: 4
+  },
+  premiumActionCard: {
+    backgroundColor: "#2a2d40",
+    borderColor: "#6b46c1",
+    borderWidth: 1
+  },
+  lockIcon: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    opacity: 0.7
+  },
+  fullWidthCard: {
+    flex: 1,
+    marginTop: 10,
+    marginHorizontal: 20
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#1a1c2e"
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2a2d40"
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#fff"
+  },
+  closeButton: {
+    padding: 8
+  },
+  premiumModalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.8)"
+  },
+  premiumModalContent: {
+    backgroundColor: "#23263a",
+    borderRadius: 16,
+    padding: 24,
+    width: "85%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: "#FFD700"
+  },
+  premiumModalHeader: {
+    alignItems: "center",
+    marginBottom: 16
+  },
+  premiumModalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+    marginTop: 12
+  },
+  premiumModalText: {
+    fontSize: 16,
+    color: "#b0b3c2",
+    marginBottom: 24,
+    textAlign: "center",
+    lineHeight: 24
+  },
+  premiumFeaturesList: {
+    marginBottom: 24,
+    alignItems: "flex-start"
+  },
+  premiumFeatureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12
+  },
+  premiumFeatureText: {
+    fontSize: 15,
+    color: "#e2e8f0",
+    marginLeft: 12,
+    flex: 1
+  },
+  premiumModalButtons: {
+    gap: 12
+  },
+  upgradeButton: {
+    backgroundColor: "#4CAF50",
+    paddingVertical: 14,
+    borderRadius: 8
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "bold",
+    textAlign: "center"
+  },
+  cancelButton: {
+    backgroundColor: "transparent",
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#4b5563"
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: "#b0b3c2",
+    fontWeight: "500",
+    textAlign: "center"
   }
 });
 

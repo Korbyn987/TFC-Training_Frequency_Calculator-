@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {
   View
 } from "react-native";
 import { useDispatch } from "react-redux";
+import WorkoutPresets from "../components/WorkoutPresets";
 import { useTabData } from "../context/TabDataContext";
 import { resetMuscleRecovery } from "../redux/workoutSlice";
 
@@ -27,10 +29,61 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
   const [user, setUser] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [workoutId, setWorkoutId] = useState(null);
+  const [showPresetsModal, setShowPresetsModal] = useState(false);
   const dispatch = useDispatch();
 
   useEffect(() => {
     loadUser();
+
+    // Handle preset data from WorkoutPresets
+    if (route.params?.presetData && route.params?.fromPreset) {
+      const preset = route.params.presetData;
+
+      const presetExercisesWithDefaults = preset.exercises.map((exercise) => ({
+        ...exercise,
+        sets:
+          exercise.sets && exercise.sets.length > 0
+            ? exercise.sets.map((s) => ({ ...s, id: Math.random() }))
+            : [
+                {
+                  id: Math.random(),
+                  reps: 10,
+                  weight: 0,
+                  set_type: "working",
+                  completed: false
+                },
+                {
+                  id: Math.random(),
+                  reps: 10,
+                  weight: 0,
+                  set_type: "working",
+                  completed: false
+                },
+                {
+                  id: Math.random(),
+                  reps: 10,
+                  weight: 0,
+                  set_type: "working",
+                  completed: false
+                }
+              ],
+        rest_seconds: exercise.rest_seconds || 60
+      }));
+
+      setSelectedExercises(presetExercisesWithDefaults);
+      setWorkoutName(
+        preset.name.replace(" Template", "") || `Workout from ${preset.name}`
+      );
+
+      // Close the modal after loading a preset
+      setShowPresetsModal(false);
+
+      // Clear params to prevent re-processing
+      navigation.setParams({
+        presetData: undefined,
+        fromPreset: undefined
+      });
+    }
 
     // Handle exercises from AddExercise screen
     if (route.params?.selectedExercises && route.params?.fromAddExercise) {
@@ -396,7 +449,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
 
           <TouchableOpacity
             style={styles.optionButton}
-            onPress={() => navigation.navigate("SelectRoutine")}
+            onPress={() => setShowPresetsModal(true)}
           >
             <View style={styles.optionIcon}>
               <Ionicons name="list-circle" size={32} color="#4CAF50" />
@@ -407,6 +460,26 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <Modal
+          visible={showPresetsModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowPresetsModal(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select a Template</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowPresetsModal(false)}
+              >
+                <Ionicons name="close" size={28} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <WorkoutPresets />
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -914,6 +987,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#fff",
     marginLeft: 10
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#1a1c2e"
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2a2d40"
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#fff"
+  },
+  closeButton: {
+    padding: 8
   }
 });
 

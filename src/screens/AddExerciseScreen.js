@@ -222,8 +222,8 @@ const AddExerciseScreen = ({ navigation, route }) => {
       const matchesQuery = exercise.name.toLowerCase().includes(query);
       const matchesGroup =
         activeGroup === "All" ||
-        exercise.muscle_group_id === activeGroup ||
-        exercise.muscleGroupId === activeGroup; // fallback for different naming
+        (exercise.muscle_groups && exercise.muscle_groups.id === activeGroup) ||
+        exercise.muscle_group_id === activeGroup; // fallback for different data structures
       return matchesQuery && matchesGroup;
     });
   };
@@ -236,7 +236,6 @@ const AddExerciseScreen = ({ navigation, route }) => {
         activeGroup === (group ? group.id : "All") && styles.activeGroupButton
       ]}
       onPress={() => {
-        console.log("Selected muscle group:", group ? group.name : "All");
         setActiveGroup(group ? group.id : "All");
       }}
     >

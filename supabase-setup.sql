@@ -349,7 +349,14 @@ INSERT INTO exercises (id, name, muscle_group_id, description) VALUES
 (115, 'Step-Ups', 6, 'Unilateral exercise using platform'),
 (116, 'Goblet Squat', 6, 'Squat variation using dumbbell or kettlebell'),
 (117, 'Hack Squat', 6, 'Machine-based squat variation'),
-(118, 'Smith Machine Squat', 6, 'Guided barbell squat')
+(118, 'Smith Machine Squat', 6, 'Guided barbell squat'),
+
+-- Hamstrings (7) - Updated to use correct muscle group ID
+(119, 'Romanian Deadlift', 7, 'Hinge movement targeting hamstrings and glutes'),
+(120, 'Lying Leg Curl', 7, 'Isolation exercise for hamstrings on a machine'),
+(121, 'Seated Leg Curl', 7, 'Seated isolation exercise for hamstrings'),
+(122, 'Good Morning', 7, 'Hip-hinge movement for lower back and hamstrings'),
+(123, 'Kettlebell Swing', 7, 'Explosive hip hinge targeting hamstrings and glutes')
 ON CONFLICT (id) DO NOTHING;
 
 -- Create indexes for performance
