@@ -306,6 +306,36 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
     console.log("getUserWorkoutHistory: Database user ID:", dbUserId);
     console.log("getUserWorkoutHistory: Passed userId:", userId);
 
+    if (!dbUserId) {
+      console.error("getUserWorkoutHistory: Database user ID not found");
+      return { success: false, error: "Database user ID not found" };
+    }
+
+    // First, let's check ALL workouts for this user (including incomplete ones) for debugging
+    const { data: allWorkouts, error: allError } = await supabase
+      .from("workouts")
+      .select("id, name, completed_at, created_at, user_id")
+      .eq("user_id", dbUserId)
+      .order("created_at", { ascending: false });
+
+    if (allError) {
+      console.error("Error fetching all workouts for debugging:", allError);
+    } else {
+      console.log(
+        "getUserWorkoutHistory: Total workouts for user:",
+        allWorkouts?.length || 0
+      );
+      console.log("getUserWorkoutHistory: All workouts breakdown:");
+      allWorkouts?.forEach((workout, index) => {
+        console.log(
+          `  ${index + 1}. ${workout.name} - Created: ${
+            workout.created_at
+          } - Completed: ${workout.completed_at || "NOT COMPLETED"}`
+        );
+      });
+    }
+
+    // Now get the completed workouts with full details
     const { data, error } = await supabase
       .from("workouts")
       .select(
@@ -323,11 +353,55 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
       .limit(limit);
 
     if (error) {
-      console.error("Error fetching workout history:", error);
+      console.error("Error fetching completed workout history:", error);
       return { success: false, error: error.message };
     }
 
-    console.log("getUserWorkoutHistory: Found workouts:", data?.length || 0);
+    console.log(
+      "getUserWorkoutHistory: Found completed workouts:",
+      data?.length || 0
+    );
+
+    // Log details of completed workouts
+    if (data && data.length > 0) {
+      console.log("getUserWorkoutHistory: Completed workouts details:");
+      data.forEach((workout, index) => {
+        const completedDate = new Date(
+          workout.completed_at
+        ).toLocaleDateString();
+        console.log(
+          `  ${index + 1}. ${workout.name} - Completed: ${completedDate} (${
+            workout.completed_at
+          })`
+        );
+      });
+    }
+
+    // Also check for workouts that might have been completed but have null completed_at
+    const { data: possiblyMissedWorkouts, error: missedError } = await supabase
+      .from("workouts")
+      .select("id, name, created_at, completed_at, duration_minutes")
+      .eq("user_id", dbUserId)
+      .is("completed_at", null)
+      .not("duration_minutes", "is", null); // Has duration but no completed_at
+
+    if (
+      !missedError &&
+      possiblyMissedWorkouts &&
+      possiblyMissedWorkouts.length > 0
+    ) {
+      console.log(
+        "getUserWorkoutHistory: Found workouts with duration but no completed_at:"
+      );
+      possiblyMissedWorkouts.forEach((workout, index) => {
+        console.log(
+          `  ${index + 1}. ${workout.name} - Duration: ${
+            workout.duration_minutes
+          }min - Created: ${workout.created_at}`
+        );
+      });
+    }
+
     return { success: true, workouts: data || [] };
   } catch (error) {
     console.error("Error in getUserWorkoutHistory:", error);
@@ -338,32 +412,56 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
 // Get user stats
 export const getUserStats = async (userId) => {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      console.error("getUserStats: User not authenticated");
+      return { success: false, error: "User not authenticated" };
+    }
+
+    // Use database user ID from user_metadata, not auth user ID
+    const dbUserId = user.user_metadata?.id;
+    console.log("getUserStats: Auth user ID:", user.id);
+    console.log("getUserStats: Database user ID:", dbUserId);
+    console.log("getUserStats: Passed userId:", userId);
+
+    if (!dbUserId) {
+      console.error("getUserStats: Database user ID not found");
+      return { success: false, error: "Database user ID not found" };
+    }
+
     // Get basic user stats
     const { data: statsData, error: statsError } = await supabase
       .from("user_stats")
       .select("*")
-      .eq("user_id", userId)
+      .eq("user_id", dbUserId)
       .single();
 
     // Get workout count and total time from workouts table
     const { data: workoutData, error: workoutError } = await supabase
       .from("workouts")
       .select("duration_minutes, completed_at, created_at")
-      .eq("user_id", userId)
+      .eq("user_id", dbUserId)
       .not("completed_at", "is", null);
 
-    // Get personal records from workout_sets table
+    // Get personal records from exercise_sets table with proper joins
     const { data: prData, error: prError } = await supabase
-      .from("workout_sets")
+      .from("exercise_sets")
       .select(
         `
-        weight,
+        weight_kg,
         reps,
-        exercises (name, muscle_group)
+        workout_exercises!inner (
+          exercise_name,
+          muscle_group,
+          workouts!inner (
+            user_id
+          )
+        )
       `
       )
-      .eq("user_id", userId)
-      .order("weight", { ascending: false })
+      .eq("workout_exercises.workouts.user_id", dbUserId)
+      .not("weight_kg", "is", null)
+      .order("weight_kg", { ascending: false })
       .limit(1);
 
     const defaultStats = {
@@ -380,48 +478,82 @@ export const getUserStats = async (userId) => {
       console.error("Error fetching user stats:", statsError);
     }
 
+    if (workoutError) {
+      console.error("Error fetching workout data:", workoutError);
+    }
+
+    if (prError) {
+      console.error("Error fetching personal records:", prError);
+    }
+
     // Calculate enhanced stats from workout data
     let calculatedStats = { ...defaultStats };
 
     if (workoutData && workoutData.length > 0) {
+      console.log("getUserStats: Processing", workoutData.length, "workouts");
+
       calculatedStats.totalWorkouts = workoutData.length;
-      calculatedStats.totalTime = workoutData.reduce(
-        (sum, w) => sum + (w.duration_minutes || 0),
-        0
-      );
-      calculatedStats.averageWorkoutTime = Math.round(
-        calculatedStats.totalTime / calculatedStats.totalWorkouts
+
+      // Calculate total time (ensure all values are positive numbers)
+      calculatedStats.totalTime = workoutData.reduce((sum, w) => {
+        const duration = Math.max(0, w.duration_minutes || 0);
+        return sum + duration;
+      }, 0);
+
+      // Calculate average workout time (ensure positive result)
+      calculatedStats.averageWorkoutTime =
+        calculatedStats.totalWorkouts > 0
+          ? Math.round(
+              calculatedStats.totalTime / calculatedStats.totalWorkouts
+            )
+          : 0;
+
+      // Ensure averageWorkoutTime is not negative
+      calculatedStats.averageWorkoutTime = Math.max(
+        0,
+        calculatedStats.averageWorkoutTime
       );
 
       // Calculate workouts this month
       const thisMonth = new Date();
       thisMonth.setDate(1);
-      calculatedStats.workoutsThisMonth = workoutData.filter(
-        (w) => new Date(w.completed_at) >= thisMonth
-      ).length;
+      thisMonth.setHours(0, 0, 0, 0);
+
+      calculatedStats.workoutsThisMonth = workoutData.filter((w) => {
+        const workoutDate = new Date(w.completed_at);
+        return workoutDate >= thisMonth;
+      }).length;
+
+      console.log("getUserStats: Calculated stats:", {
+        totalWorkouts: calculatedStats.totalWorkouts,
+        totalTime: calculatedStats.totalTime,
+        averageWorkoutTime: calculatedStats.averageWorkoutTime,
+        workoutsThisMonth: calculatedStats.workoutsThisMonth
+      });
     }
 
     // Add personal record
     if (prData && prData.length > 0) {
       calculatedStats.personalRecord = {
-        weight: prData[0].weight,
+        weight: prData[0].weight_kg,
         reps: prData[0].reps,
-        exercise: prData[0].exercises?.name || "Unknown"
+        exercise: prData[0].workout_exercises?.exercise_name || "Unknown"
       };
     }
 
-    // Merge with database stats if available
+    // Merge with database stats if available, but prioritize calculated values
     const finalStats = {
-      ...calculatedStats,
+      ...defaultStats,
       ...(statsData || {}),
-      // Override calculated values
+      // Always use calculated values to ensure accuracy
       totalWorkouts: calculatedStats.totalWorkouts,
-      totalTime: calculatedStats.totalTime,
-      averageWorkoutTime: calculatedStats.averageWorkoutTime,
+      totalTime: Math.max(0, calculatedStats.totalTime), // Ensure positive
+      averageWorkoutTime: Math.max(0, calculatedStats.averageWorkoutTime), // Ensure positive
       workoutsThisMonth: calculatedStats.workoutsThisMonth,
       personalRecord: calculatedStats.personalRecord
     };
 
+    console.log("getUserStats: Final stats:", finalStats);
     return { success: true, stats: finalStats };
   } catch (error) {
     console.error("Error in getUserStats:", error);

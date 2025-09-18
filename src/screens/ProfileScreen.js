@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import CustomAlert from "../components/CustomAlert"; // Import the new component
 import LoginRequiredModal from "../components/LoginRequiredModal";
 import { useTabData } from "../context/TabDataContext";
 
@@ -24,6 +24,12 @@ const ProfileScreen = ({ navigation }) => {
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [workoutDetails, setWorkoutDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
+  const [alertInfo, setAlertInfo] = useState({
+    visible: false,
+    title: "",
+    message: ""
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -35,23 +41,32 @@ const ProfileScreen = ({ navigation }) => {
   }, [user, loading]);
 
   const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const { logoutUser } = await import("../services/supabaseAuth");
-            await logoutUser();
-            navigation.navigate("Login");
-          } catch (error) {
-            console.error("Logout error:", error);
-            Alert.alert("Error", "Failed to logout");
+    setAlertInfo({
+      visible: true,
+      title: "Logout",
+      message: "Are you sure you want to logout?",
+      buttons: [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { logoutUser } = await import("../services/supabaseAuth");
+              await logoutUser();
+              navigation.navigate("Login");
+            } catch (error) {
+              console.error("Logout error:", error);
+              setAlertInfo({
+                visible: true,
+                title: "Error",
+                message: "Failed to logout"
+              });
+            }
           }
         }
-      }
-    ]);
+      ]
+    });
   };
 
   const handleLoginSuccess = () => {
@@ -79,16 +94,24 @@ const ProfileScreen = ({ navigation }) => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
+    const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday
 
     const days = [];
+    const totalCells = 42; // 6 weeks × 7 days = consistent grid
 
+    // Add empty cells for days before the month starts
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
 
+    // Add the actual days of the current month
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(new Date(year, month, day));
+    }
+
+    // Fill remaining cells to complete the 6-week grid
+    while (days.length < totalCells) {
+      days.push(null);
     }
 
     return days;
@@ -123,11 +146,19 @@ const ProfileScreen = ({ navigation }) => {
       if (result.success) {
         setWorkoutDetails(result.workout);
       } else {
-        Alert.alert("Error", "Failed to load workout details");
+        setAlertInfo({
+          visible: true,
+          title: "Error",
+          message: "Failed to load workout details"
+        });
       }
     } catch (error) {
       console.error("Error loading workout details:", error);
-      Alert.alert("Error", "Failed to load workout details");
+      setAlertInfo({
+        visible: true,
+        title: "Error",
+        message: "Failed to load workout details"
+      });
     } finally {
       setLoadingDetails(false);
     }
@@ -138,6 +169,80 @@ const ProfileScreen = ({ navigation }) => {
     setSelectedWorkout(null);
     setWorkoutDetails(null);
   };
+
+  const handleDatePress = (day) => {
+    if (!day) return;
+
+    const isCreationDay =
+      user?.created_at &&
+      new Date(day).toDateString() === new Date(user.created_at).toDateString();
+
+    if (isCreationDay) {
+      setAlertInfo({
+        visible: true,
+        title: "Journey Started!",
+        message: `You created your account on ${new Date(
+          user.created_at
+        ).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric"
+        })}.`
+      });
+    } else {
+      setSelectedDate(day);
+    }
+  };
+
+  const navigateMonth = (direction) => {
+    const newMonth = new Date(currentMonth);
+    newMonth.setMonth(currentMonth.getMonth() + direction);
+    setCurrentMonth(newMonth);
+    setSelectedDate(null); // Clear selected date when changing months
+  };
+
+  const navigateToToday = () => {
+    setCurrentMonth(new Date());
+    setSelectedDate(null);
+  };
+
+  const openMonthYearPicker = () => {
+    if (user?.is_premium) {
+      setShowMonthYearPicker(true);
+    }
+  };
+
+  const selectMonthYear = (year, month) => {
+    const newDate = new Date(year, month, 1);
+    setCurrentMonth(newDate);
+    setSelectedDate(null);
+    setShowMonthYearPicker(false);
+  };
+
+  const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const startYear = Math.max(2020, currentYear - 10); // Go back 10 years or to 2020
+    const years = [];
+    for (let year = currentYear; year >= startYear; year--) {
+      years.push(year);
+    }
+    return years;
+  };
+
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+  ];
 
   if (loading) {
     return (
@@ -241,28 +346,78 @@ const ProfileScreen = ({ navigation }) => {
         <Text style={styles.sectionTitle}>Workout History</Text>
         <View style={styles.calendarContainer}>
           <View style={styles.calendarHeader}>
-            <Text style={styles.calendarMonth}>
-              {currentMonth.toLocaleString("en-US", {
-                month: "long",
-                year: "numeric"
-              })}
-            </Text>
+            <TouchableOpacity
+              style={styles.monthNavButton}
+              onPress={() => navigateMonth(-1)}
+            >
+              <Ionicons name="chevron-back" size={20} color="#4CAF50" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.calendarMonthButton}
+              onPress={openMonthYearPicker}
+            >
+              <Text style={styles.calendarMonth}>
+                {currentMonth.toLocaleString("en-US", {
+                  month: "long",
+                  year: "numeric"
+                })}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.monthNavButton}
+              onPress={() => navigateMonth(1)}
+            >
+              <Ionicons name="chevron-forward" size={20} color="#4CAF50" />
+            </TouchableOpacity>
           </View>
+
+          {user?.is_premium && (
+            <TouchableOpacity
+              style={styles.todayButton}
+              onPress={navigateToToday}
+            >
+              <Text style={styles.todayButtonText}>Today</Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.calendarWeekdays}>
+            <Text style={styles.calendarWeekday}>Sun</Text>
+            <Text style={styles.calendarWeekday}>Mon</Text>
+            <Text style={styles.calendarWeekday}>Tue</Text>
+            <Text style={styles.calendarWeekday}>Wed</Text>
+            <Text style={styles.calendarWeekday}>Thu</Text>
+            <Text style={styles.calendarWeekday}>Fri</Text>
+            <Text style={styles.calendarWeekday}>Sat</Text>
+          </View>
+
           <View style={styles.calendarGrid}>
-            {getDaysInMonth(currentMonth).map((day, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.calendarDay,
-                  day && hasWorkoutOnDate(day) && styles.calendarDayWithWorkout
-                ]}
-                onPress={() => setSelectedDate(day)}
-              >
-                {day && (
-                  <Text style={styles.calendarDayText}>{day.getDate()}</Text>
-                )}
-              </TouchableOpacity>
-            ))}
+            {getDaysInMonth(currentMonth).map((day, index) => {
+              const isCreationDay =
+                day &&
+                user?.created_at &&
+                new Date(day).toDateString() ===
+                  new Date(user.created_at).toDateString();
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.calendarDay,
+                    day &&
+                      hasWorkoutOnDate(day) &&
+                      styles.calendarDayWithWorkout,
+                    isCreationDay && styles.creationDayIndicator
+                  ]}
+                  onPress={() => handleDatePress(day)}
+                >
+                  {day && (
+                    <Text style={styles.calendarDayText}>{day.getDate()}</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
         {selectedDate && (
@@ -435,6 +590,84 @@ const ProfileScreen = ({ navigation }) => {
           )}
         </View>
       </Modal>
+
+      {/* Month/Year Picker Modal */}
+      <Modal
+        visible={showMonthYearPicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowMonthYearPicker(false)}
+      >
+        <View style={styles.monthYearModalOverlay}>
+          <View style={styles.monthYearModalContainer}>
+            <View style={styles.monthYearModalHeader}>
+              <Text style={styles.monthYearModalTitle}>
+                Select Month & Year
+              </Text>
+              <TouchableOpacity
+                style={styles.monthYearModalCloseButton}
+                onPress={() => setShowMonthYearPicker(false)}
+              >
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.monthYearModalScrollView}>
+              {generateYearOptions().map((year) => (
+                <View key={year} style={styles.yearSection}>
+                  <Text style={styles.yearSectionTitle}>{year}</Text>
+                  <View style={styles.monthGrid}>
+                    {monthNames.map((monthName, monthIndex) => {
+                      const isCurrentMonth =
+                        year === currentMonth.getFullYear() &&
+                        monthIndex === currentMonth.getMonth();
+                      const isFutureMonth =
+                        year > new Date().getFullYear() ||
+                        (year === new Date().getFullYear() &&
+                          monthIndex > new Date().getMonth());
+
+                      return (
+                        <TouchableOpacity
+                          key={monthIndex}
+                          style={[
+                            styles.monthButton,
+                            isCurrentMonth && styles.monthButtonSelected,
+                            isFutureMonth && styles.monthButtonDisabled
+                          ]}
+                          onPress={() =>
+                            !isFutureMonth && selectMonthYear(year, monthIndex)
+                          }
+                          disabled={isFutureMonth}
+                        >
+                          <Text
+                            style={[
+                              styles.monthButtonText,
+                              isCurrentMonth && styles.monthButtonTextSelected,
+                              isFutureMonth && styles.monthButtonTextDisabled
+                            ]}
+                          >
+                            {monthName.substring(0, 3)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <CustomAlert
+        visible={alertInfo.visible}
+        title={alertInfo.title}
+        message={alertInfo.message}
+        buttons={alertInfo.buttons}
+        onClose={() =>
+          setAlertInfo({ visible: false, title: "", message: "", buttons: [] })
+        }
+      />
     </ScrollView>
   );
 };
@@ -519,44 +752,114 @@ const styles = StyleSheet.create({
     textAlign: "center"
   },
   workoutsSection: {
-    padding: 20,
-    paddingTop: 0
+    paddingHorizontal: 12,
+    paddingTop: 0,
+    paddingBottom: 0
   },
   calendarContainer: {
-    backgroundColor: "#23263a",
+    backgroundColor: "#1a1d2e",
     borderRadius: 12,
-    padding: 15,
-    marginBottom: 10
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
   },
   calendarHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10
+    marginBottom: 10,
+    paddingHorizontal: 4
   },
   calendarMonth: {
-    fontSize: 18,
-    color: "#fff"
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#fff",
+    letterSpacing: 0.5
+  },
+  monthNavButton: {
+    backgroundColor: "#2a2d42",
+    borderRadius: 8,
+    padding: 8,
+    minWidth: 36,
+    alignItems: "center"
+  },
+  calendarWeekdays: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    backgroundColor: "#23263a",
+    borderRadius: 8,
+    paddingVertical: 6
+  },
+  calendarWeekday: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#8b92b0",
+    width: "14.28%",
+    textAlign: "center",
+    letterSpacing: 0.3
   },
   calendarGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-around"
+    justifyContent: "space-around",
+    paddingHorizontal: 4
   },
   calendarDay: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: "13%",
+    aspectRatio: 1,
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    margin: 5
+    marginHorizontal: "0.5%",
+    marginVertical: 4,
+    backgroundColor: "transparent"
   },
   calendarDayWithWorkout: {
-    backgroundColor: "#4CAF50"
+    backgroundColor: "#4CAF50",
+    shadowColor: "#4CAF50",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2
+  },
+  creationDayIndicator: {
+    backgroundColor: "#2196F3",
+    shadowColor: "#2196F3",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2
   },
   calendarDayText: {
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: "500",
     color: "#fff"
+  },
+  todayButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    alignSelf: "center",
+    marginBottom: 8,
+    shadowColor: "#4CAF50",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2
+  },
+  todayButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.3
   },
   workoutDetailsContainer: {
     backgroundColor: "#23263a",
@@ -700,6 +1003,107 @@ const styles = StyleSheet.create({
   noSetsText: {
     fontSize: 14,
     color: "#888"
+  },
+  monthNavButton: {
+    padding: 10
+  },
+  calendarMonthButton: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row"
+  },
+  monthYearModalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)"
+  },
+  monthYearModalContainer: {
+    backgroundColor: "#1a1c2e",
+    borderRadius: 12,
+    padding: 20,
+    width: "85%",
+    maxHeight: "75%",
+    minHeight: 400
+  },
+  monthYearModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#333"
+  },
+  monthYearModalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff"
+  },
+  monthYearModalCloseButton: {
+    padding: 5,
+    borderRadius: 20,
+    backgroundColor: "#333"
+  },
+  monthYearModalScrollView: {
+    flex: 1
+  },
+  yearSection: {
+    marginBottom: 25
+  },
+  yearSectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#4CAF50",
+    marginBottom: 15,
+    textAlign: "center"
+  },
+  monthGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between"
+  },
+  monthButton: {
+    width: "30%",
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#23263a",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10
+  },
+  monthButtonSelected: {
+    backgroundColor: "#4CAF50"
+  },
+  monthButtonDisabled: {
+    backgroundColor: "#333",
+    opacity: 0.5
+  },
+  monthButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#fff"
+  },
+  monthButtonTextSelected: {
+    color: "#fff",
+    fontWeight: "bold"
+  },
+  monthButtonTextDisabled: {
+    color: "#888"
+  },
+  calendarWeekdays: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 10,
+    width: "100%"
+  },
+  calendarWeekday: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#888",
+    width: "14.28%",
+    textAlign: "center"
   }
 });
 
