@@ -72,3 +72,6 @@ npm run start-web
 ## RUnning Android App
 1. & "$env:ANDROID_HOME\emulator\emulator" -avd Pixel_9_API_36
 2. npx expo run:android -d Pixel_9_API_36 #run in powershell
+3. npx supabase login 
+4. npx supabase secrets set OPENAI_API_KEY="API Key"
+5. npx supabase functions deploy generate-workout-plan --no-verify-jwt 

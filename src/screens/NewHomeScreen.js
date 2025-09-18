@@ -528,10 +528,37 @@ const NewHomeScreen = ({ navigation }) => {
         <View style={styles.quickActionsGrid}>
           <TouchableOpacity
             style={styles.quickActionCard}
+            onPress={() =>
+              handlePremiumFeature(() =>
+                navigation.navigate("AIWorkoutPlanner")
+              )
+            }
+          >
+            <Ionicons name="bulb-outline" size={32} color="#4CAF50" />
+            <Text style={styles.quickActionText}>AI Planner</Text>
+            {!isPremiumUser() && (
+              <Ionicons
+                name="lock-closed"
+                size={16}
+                color="#FFD700"
+                style={styles.lockIcon}
+              />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionCard}
             onPress={handleLoadTemplate}
           >
             <Ionicons name="add-circle" size={32} color="#4CAF50" />
             <Text style={styles.quickActionText}>Create Preset</Text>
+            {!isPremiumUser() && (
+              <Ionicons
+                name="lock-closed"
+                size={16}
+                color="#FFD700"
+                style={styles.lockIcon}
+              />
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickActionCard}

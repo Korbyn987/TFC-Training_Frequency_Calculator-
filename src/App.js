@@ -14,6 +14,7 @@ import { persistor, store } from "./redux/store";
 // Import real screens
 import AboutScreen from "./screens/AboutScreen";
 import AddExerciseScreen from "./screens/AddExerciseScreen";
+import AIWorkoutPlannerScreen from "./screens/AIWorkoutPlannerScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import ConfigureWorkoutScreen from "./screens/ConfigureWorkoutScreen";
 import LoginScreen from "./screens/LoginScreen";
@@ -124,6 +125,19 @@ const AppContent = () => {
                   <Stack.Screen
                     name="WorkoutDetail"
                     component={WorkoutDetailScreen}
+                  />
+                  <Stack.Screen
+                    name="AIWorkoutPlanner"
+                    component={AIWorkoutPlannerScreen}
+                    options={{
+                      headerShown: true,
+                      title: "AI Workout Planner",
+                      headerStyle: {
+                        backgroundColor: "#1a1c2e"
+                      },
+                      headerTintColor: "#fff",
+                      headerBackTitleVisible: false
+                    }}
                   />
                 </Stack.Navigator>
               </TabDataProvider>
