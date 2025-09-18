@@ -17,6 +17,7 @@ import AddExerciseScreen from "./screens/AddExerciseScreen";
 import AIWorkoutPlannerScreen from "./screens/AIWorkoutPlannerScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import ConfigureWorkoutScreen from "./screens/ConfigureWorkoutScreen";
+import FindFriendsScreen from "./screens/FindFriendsScreen";
 import LoginScreen from "./screens/LoginScreen";
 import NewHomeScreen from "./screens/NewHomeScreen";
 import ProfileScreen from "./screens/ProfileScreen";
@@ -132,6 +133,19 @@ const AppContent = () => {
                     options={{
                       headerShown: true,
                       title: "AI Workout Planner",
+                      headerStyle: {
+                        backgroundColor: "#1a1c2e"
+                      },
+                      headerTintColor: "#fff",
+                      headerBackTitleVisible: false
+                    }}
+                  />
+                  <Stack.Screen
+                    name="FindFriends"
+                    component={FindFriendsScreen}
+                    options={{
+                      headerShown: true,
+                      title: "Find Friends",
                       headerStyle: {
                         backgroundColor: "#1a1c2e"
                       },

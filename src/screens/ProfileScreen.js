@@ -291,6 +291,13 @@ const ProfileScreen = ({ navigation }) => {
               })
             : "N/A"}
         </Text>
+        <TouchableOpacity
+          style={styles.findFriendsButton}
+          onPress={() => navigation.navigate("FindFriends")}
+        >
+          <Ionicons name="person-add-outline" size={20} color="#fff" />
+          <Text style={styles.findFriendsButtonText}>Find Friends</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Stats Section */}
@@ -713,6 +720,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666"
   },
+  findFriendsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#4CAF50",
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 20
+  },
+  findFriendsButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 10
+  },
   statsSection: {
     padding: 20
   },
@@ -759,14 +781,8 @@ const styles = StyleSheet.create({
   calendarContainer: {
     backgroundColor: "#1a1d2e",
     borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    padding: 15,
+    marginBottom: 10
   },
   calendarHeader: {
     flexDirection: "row",
@@ -808,8 +824,7 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-around",
-    paddingHorizontal: 4
+    justifyContent: "space-around"
   },
   calendarDay: {
     width: "13%",
