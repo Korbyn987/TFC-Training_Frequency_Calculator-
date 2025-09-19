@@ -54,12 +54,23 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
   };
 
   const handleStartWorkout = (dayPlan) => {
-    // Navigate to WorkoutOptionsScreen with the selected day's exercises
     const workout = {
       name: dayPlan.focus,
-      exercises: dayPlan.exercises.map((ex) => ({ ...ex, sets: [] })) // Prepare for configuration
+      exercises: dayPlan.exercises.map((ex, index) => ({
+        id: `${ex.name.replace(/\s/g, "-")}-${index}`,
+        name: ex.name, // Pass the name for lookup
+        // The AI provides sets as a string, so we let WorkoutOptionsScreen create defaults
+        sets: [],
+        // Attempt to parse a number from the rest string, or default
+        rest_seconds: parseInt(ex.rest, 10) || 60
+      }))
     };
-    navigation.navigate("WorkoutOptions", { preset: workout });
+
+    // Navigate to WorkoutOptionsScreen with the correct parameter structure
+    navigation.navigate("WorkoutOptions", {
+      presetData: workout,
+      fromPreset: true
+    });
   };
 
   const handleSaveDayAsPreset = async (dayPlan) => {

@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,6 +16,7 @@ import { useDispatch } from "react-redux";
 import WorkoutPresets from "../components/WorkoutPresets";
 import { useTabData } from "../context/TabDataContext";
 import { resetMuscleRecovery } from "../redux/workoutSlice";
+import { completeWorkout, saveWorkout } from "../services/supabaseWorkouts";
 
 const { width } = Dimensions.get("window");
 
@@ -30,6 +30,8 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
   const [editMode, setEditMode] = useState(false);
   const [workoutId, setWorkoutId] = useState(null);
   const [showPresetsModal, setShowPresetsModal] = useState(false);
+  const [activeWorkoutData, setActiveWorkoutData] = useState(null);
+  const [isCompleting, setIsCompleting] = useState(false);
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -139,14 +141,8 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
 
     if (route.params?.fromActiveWorkout) {
       setEditMode(true);
-      // Use the editingWorkout data if provided, otherwise load from storage
-      if (route.params?.editingWorkout) {
-        const workout = route.params.editingWorkout;
-        setSelectedExercises(workout.exercises || []);
-        setWorkoutName(workout.name || "");
-      } else {
-        loadWorkoutFromStorage();
-      }
+      setIsCompleting(true);
+      setActiveWorkoutData(route.params.activeWorkout);
     }
   }, [route.params]);
 
@@ -157,19 +153,6 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
       setUser(currentUser);
     } catch (error) {
       console.error("Error loading user:", error);
-    }
-  };
-
-  const loadWorkoutFromStorage = async () => {
-    try {
-      const storedWorkout = await AsyncStorage.getItem("activeWorkout");
-      if (storedWorkout) {
-        const workoutData = JSON.parse(storedWorkout);
-        setSelectedExercises(workoutData.exercises);
-        setWorkoutName(workoutData.name);
-      }
-    } catch (error) {
-      console.error("Error loading workout from storage:", error);
     }
   };
 
@@ -276,79 +259,41 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
 
   const handleSaveWorkout = async () => {
     if (!workoutName.trim()) {
-      Alert.alert("Error", "Please enter a workout name");
+      Alert.alert("Error", "Please enter a workout name.");
       return;
     }
 
-    if (selectedExercises.length === 0) {
-      Alert.alert("Error", "Please select at least one exercise");
-      return;
-    }
-
-    if (!user) {
-      Alert.alert("Error", "User not found");
-      return;
-    }
-
+    setSaving(true);
     try {
-      setSaving(true);
-
-      if (editMode) {
-        // First save the workout to the database
-        const { saveWorkout } = await import("../services/supabaseWorkouts");
-
-        const workoutToSave = {
-          name: workoutName.trim(),
-          notes: `Workout with ${selectedExercises.length} exercises`,
-          exercises: selectedExercises.map((ex) => ({
-            ...ex,
-            sets: ex.sets.map((set, index) => ({
-              set_number: index + 1,
-              reps: set.reps,
-              weight_kg: set.weight,
-              set_type: set.set_type || "working"
-            }))
-          }))
-        };
-
-        const saveResult = await saveWorkout(workoutToSave);
-        if (!saveResult.success) {
-          throw new Error(saveResult.error || "Failed to save workout.");
+      // Extract muscle groups for recovery tracking
+      const muscleGroups = [];
+      selectedExercises.forEach((exercise) => {
+        const muscleGroup = exercise.target_muscle || exercise.muscle_group;
+        if (muscleGroup && !muscleGroups.includes(muscleGroup)) {
+          muscleGroups.push(muscleGroup);
         }
+      });
 
-        // Now complete the workout with the actual workout ID
-        const { completeWorkout } = await import(
-          "../services/supabaseWorkouts"
-        );
+      console.log("Extracted muscle groups:", muscleGroups);
 
-        // Load started_at from storage to calculate duration
-        const storedWorkout = await AsyncStorage.getItem("activeWorkout");
-        const workoutData = storedWorkout ? JSON.parse(storedWorkout) : {};
-        const startTime = workoutData.started_at
-          ? new Date(workoutData.started_at)
-          : new Date();
-        const duration = Math.floor((new Date() - startTime) / (1000 * 60));
-
-        // Extract unique muscle groups from exercises
-        const muscleGroups = [
-          ...new Set(
-            selectedExercises.map(
-              (ex) => ex.target_muscle || ex.muscle_group || "Unknown"
-            )
-          )
-        ].filter((group) => group !== "Unknown");
+      if (isCompleting) {
+        // Complete existing workout
+        console.log("Completing existing workout");
 
         const completionData = {
-          name: workoutName.trim(),
-          notes: `Workout with ${selectedExercises.length} exercises`,
-          started_at: startTime.toISOString(),
-          duration_minutes: duration,
+          duration_minutes: Math.round(
+            (Date.now() - new Date(activeWorkoutData.started_at).getTime()) /
+              (1000 * 60)
+          ),
+          notes: workoutName.trim(),
           muscle_groups: muscleGroups,
           exercises: selectedExercises
         };
 
+        console.log("Completion data:", completionData);
+
         const result = await completeWorkout(
-          saveResult.workout.id,
+          activeWorkoutData.id,
           completionData
         );
 
@@ -356,31 +301,66 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           throw new Error(result.error || "Failed to complete workout.");
         }
 
+        console.log("Workout completed successfully:", result.workout);
+
         // Reset muscle recovery timers in Redux
         if (muscleGroups.length > 0) {
           dispatch(resetMuscleRecovery({ muscleGroups }));
         }
 
-        // Update AsyncStorage with the modified workout before clearing
-        const updatedWorkoutData = {
-          ...workoutData,
-          name: workoutName.trim(),
-          exercises: selectedExercises
-        };
-        await AsyncStorage.setItem(
-          "activeWorkout",
-          JSON.stringify(updatedWorkoutData)
-        );
-        setActiveWorkout(updatedWorkoutData); // Update the context
-
-        // Clear AsyncStorage after a brief delay to allow home screen to update
-        setTimeout(async () => {
-          await AsyncStorage.removeItem("activeWorkout");
-        }, 100);
+        // Clear active workout from context
+        setActiveWorkout(null);
 
         Alert.alert("Success", "Workout completed successfully!", [
           {
-            text: "View Home",
+            text: "View Profile",
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Tabs", params: { screen: "Profile" } }]
+              });
+            }
+          }
+        ]);
+      } else {
+        // Create new workout and start it
+        console.log("Creating new workout");
+
+        const workoutData = {
+          name: workoutName.trim(),
+          exercises: selectedExercises.map((ex, index) => ({
+            id: ex.id,
+            name: ex.name,
+            target_muscle: ex.target_muscle || ex.muscle_group,
+            muscle_group: ex.target_muscle || ex.muscle_group,
+            sets: ex.sets || []
+          })),
+          notes: `Workout: ${workoutName.trim()}`,
+          started_at: new Date().toISOString()
+        };
+
+        console.log("Creating workout with data:", workoutData);
+
+        const saveResult = await saveWorkout(workoutData);
+        if (!saveResult.success) {
+          throw new Error(saveResult.error || "Failed to save workout.");
+        }
+
+        console.log("Workout saved successfully:", saveResult.workout);
+
+        // Set as active workout in context
+        const activeWorkoutData = {
+          id: saveResult.workout.id,
+          name: workoutName.trim(),
+          exercises: selectedExercises,
+          started_at: new Date().toISOString()
+        };
+
+        setActiveWorkout(activeWorkoutData);
+
+        Alert.alert("Success", "Workout started successfully!", [
+          {
+            text: "Go to Home",
             onPress: () => {
               navigation.reset({
                 index: 0,
@@ -389,29 +369,6 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
             }
           }
         ]);
-      } else {
-        // Save new workout to AsyncStorage
-        console.log("Saving new workout to AsyncStorage");
-        const workoutData = {
-          name: workoutName.trim(),
-          exercises: selectedExercises.map((ex) => ({
-            ...ex,
-            sets: ex.sets || [] // Use the actual configured sets, not hardcoded values
-          })),
-          started_at: new Date().toISOString()
-        };
-
-        try {
-          await AsyncStorage.setItem(
-            "activeWorkout",
-            JSON.stringify(workoutData)
-          );
-          setActiveWorkout(workoutData); // Update the context
-          navigation.navigate("Tabs", { screen: "Home" });
-        } catch (error) {
-          console.error("Error saving workout to AsyncStorage:", error);
-          Alert.alert("Error", "Failed to start workout.");
-        }
       }
     } catch (error) {
       console.error("Error saving workout:", error);

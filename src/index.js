@@ -5,10 +5,10 @@ window.global = window;
 global = global || window;
 
 // Import required components
-import { AppRegistry } from "react-native";
 import { registerRootComponent } from "expo";
-import App from "./App.web";
+import { AppRegistry } from "react-native";
 import { name as appName } from "../app.json";
+import App from "./App.web";
 
 // Register the app component both ways (for Expo and React Native Web)
 AppRegistry.registerComponent(appName, () => App);

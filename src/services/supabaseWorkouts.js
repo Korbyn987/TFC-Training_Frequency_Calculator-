@@ -697,37 +697,92 @@ export const getWorkoutDetails = async (workoutId) => {
 // New comprehensive save workout function
 export const saveWorkout = async (workoutData) => {
   try {
+    console.log("saveWorkout called with data:", workoutData);
+
     // 1. Create the main workout
     const workoutResult = await createWorkout(workoutData);
     if (!workoutResult.success) {
       return workoutResult; // Propagate error
     }
     const workoutId = workoutResult.workout.id;
+    console.log("Created workout with ID:", workoutId);
 
     // 2. Add exercises and their sets
-    for (const exercise of workoutData.exercises) {
+    for (let i = 0; i < workoutData.exercises.length; i++) {
+      const exercise = workoutData.exercises[i];
+      console.log(`Processing exercise ${i + 1}:`, exercise.name);
+
+      // Look up the actual exercise ID from the exercises table by name
+      let actualExerciseId = 1; // Default fallback ID (Dips - always exists)
+      try {
+        const { data: exerciseData, error: exerciseError } = await supabase
+          .from("exercises")
+          .select("id")
+          .ilike("name", exercise.name) // Case-insensitive match
+          .single();
+
+        if (!exerciseError && exerciseData) {
+          actualExerciseId = exerciseData.id;
+          console.log(
+            `Found exercise ID ${actualExerciseId} for "${exercise.name}"`
+          );
+        } else {
+          console.warn(
+            `Exercise "${exercise.name}" not found in database, using fallback ID ${actualExerciseId}`
+          );
+        }
+      } catch (lookupError) {
+        console.warn(
+          `Error looking up exercise "${exercise.name}":`,
+          lookupError,
+          `using fallback ID ${actualExerciseId}`
+        );
+      }
+
       const workoutExerciseResult = await addWorkoutExercise(workoutId, {
-        exercise_id: exercise.id,
+        exercise_id: actualExerciseId, // Use the looked-up ID or fallback
         exercise_name: exercise.name,
         muscle_group:
-          exercise.muscle_group || exercise.target_muscle || "Unknown",
-        target_sets: exercise.sets?.length || 0,
-        order_index: 0
+          exercise.target_muscle || exercise.muscle_group || "Unknown",
+        order_index: i,
+        target_sets: exercise.sets ? exercise.sets.length : 0
       });
 
       if (!workoutExerciseResult.success) {
-        // Optional: Add cleanup logic to delete the workout if an exercise fails
+        console.error("Failed to add exercise:", exercise.name);
         return workoutExerciseResult;
       }
+
       const workoutExerciseId = workoutExerciseResult.workoutExercise.id;
+      console.log("Created workout exercise with ID:", workoutExerciseId);
 
       // 3. Add sets for the exercise
-      for (const set of exercise.sets) {
-        await addExerciseSet(workoutExerciseId, set);
+      if (exercise.sets && exercise.sets.length > 0) {
+        for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
+          const set = exercise.sets[setIndex];
+          console.log(
+            `Adding set ${setIndex + 1} for exercise ${exercise.name}:`,
+            set
+          );
+
+          const setResult = await addExerciseSet(workoutExerciseId, {
+            set_number: setIndex + 1,
+            set_type: set.set_type || "working",
+            weight_kg: parseFloat(set.weight) || null,
+            reps: parseInt(set.reps) || null,
+            rest_seconds: set.rest_seconds || null
+          });
+
+          if (!setResult.success) {
+            console.error("Failed to add set:", setResult.error);
+            // Continue with other sets even if one fails
+          }
+        }
       }
     }
 
     // 4. Fetch the complete workout details to return
+    console.log("Fetching complete workout details for ID:", workoutId);
     return await getWorkoutDetails(workoutId);
   } catch (error) {
     console.error("Error in comprehensive saveWorkout:", error);

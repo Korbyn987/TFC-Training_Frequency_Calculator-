@@ -101,12 +101,12 @@ const NewHomeScreen = ({ navigation }) => {
       }
 
       Alert.alert(
-        "Save as Template",
-        `Do you want to save "${activeWorkout.name}" as a new workout template?`,
+        "Save as Preset",
+        `Do you want to save "${activeWorkout.name}" as a new workout preset?`,
         [
           { text: "Cancel", style: "cancel" },
           {
-            text: "Save Template",
+            text: "Save Preset",
             onPress: async () => {
               try {
                 const presetsData = await AsyncStorage.getItem(
@@ -137,14 +137,11 @@ const NewHomeScreen = ({ navigation }) => {
 
                 Alert.alert(
                   "Success!",
-                  "Your workout has been saved as a template."
+                  "Your workout has been saved as a preset."
                 );
               } catch (error) {
                 console.error("Error saving template:", error);
-                Alert.alert(
-                  "Error",
-                  "Could not save the workout as a template."
-                );
+                Alert.alert("Error", "Could not save the workout as a preset.");
               }
             }
           }
@@ -581,9 +578,7 @@ const NewHomeScreen = ({ navigation }) => {
               onPress={handleSaveCurrentAsTemplate}
             >
               <Ionicons name="bookmark" size={32} color="#fff" />
-              <Text style={styles.quickActionText}>
-                Save Current as Template
-              </Text>
+              <Text style={styles.quickActionText}>Save Workout as Preset</Text>
               {!isPremiumUser() && (
                 <Ionicons
                   name="lock-closed"
@@ -945,7 +940,7 @@ const styles = StyleSheet.create({
   },
   premiumActionCard: {
     backgroundColor: "#2a2d40",
-    borderColor: "#6b46c1",
+    borderColor: "#4CAF50",
     borderWidth: 1
   },
   lockIcon: {
