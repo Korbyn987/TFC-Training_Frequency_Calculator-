@@ -340,10 +340,10 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
       .from("workouts")
       .select(
         `
-        *,
+        name,
+        completed_at,
         workout_exercises (
-          *,
-          exercise_sets (*)
+          exercise_name
         )
       `
       )

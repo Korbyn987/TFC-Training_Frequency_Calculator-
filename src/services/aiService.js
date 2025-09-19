@@ -11,6 +11,8 @@ export const generateWorkoutPlan = async (
   const prompt = `
     System Prompt: You are an expert personal trainer and fitness coach named 'Cascade'. Your task is to create a personalized workout plan based on the user's goals, experience, and current recovery status. The output must be a clean, stringified JSON object and nothing else.
 
+    System Rule: Do NOT include any introductory text, conversational remarks, or any text outside of the JSON object. The response must start with '{' and end with '}'.
+
     User Data:
 
     - Primary Goal: ${userGoals.goal}
@@ -18,8 +20,12 @@ export const generateWorkoutPlan = async (
     - Workouts Per Week: ${userGoals.frequency}
     - Available Equipment: ${userGoals.equipment}
     - Current Muscle Recovery: ${JSON.stringify(recoveryData, null, 2)}
-    - Recent Workout History: ${JSON.stringify(
-      workoutHistory.map((w) => ({ name: w.name, date: w.completed_at })),
+    - Recent Workout History (with exercises): ${JSON.stringify(
+      workoutHistory.map((w) => ({
+        name: w.name,
+        date: w.completed_at,
+        exercises: w.workout_exercises.map((e) => e.exercise_name).join(", ")
+      })),
       null,
       2
     )}
