@@ -7,6 +7,7 @@ import {
   DeviceEventEmitter,
   FlatList,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -121,12 +122,18 @@ const AddExerciseScreen = ({ navigation, route }) => {
     const loadInitialData = async () => {
       setLoading(true);
       try {
-        const { getMuscleGroups, getExercises } = await import(
-          "../services/exerciseService"
-        );
+        const { getMuscleGroups, getExercises, clearExerciseCache } =
+          await import("../services/exerciseService");
+
+        // Clear the cache to get fresh data
+        clearExerciseCache();
 
         const muscleGroupsResponse = await getMuscleGroups();
         if (muscleGroupsResponse.success) {
+          console.log(
+            "[AddExerciseScreen] Loaded muscle groups:",
+            muscleGroupsResponse.data
+          );
           setMuscleGroups(muscleGroupsResponse.data);
         } else {
           console.error(
@@ -138,6 +145,11 @@ const AddExerciseScreen = ({ navigation, route }) => {
 
         const exercisesResponse = await getExercises();
         if (exercisesResponse.success) {
+          console.log(
+            "[AddExerciseScreen] Loaded exercises:",
+            exercisesResponse.data.length,
+            "exercises"
+          );
           setExercises(exercisesResponse.data);
           setFilteredExercises(exercisesResponse.data);
         } else {
@@ -220,10 +232,11 @@ const AddExerciseScreen = ({ navigation, route }) => {
     const query = searchQuery.toLowerCase();
     return safeExercises.filter((exercise) => {
       const matchesQuery = exercise.name.toLowerCase().includes(query);
+      const muscleGroupName = exercise.muscle_groups?.name;
+
       const matchesGroup =
-        activeGroup === "All" ||
-        (exercise.muscle_groups && exercise.muscle_groups.id === activeGroup) ||
-        exercise.muscle_group_id === activeGroup; // fallback for different data structures
+        activeGroup === "All" || muscleGroupName === activeGroup;
+
       return matchesQuery && matchesGroup;
     });
   };
@@ -233,16 +246,16 @@ const AddExerciseScreen = ({ navigation, route }) => {
       key={group ? group.id : "all"}
       style={[
         styles.groupButton,
-        activeGroup === (group ? group.id : "All") && styles.activeGroupButton
+        activeGroup === (group ? group.name : "All") && styles.activeGroupButton
       ]}
       onPress={() => {
-        setActiveGroup(group ? group.id : "All");
+        setActiveGroup(group ? group.name : "All");
       }}
     >
       <Text
         style={[
           styles.groupButtonText,
-          activeGroup === (group ? group.id : "All") &&
+          activeGroup === (group ? group.name : "All") &&
             styles.activeGroupButtonText
         ]}
         numberOfLines={1}
@@ -328,19 +341,14 @@ const AddExerciseScreen = ({ navigation, route }) => {
         <View style={styles.filterHeaderContainer}>
           <Text style={styles.filterBoxTitle}>Muscle Groups</Text>
         </View>
-        <View style={styles.filterGridContainer}>
-          <View style={styles.filterRow}>
-            {renderMuscleGroupButton(null)}
-            {muscleGroups
-              .slice(0, 3)
-              .map((group) => renderMuscleGroupButton(group))}
-          </View>
-          <View style={styles.filterRow}>
-            {muscleGroups
-              .slice(3, 7)
-              .map((group) => renderMuscleGroupButton(group))}
-          </View>
-        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.groupButtonScrollView}
+        >
+          {renderMuscleGroupButton(null)}
+          {muscleGroups.map((group) => renderMuscleGroupButton(group))}
+        </ScrollView>
       </View>
 
       {/* Scrollable Content Area */}
@@ -415,10 +423,10 @@ const AddExerciseScreen = ({ navigation, route }) => {
 };
 
 // Add web-specific styles for scrollable containers
-if (Platform.OS === 'web') {
+if (Platform.OS === "web") {
   // Add global CSS for better scrolling on web
-  if (typeof document !== 'undefined') {
-    const style = document.createElement('style');
+  if (typeof document !== "undefined") {
+    const style = document.createElement("style");
     style.textContent = `
       body {
         overscroll-behavior-y: none;
@@ -443,64 +451,64 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: "#0a0a0a",
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: Platform.OS === 'web' ? 'hidden' : 'visible',
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    overflow: Platform.OS === "web" ? "hidden" : "visible"
   },
   contentContainer: {
     flex: 1,
-    width: '100%',
+    width: "100%"
   },
   scrollableArea: {
     flex: 1,
-    width: '100%',
+    width: "100%"
   },
   webScrollViewWrapper: {
     flex: 1,
-    width: '100%',
-    height: Platform.OS === 'web' ? 'calc(100vh - 240px)' : '100%',
-    overflow: 'hidden',
+    width: "100%",
+    height: Platform.OS === "web" ? "calc(100vh - 240px)" : "100%",
+    overflow: "hidden"
   },
   scrollContainer: {
     flex: 1,
-    width: '100%',
+    width: "100%"
   },
   scrollContentContainer: {
     padding: 16,
-    paddingBottom: Platform.OS === 'web' ? 160 : 180, // Extra space for the bottom button
+    paddingBottom: Platform.OS === "web" ? 160 : 180 // Extra space for the bottom button
   },
   emptyListContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 20,
-    marginTop: 40,
+    marginTop: 40
   },
   emptyListText: {
-    color: '#888',
+    color: "#888",
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center"
   },
   webScrollContainer: {
     flex: 1,
-    overflowY: 'auto',
-    WebkitOverflowScrolling: 'touch',
+    overflowY: "auto",
+    WebkitOverflowScrolling: "touch"
   },
   contentContainer: {
     flex: 1,
-    width: '100%',
-    minHeight: 0, // Important for flex scrolling
+    width: "100%",
+    minHeight: 0 // Important for flex scrolling
   },
   scrollContainer: {
     flex: 1,
-    width: '100%',
-    paddingHorizontal: 16,
+    width: "100%",
+    paddingHorizontal: 16
   },
   scrollContentContainer: {
     paddingTop: 16,
-    paddingBottom: 100, // Extra space for the bottom button
+    paddingBottom: 100 // Extra space for the bottom button
   },
   headerContainer: {
     backgroundColor: "#161616",
@@ -510,18 +518,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#222",
     zIndex: 2,
-    flexShrink: 0,
+    flexShrink: 0
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: "700",
     color: "#ffffff",
-    marginBottom: 8,
+    marginBottom: 8
   },
   headerSubtitle: {
     fontSize: 14,
     color: "#94a3b8",
-    fontWeight: "500",
+    fontWeight: "500"
   },
   headerSearchContainer: {
     flexDirection: "row",
@@ -532,7 +540,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1,
     borderColor: "rgba(124, 58, 237, 0.3)",
-    marginTop: 4,
+    marginTop: 4
   },
   headerSearchInput: {
     flex: 1,
@@ -540,46 +548,46 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     paddingVertical: 8,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent"
   },
   webInputReset: {
     outlineWidth: 0,
-    outlineColor: 'transparent',
-    boxShadow: 'none',
-    borderColor: 'transparent',
-    WebkitAppearance: 'none',
-    MozAppearance: 'none',
-    appearance: 'none',
+    outlineColor: "transparent",
+    boxShadow: "none",
+    borderColor: "transparent",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    appearance: "none"
   },
   loadingContainer: {
     flex: 1,
     backgroundColor: "#171923",
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "center"
   },
   errorContainer: {
     flex: 1,
     backgroundColor: "#171923",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: 20
   },
   errorText: {
     color: "#fc8181",
     fontSize: 16,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 16
   },
   retryButton: {
     backgroundColor: "#6b46c1",
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 8
   },
   retryButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "bold"
   },
   exerciseItem: {
     flexDirection: "row",
@@ -591,31 +599,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: "rgba(80, 80, 80, 0.3)",
-    width: '100%',
+    width: "100%"
   },
   exerciseContent: {
     flex: 1,
-    marginRight: 16,
+    marginRight: 16
   },
   selectedExerciseItem: {
     backgroundColor: "rgba(124, 58, 237, 0.08)",
     borderColor: "rgba(124, 58, 237, 0.5)",
-    borderWidth: 1,
+    borderWidth: 1
   },
   exerciseText: {
     color: "#f8fafc",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500"
   },
   exerciseDescription: {
     color: "#94a3b8",
     fontSize: 13,
     marginTop: 4,
-    lineHeight: 18,
+    lineHeight: 18
   },
   selectedExerciseText: {
     color: "#fff",
-    fontWeight: "600",
+    fontWeight: "600"
   },
   searchContainer: {
     flexDirection: "row",
@@ -628,84 +636,72 @@ const styles = StyleSheet.create({
     height: 48,
     borderWidth: 1,
     borderColor: "rgba(124, 58, 237, 0.3)",
-    width: 'auto',
+    width: "auto"
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 8
   },
   clearButton: {
-    padding: 4,
+    padding: 4
   },
   searchInput: {
     flex: 1,
     height: 48,
     color: "#fff",
-    fontSize: 16,
+    fontSize: 16
   },
   filterBoxContainer: {
     marginHorizontal: 8,
     marginVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.3)',
+    borderColor: "rgba(124, 58, 237, 0.3)",
     borderRadius: 10,
-    backgroundColor: 'rgba(30, 30, 30, 0.3)',
-    shadowColor: '#000',
+    backgroundColor: "rgba(30, 30, 30, 0.3)",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
-    overflow: 'hidden',
-    zIndex: 1,
+    overflow: "hidden",
+    zIndex: 1
   },
   filterHeaderContainer: {
     paddingHorizontal: 8,
     paddingTop: 6,
     paddingBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(124, 58, 237, 0.2)',
-    backgroundColor: 'rgba(20, 20, 20, 0.4)',
+    borderBottomColor: "rgba(124, 58, 237, 0.2)",
+    backgroundColor: "rgba(20, 20, 20, 0.4)"
   },
   filterBoxTitle: {
-    color: '#e2e8f0',
+    color: "#e2e8f0",
     fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  filterGridContainer: {
-    backgroundColor: 'rgba(20, 20, 20, 0.2)',
-    padding: 6,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 0,
-    paddingVertical: 2,
-    marginBottom: 4,
+    fontWeight: "600",
+    letterSpacing: 0.3
   },
   groupButtonScrollView: {
-    maxHeight: 60,
-    backgroundColor: 'transparent',
-  },
-  groupButtonScroll: {
-    flexDirection: 'row',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    alignItems: 'center',
+    alignItems: "center"
+  },
+  filterGridContainer: {
+    backgroundColor: "rgba(20, 20, 20, 0.2)",
+    padding: 6
   },
   groupButton: {
     paddingVertical: 3,
     paddingHorizontal: 4,
     borderRadius: 8,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     height: 32,
     flex: 1,
     marginHorizontal: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 70, // Reduced minimum width for phone displays
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 70 // Reduced minimum width for phone displays
   },
   activeGroupButton: {
-    backgroundColor: "transparent",
+    backgroundColor: "transparent"
   },
   groupButtonText: {
     color: "#e2e8f0",
@@ -713,32 +709,32 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     letterSpacing: 0.1,
     textAlign: "center",
-    backgroundColor: 'rgba(107, 70, 193, 0.4)',
+    backgroundColor: "rgba(107, 70, 193, 0.4)",
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 6,
-    overflow: 'hidden',
-    width: '100%',
+    overflow: "hidden",
+    width: "100%",
     borderWidth: 1,
-    borderColor: 'rgba(107, 70, 193, 0.3)',
+    borderColor: "rgba(107, 70, 193, 0.3)"
   },
   activeGroupButtonText: {
     color: "#fff",
     fontWeight: "600",
     backgroundColor: "#6b46c1",
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: {width: 0, height: 1},
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
-    borderColor: '#a78bfa',
+    borderColor: "#a78bfa"
   },
   list: {
     flex: 1,
-    height: '100%',
-    minHeight: 300,
+    height: "100%",
+    minHeight: 300
   },
   listContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 100
   },
   exerciseItem: {
     flexDirection: "row",
@@ -751,31 +747,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(124, 58, 237, 0.2)",
     elevation: 0,
-    width: '100%',
+    width: "100%"
   },
   exerciseContent: {
     flex: 1,
-    marginRight: 16,
+    marginRight: 16
   },
   selectedExerciseItem: {
     backgroundColor: "rgba(124, 58, 237, 0.08)",
     borderColor: "rgba(124, 58, 237, 0.5)",
-    borderWidth: 1,
+    borderWidth: 1
   },
   exerciseText: {
     color: "#f8fafc",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500"
   },
   exerciseDescription: {
     color: "#94a3b8",
     fontSize: 13,
     marginTop: 4,
-    lineHeight: 18,
+    lineHeight: 18
   },
   selectedExerciseText: {
     color: "#fff",
-    fontWeight: "600",
+    fontWeight: "600"
   },
   saveButton: {
     backgroundColor: "#7c3aed",
@@ -789,38 +785,38 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    minWidth: '92%',
-    alignSelf: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    minWidth: "92%",
+    alignSelf: "center",
     borderWidth: 1,
-    borderColor: 'rgba(167, 139, 250, 0.5)',
+    borderColor: "rgba(167, 139, 250, 0.5)"
   },
   disabledButton: {
     backgroundColor: "#333",
-    opacity: 0.7,
+    opacity: 0.7
   },
   saveButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: {width: 0, height: 1},
+    textShadowColor: "rgba(0, 0, 0, 0.25)",
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
     backgroundColor: "#7c3aed",
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 8,
+    borderRadius: 8
   },
   saveButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#7c3aed",
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 10
   },
   checkboxContainer: {
     width: 26,
@@ -829,11 +825,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#333",
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "center"
   },
   checkboxSelected: {
     backgroundColor: "#7c3aed",
-    borderColor: "#7c3aed",
+    borderColor: "#7c3aed"
   },
   fixedButtonContainer: {
     position: Platform.OS === "web" ? "fixed" : "absolute",
@@ -841,7 +837,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "rgba(10,10,10,0.95)",
-    backdropFilter: 'blur(12px)',
+    backdropFilter: "blur(12px)",
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === "ios" ? 32 : 16,
     paddingTop: 12,
@@ -850,34 +846,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "rgba(124, 58, 237, 0.2)",
-    elevation: 10,
+    elevation: 10
   },
   emptySelectionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+    backgroundColor: "rgba(124, 58, 237, 0.1)",
     borderRadius: 20,
     margin: 8,
-    alignSelf: 'center',
+    alignSelf: "center"
   },
   infoIcon: {
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    backgroundColor: "rgba(124, 58, 237, 0.15)",
     width: 32,
     height: 32,
     borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12
   },
   emptySelectionText: {
-    color: '#a78bfa',
+    color: "#a78bfa",
     fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-    flexShrink: 1,
-  },
+    fontWeight: "500",
+    textAlign: "center",
+    flexShrink: 1
+  }
 });
 export default AddExerciseScreen;

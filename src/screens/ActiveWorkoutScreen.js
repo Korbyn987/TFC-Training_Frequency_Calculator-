@@ -12,6 +12,7 @@ import {
   View
 } from "react-native";
 import { useDispatch } from "react-redux";
+import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 import { resetMuscleRecovery } from "../redux/workoutSlice";
 import {
   addActiveExercise,
@@ -34,6 +35,7 @@ const ActiveWorkoutScreen = ({ navigation }) => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [availableExercises, setAvailableExercises] = useState([]);
   const [completing, setCompleting] = useState(false);
+  const [filter, setFilter] = useState("All");
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -399,16 +401,51 @@ const ActiveWorkoutScreen = ({ navigation }) => {
                 <Ionicons name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.exerciseList}>
-              {availableExercises.map((exercise) => (
+            <View style={styles.filterContainer}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <TouchableOpacity
-                  key={exercise.id}
-                  onPress={() => handleAddExercise(exercise)}
-                  style={styles.exerciseOption}
+                  style={[
+                    styles.filterButton,
+                    filter === "All" && styles.activeFilter
+                  ]}
+                  onPress={() => setFilter("All")}
                 >
-                  <Text style={styles.exerciseOptionText}>{exercise.name}</Text>
+                  <Text style={styles.filterText}>All</Text>
                 </TouchableOpacity>
-              ))}
+                {MUSCLE_GROUPS.map((group) => (
+                  <TouchableOpacity
+                    key={group}
+                    style={[
+                      styles.filterButton,
+                      filter === group && styles.activeFilter
+                    ]}
+                    onPress={() => setFilter(group)}
+                  >
+                    <Text style={styles.filterText}>{group}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            <ScrollView style={styles.exerciseList}>
+              {availableExercises
+                .filter((exercise) => {
+                  if (filter === "All") return true;
+                  const muscleGroupName = availableExercises.find(
+                    (e) => e.id === exercise.id
+                  )?.muscle_group_name;
+                  return exercise.muscle_group === filter;
+                })
+                .map((exercise) => (
+                  <TouchableOpacity
+                    key={exercise.id}
+                    onPress={() => handleAddExercise(exercise)}
+                    style={styles.exerciseOption}
+                  >
+                    <Text style={styles.exerciseOptionText}>
+                      {exercise.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
             </ScrollView>
           </View>
         </View>
@@ -666,6 +703,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#6b46c1"
   },
   confirmButtonText: {
+    color: "#fff",
+    fontWeight: "600"
+  },
+  filterContainer: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#333"
+  },
+  filterButton: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#333",
+    marginHorizontal: 5
+  },
+  activeFilter: {
+    backgroundColor: "#6b46c1"
+  },
+  filterText: {
     color: "#fff",
     fontWeight: "600"
   }

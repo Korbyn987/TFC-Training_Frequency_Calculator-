@@ -34,6 +34,45 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const dispatch = useDispatch();
 
+  // Helper function to determine if an exercise is cardio
+  const isCardioExercise = (exercise) => {
+    // First check muscle group data (most reliable)
+    if (
+      exercise.muscle_group_id === 9 ||
+      exercise.muscle_groups?.id === 9 ||
+      exercise.muscle_groups?.name === "Cardio" ||
+      exercise.target_muscle === "Cardio"
+    ) {
+      return true;
+    }
+
+    // Fallback: check exercise name for cardio keywords
+    const cardioKeywords = [
+      "cardio",
+      "run",
+      "jog",
+      "cycle",
+      "bike",
+      "row",
+      "swim",
+      "burpee",
+      "jumping",
+      "jump",
+      "mountain climber",
+      "high knee",
+      "butt kicker",
+      "battle rope",
+      "treadmill",
+      "elliptical",
+      "stair",
+      "sprint"
+    ];
+
+    return cardioKeywords.some((keyword) =>
+      exercise.name.toLowerCase().includes(keyword)
+    );
+  };
+
   useEffect(() => {
     loadUser();
 
@@ -545,79 +584,66 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
                   </View>
 
                   <View style={styles.setInputs}>
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Reps</Text>
-                      <TextInput
-                        style={styles.setInput}
-                        value={set.reps?.toString()}
-                        onChangeText={(value) =>
-                          updateSetParameter(
-                            exercise.id,
-                            set.id,
-                            "reps",
-                            parseInt(value) || 0
-                          )
-                        }
-                        keyboardType="numeric"
-                        placeholder="10"
-                        placeholderTextColor="#666"
-                      />
-                    </View>
+                    {isCardioExercise(exercise) ? (
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Duration (sec)</Text>
+                        <TextInput
+                          style={styles.setInput}
+                          value={set.duration_seconds?.toString()}
+                          onChangeText={(value) =>
+                            updateSetParameter(
+                              exercise.id,
+                              set.id,
+                              "duration_seconds",
+                              parseInt(value) || 0
+                            )
+                          }
+                          keyboardType="numeric"
+                          placeholder="60"
+                          placeholderTextColor="#666"
+                        />
+                      </View>
+                    ) : (
+                      <>
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>Reps</Text>
+                          <TextInput
+                            style={styles.setInput}
+                            value={set.reps?.toString()}
+                            onChangeText={(value) =>
+                              updateSetParameter(
+                                exercise.id,
+                                set.id,
+                                "reps",
+                                parseInt(value) || 0
+                              )
+                            }
+                            keyboardType="numeric"
+                            placeholder="10"
+                            placeholderTextColor="#666"
+                          />
+                        </View>
 
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Weight</Text>
-                      <TextInput
-                        style={styles.setInput}
-                        value={set.weight?.toString()}
-                        onChangeText={(value) =>
-                          updateSetParameter(
-                            exercise.id,
-                            set.id,
-                            "weight",
-                            parseFloat(value) || 0
-                          )
-                        }
-                        keyboardType="numeric"
-                        placeholder="0"
-                        placeholderTextColor="#666"
-                      />
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Type</Text>
-                      <TouchableOpacity
-                        style={[
-                          styles.setTypeButton,
-                          styles[
-                            `setType${
-                              set.set_type.charAt(0).toUpperCase() +
-                              set.set_type.slice(1)
-                            }`
-                          ]
-                        ]}
-                        onPress={() => {
-                          const types = [
-                            "working",
-                            "warmup",
-                            "failure",
-                            "drop"
-                          ];
-                          const currentIndex = types.indexOf(set.set_type);
-                          const nextType =
-                            types[(currentIndex + 1) % types.length];
-                          updateSetParameter(
-                            exercise.id,
-                            set.id,
-                            "set_type",
-                            nextType
-                          );
-                        }}
-                      >
-                        <Text style={styles.setTypeText}>
-                          {set.set_type.charAt(0).toUpperCase()}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>Weight</Text>
+                          <TextInput
+                            style={styles.setInput}
+                            value={set.weight?.toString()}
+                            onChangeText={(value) =>
+                              updateSetParameter(
+                                exercise.id,
+                                set.id,
+                                "weight",
+                                parseFloat(value) || 0
+                              )
+                            }
+                            keyboardType="numeric"
+                            placeholder="0"
+                            placeholderTextColor="#666"
+                          />
+                        </View>
+                      </>
+                    )}
                   </View>
 
                   {exercise.sets.length > 1 && (

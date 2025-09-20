@@ -168,6 +168,13 @@ export const clearExerciseCache = () => {
 };
 
 /**
+ * Clear muscle group cache (useful for refreshing data)
+ */
+export const clearMuscleGroupCache = () => {
+  muscleGroupCache = null;
+};
+
+/**
  * Add custom exercise (for users to create their own)
  */
 export const addCustomExercise = async (exerciseData) => {
@@ -185,6 +192,7 @@ export const addCustomExercise = async (exerciseData) => {
 
     // Clear cache to refresh data
     clearExerciseCache();
+    clearMuscleGroupCache();
 
     return { success: true, data };
   } catch (error) {

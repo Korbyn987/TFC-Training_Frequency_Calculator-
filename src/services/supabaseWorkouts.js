@@ -6,7 +6,12 @@ export const getExercises = async () => {
   try {
     const { data, error } = await supabase
       .from("exercises")
-      .select("*")
+      .select(
+        `
+        *,
+        muscle_groups (name)
+      `
+      )
       .order("name");
 
     if (error) {
@@ -14,7 +19,12 @@ export const getExercises = async () => {
       return { success: false, error: error.message };
     }
 
-    return { success: true, exercises: data || [] };
+    const exercisesWithMuscleGroup = data.map((ex) => ({
+      ...ex,
+      muscle_group: ex.muscle_groups.name
+    }));
+
+    return { success: true, exercises: exercisesWithMuscleGroup || [] };
   } catch (error) {
     console.error("Error in getExercises:", error);
     return { success: false, error: error.message };
