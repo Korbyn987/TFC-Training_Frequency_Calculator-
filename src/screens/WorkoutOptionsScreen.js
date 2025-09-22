@@ -5,6 +5,7 @@ import {
   Alert,
   Dimensions,
   Modal,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -76,6 +77,41 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     loadUser();
+
+    // Handle editing an active workout from home screen
+    if (route.params?.editingWorkout && route.params?.fromActiveWorkout) {
+      const workout = route.params.editingWorkout;
+      console.log("Editing active workout:", workout);
+
+      setWorkoutName(workout.name);
+
+      // Transform the workout data to match UI expectations
+      const transformedExercises = workout.exercises.map((ex) => ({
+        ...ex,
+        id: ex.id || `ex_${Math.random()}`,
+        name: ex.exercise_name || ex.name, // Handle both database and local format
+        muscle_group: ex.muscle_group || ex.target_muscle || "Unknown",
+        sets: (ex.exercise_sets || ex.sets || []).map((s) => ({
+          ...s,
+          id: s.id || `set_${Math.random()}`,
+          weight: s.weight_kg || s.weight || 0, // Handle both database and local format
+          reps: s.reps || 0,
+          set_type: s.set_type || "working",
+          notes: s.notes || ""
+        }))
+      }));
+
+      setSelectedExercises(transformedExercises);
+      setActiveWorkoutData(workout);
+      setEditMode(true);
+      setIsCompleting(false); // We're editing, not completing
+
+      // Clear params to prevent re-processing
+      navigation.setParams({
+        editingWorkout: undefined,
+        fromActiveWorkout: undefined
+      });
+    }
 
     // Handle preset data from WorkoutPresets
     if (route.params?.presetData && route.params?.fromPreset) {
@@ -189,7 +225,8 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
       setWorkoutId(route.params.workoutId);
     }
 
-    if (route.params?.fromActiveWorkout) {
+    // Only handle fromActiveWorkout if we're not already handling editingWorkout
+    if (route.params?.fromActiveWorkout && !route.params?.editingWorkout) {
       setEditMode(true);
       setIsCompleting(true);
       setActiveWorkoutData(route.params.activeWorkout);
@@ -423,7 +460,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
   // If no exercises selected, show original options
   if (selectedExercises.length === 0) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <View style={styles.emptyState}>
           <Ionicons name="fitness-outline" size={80} color="#666" />
           <Text style={styles.emptyTitle}>Ready to Build Your Workout?</Text>
@@ -479,13 +516,13 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
             <WorkoutPresets />
           </View>
         </Modal>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Show exercise configuration UI
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Configure Workout</Text>
@@ -507,7 +544,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
             })
           }
         >
-          <Ionicons name="add" size={20} color="#4CAF50" />
+          <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -583,7 +620,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
         onAddSet={addSet}
         onRemoveSet={removeSet}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -591,8 +628,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#171923",
-    padding: 20,
-    justifyContent: "center"
+    paddingTop: 20
   },
   emptyState: {
     alignItems: "center",
@@ -640,29 +676,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20
+    marginBottom: 20,
+    paddingHorizontal: 20
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
     color: "#fff"
   },
   subtitle: {
     fontSize: 16,
-    color: "#A0AEC0"
+    color: "#A0AEC0",
+    marginTop: 4
   },
   addExerciseButton: {
     backgroundColor: "#4CAF50",
     padding: 10,
-    borderRadius: 5,
+    borderRadius: 50,
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
+    width: 44,
+    height: 44
   },
   workoutNameCard: {
     backgroundColor: "#2D3748",
-    padding: 20,
+    padding: 15,
     borderRadius: 10,
-    marginBottom: 20
+    marginBottom: 20,
+    marginHorizontal: 20
   },
   inputLabel: {
     fontSize: 16,
@@ -678,7 +719,8 @@ const styles = StyleSheet.create({
     marginBottom: 10
   },
   exercisesList: {
-    flex: 1
+    flex: 1,
+    paddingHorizontal: 20
   },
   exerciseCard: {
     backgroundColor: "#2D3748",
@@ -716,7 +758,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 20
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#2D3748"
   },
   saveButton: {
     backgroundColor: "#4CAF50",
