@@ -4,13 +4,16 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from "react-native";
+import ExerciseDetailModal from "../components/ExerciseDetailModal";
 import MuscleGroupSelectionModal from "../components/MuscleGroupSelectionModal";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 import { useTabData } from "../context/TabDataContext";
@@ -31,7 +34,8 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
   const [saving, setSaving] = useState(false);
   const [showMuscleGroupModal, setShowMuscleGroupModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [expandedExercise, setExpandedExercise] = useState(null);
+  const [selectedExerciseForDetail, setSelectedExerciseForDetail] =
+    useState(null);
 
   useEffect(() => {
     loadUserAndData();
@@ -81,26 +85,100 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
         // Transform exercises to handle different data formats
         const transformedExercises = (editingWorkout.exercises || []).map(
           (exercise) => {
-            // Check if sets is an array (from WorkoutOptionsScreen) or a number (from ConfigureWorkoutScreen)
-            if (Array.isArray(exercise.sets)) {
-              // Convert from WorkoutOptionsScreen format
-              const firstSet = exercise.sets[0] || { reps: 10, weight: 0 };
-              return {
-                ...exercise,
-                sets: exercise.sets.length, // Number of sets
-                reps: firstSet.reps, // Reps from first set
-                weight: firstSet.weight, // Weight from first set
-                rest_seconds: exercise.rest_seconds || 60,
-                set_type: firstSet.set_type || "working"
-              };
-            } else {
-              // Already in ConfigureWorkoutScreen format
-              return exercise;
+            const newExercise = { ...exercise };
+
+            // This logic robustly handles all data formats (new, old, or malformed)
+            // to ensure `newExercise.sets` is always a valid array.
+
+            // Case 1: `sets` is a valid, non-empty array (from the new data model)
+            if (
+              Array.isArray(newExercise.sets) &&
+              newExercise.sets.length > 0
+            ) {
+              newExercise.sets = newExercise.sets
+                .filter((s) => s) // Filter out any null/undefined sets
+                .map((set) => ({
+                  ...set,
+                  id: `set_${Date.now()}_${Math.random()}`,
+                  reps: set.reps || 10,
+                  weight:
+                    set.weight_kg !== undefined
+                      ? set.weight_kg
+                      : set.weight || 0,
+                  set_type: set.set_type || "working",
+                  notes: set.notes || ""
+                }));
             }
+            // Case 2: `sets` is not a valid array (from the old data model or is missing)
+            else {
+              const setCount =
+                typeof newExercise.sets === "number" ? newExercise.sets : 3;
+              const baseReps = newExercise.reps || 10;
+              const baseWeight = newExercise.weight || 0;
+
+              newExercise.sets = Array.from({ length: setCount }, (_, i) => ({
+                id: `set_${Date.now()}_${Math.random()}`,
+                set_number: i + 1,
+                reps: baseReps,
+                weight: baseWeight,
+                set_type: "working",
+                notes: ""
+              }));
+            }
+
+            // Clean up old top-level properties to prevent data conflicts
+            delete newExercise.reps;
+            delete newExercise.weight;
+
+            return newExercise;
           }
         );
 
         setSelectedExercises(transformedExercises);
+        setCurrentStep(3);
+      } else if (presetData?.fromAddExercise && presetData?.exercises) {
+        // Handle exercises coming from AddExerciseScreen
+        setWorkoutName(
+          presetData.workoutName ||
+            `Custom Workout ${new Date().toLocaleDateString()}`
+        );
+
+        // Extract muscle groups from the selected exercises
+        const muscleGroups = [
+          ...new Set(
+            presetData.exercises
+              .map(
+                (exercise) =>
+                  exercise.muscle_groups?.name ||
+                  exercise.muscle_group ||
+                  "Unknown"
+              )
+              .filter((group) => group !== "Unknown")
+          )
+        ];
+
+        setSelectedMuscleGroups(muscleGroups);
+
+        // Format exercises for the configure screen
+        const formattedExercises = presetData.exercises.map((exercise) => ({
+          ...exercise,
+          sets: Array.from({ length: 3 }, (_, i) => ({
+            id: `set_${Date.now()}_${Math.random()}`,
+            reps: 10,
+            weight: 0,
+            set_type: "working",
+            notes: ""
+          }))
+        }));
+
+        setSelectedExercises(formattedExercises);
+
+        // Load available exercises for the muscle groups
+        if (muscleGroups.length > 0) {
+          await loadExercisesForMuscleGroups(muscleGroups);
+        }
+
+        // Go directly to review step since exercises are already selected
         setCurrentStep(3);
       } else {
         // Generate default workout name
@@ -166,11 +244,13 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
           ...prev,
           {
             ...exercise,
-            sets: 3,
-            reps: 10,
-            weight: 0,
-            rest_seconds: 60,
-            set_type: "working"
+            sets: Array.from({ length: 3 }, (_, i) => ({
+              id: `set_${Date.now()}_${Math.random()}`,
+              reps: 10,
+              weight: 0,
+              set_type: "working",
+              notes: ""
+            }))
           }
         ];
       }
@@ -188,15 +268,77 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
   };
 
   const removeExercise = (exerciseId) => {
-    setSelectedExercises((prev) => prev.filter((e) => e.id !== exerciseId));
+    setSelectedExercises((prev) => prev.filter((ex) => ex.id !== exerciseId));
   };
 
   const duplicateExercise = (exercise) => {
-    const newExercise = {
+    const duplicatedExercise = {
       ...exercise,
-      id: `${exercise.id}_copy_${Date.now()}`
+      id: `${exercise.id}_copy_${Date.now()}`,
+      sets: Array.isArray(exercise.sets)
+        ? exercise.sets.map((set, index) => ({
+            ...set,
+            id: `${exercise.id}_copy_${Date.now()}_set_${index}`
+          }))
+        : []
     };
-    setSelectedExercises((prev) => [...prev, newExercise]);
+    setSelectedExercises((prev) => [...prev, duplicatedExercise]);
+  };
+
+  const addSet = (exerciseId) => {
+    setSelectedExercises((prev) =>
+      prev.map((exercise) =>
+        exercise.id === exerciseId
+          ? {
+              ...exercise,
+              sets: Array.isArray(exercise.sets)
+                ? [
+                    ...exercise.sets,
+                    {
+                      id: `${exercise.id}_set_${Date.now()}`,
+                      reps: 10,
+                      weight: 0,
+                      set_type: "working",
+                      notes: ""
+                    }
+                  ]
+                : []
+            }
+          : exercise
+      )
+    );
+  };
+
+  const updateSet = (exerciseId, setId, parameter, value) => {
+    setSelectedExercises((prev) =>
+      prev.map((exercise) =>
+        exercise.id === exerciseId
+          ? {
+              ...exercise,
+              sets: Array.isArray(exercise.sets)
+                ? exercise.sets.map((set) =>
+                    set.id === setId ? { ...set, [parameter]: value } : set
+                  )
+                : []
+            }
+          : exercise
+      )
+    );
+  };
+
+  const removeSet = (exerciseId, setId) => {
+    setSelectedExercises((prev) =>
+      prev.map((exercise) =>
+        exercise.id === exerciseId
+          ? {
+              ...exercise,
+              sets: Array.isArray(exercise.sets)
+                ? exercise.sets.filter((set) => set.id !== setId)
+                : []
+            }
+          : exercise
+      )
+    );
   };
 
   const handleSaveWorkout = async () => {
@@ -215,21 +357,22 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
 
       // Transform the local state into the structure the backend expects
       const formattedExercises = selectedExercises.map((exercise) => {
-        // The `exercise` object in state holds the UI-configured values
-        const configuredReps = exercise.reps;
-        const configuredWeight = exercise.weight;
-
         return {
           ...exercise,
-          // Create an array of set objects with the correct property name
-          sets: Array.from({ length: exercise.sets }, (_, i) => ({
-            set_number: i + 1,
-            reps: configuredReps, // Use the value from the UI
-            weight_kg: configuredWeight, // Use the value from the UI
-            set_type: exercise.set_type
-          }))
+          // Ensure the sets are formatted correctly for the backend
+          sets: Array.isArray(exercise.sets)
+            ? exercise.sets.map((set, index) => ({
+                set_number: index + 1, // Ensure correct numbering
+                reps: set.reps,
+                weight_kg: set.weight,
+                set_type: set.set_type,
+                notes: set.notes
+              }))
+            : []
         };
       });
+
+      console.log("Saving workout with exercises:", formattedExercises);
 
       const workoutData = {
         user_id: user.id,
@@ -255,7 +398,8 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
               onPress: () =>
                 navigation.navigate("WorkoutOptions", {
                   workoutId: result.workout.id,
-                  workoutName: workoutName
+                  workoutName: workoutName,
+                  startWorkout: true
                 })
             },
             {
@@ -465,8 +609,12 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
         style={styles.exerciseList}
         showsVerticalScrollIndicator={false}
       >
-        {selectedExercises.map((exercise, index) => (
-          <View key={exercise.id} style={styles.exerciseReviewCard}>
+        {selectedExercises.map((exercise) => (
+          <TouchableOpacity
+            key={exercise.id}
+            style={styles.exerciseReviewCard}
+            onPress={() => setSelectedExerciseForDetail(exercise)}
+          >
             <View style={styles.exerciseReviewHeader}>
               <View style={styles.exerciseReviewInfo}>
                 <Text style={styles.exerciseReviewName}>{exercise.name}</Text>
@@ -487,171 +635,9 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
                 >
                   <Ionicons name="trash" size={18} color="#FF6B6B" />
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() =>
-                    setExpandedExercise(
-                      expandedExercise === exercise.id ? null : exercise.id
-                    )
-                  }
-                >
-                  <Ionicons
-                    name={
-                      expandedExercise === exercise.id
-                        ? "chevron-up"
-                        : "chevron-down"
-                    }
-                    size={18}
-                    color="#666"
-                  />
-                </TouchableOpacity>
               </View>
             </View>
-
-            <View style={styles.exerciseQuickStats}>
-              <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{exercise.sets}</Text>
-                <Text style={styles.quickStatLabel}>Sets</Text>
-              </View>
-              <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{exercise.reps}</Text>
-                <Text style={styles.quickStatLabel}>Reps</Text>
-              </View>
-              <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{exercise.weight}kg</Text>
-                <Text style={styles.quickStatLabel}>Weight</Text>
-              </View>
-            </View>
-
-            {expandedExercise === exercise.id && (
-              <View style={styles.exerciseConfig}>
-                <View style={styles.configRow}>
-                  <View style={styles.configItem}>
-                    <Text style={styles.configLabel}>Sets</Text>
-                    <View style={styles.configInput}>
-                      <TouchableOpacity
-                        onPress={() =>
-                          updateExerciseParameter(
-                            exercise.id,
-                            "sets",
-                            Math.max(1, exercise.sets - 1)
-                          )
-                        }
-                      >
-                        <Ionicons name="remove" size={20} color="#666" />
-                      </TouchableOpacity>
-                      <Text style={styles.configValue}>{exercise.sets}</Text>
-                      <TouchableOpacity
-                        onPress={() =>
-                          updateExerciseParameter(
-                            exercise.id,
-                            "sets",
-                            exercise.sets + 1
-                          )
-                        }
-                      >
-                        <Ionicons name="add" size={20} color="#666" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  <View style={styles.configItem}>
-                    <Text style={styles.configLabel}>Reps</Text>
-                    <View style={styles.configInput}>
-                      <TouchableOpacity
-                        onPress={() =>
-                          updateExerciseParameter(
-                            exercise.id,
-                            "reps",
-                            Math.max(1, exercise.reps - 1)
-                          )
-                        }
-                      >
-                        <Ionicons name="remove" size={20} color="#666" />
-                      </TouchableOpacity>
-                      <Text style={styles.configValue}>{exercise.reps}</Text>
-                      <TouchableOpacity
-                        onPress={() =>
-                          updateExerciseParameter(
-                            exercise.id,
-                            "reps",
-                            exercise.reps + 1
-                          )
-                        }
-                      >
-                        <Ionicons name="add" size={20} color="#666" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.configRow}>
-                  <View style={styles.configItem}>
-                    <Text style={styles.configLabel}>Weight (kg)</Text>
-                    <TextInput
-                      style={styles.weightInput}
-                      value={exercise.weight?.toString()}
-                      onChangeText={(value) =>
-                        updateExerciseParameter(
-                          exercise.id,
-                          "weight",
-                          parseFloat(value) || 0
-                        )
-                      }
-                      keyboardType="numeric"
-                      placeholder="0"
-                      placeholderTextColor="#666"
-                    />
-                  </View>
-                  <View style={styles.configItem}>
-                    <Text style={styles.configLabel}>Rest (sec)</Text>
-                    <TextInput
-                      style={styles.weightInput}
-                      value={exercise.rest_seconds?.toString()}
-                      onChangeText={(value) =>
-                        updateExerciseParameter(
-                          exercise.id,
-                          "rest_seconds",
-                          parseInt(value) || 60
-                        )
-                      }
-                      keyboardType="numeric"
-                      placeholder="60"
-                      placeholderTextColor="#666"
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.setTypeSection}>
-                  <Text style={styles.configLabel}>Set Type</Text>
-                  <View style={styles.setTypeButtons}>
-                    {["working", "failure", "drop"].map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        style={[
-                          styles.setTypeButton,
-                          exercise.set_type === type &&
-                            styles.setTypeButtonActive
-                        ]}
-                        onPress={() =>
-                          updateExerciseParameter(exercise.id, "set_type", type)
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.setTypeButtonText,
-                            exercise.set_type === type &&
-                              styles.setTypeButtonTextActive
-                          ]}
-                        >
-                          {type.charAt(0).toUpperCase() + type.slice(1)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              </View>
-            )}
-          </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
 
@@ -694,23 +680,34 @@ const ConfigureWorkoutScreen = ({ navigation, route }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+
       {renderStepIndicator()}
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.content}>
         {currentStep === 1 && renderWorkoutSetup()}
         {currentStep === 2 && renderExerciseSelection()}
         {currentStep === 3 && renderWorkoutReview()}
-      </ScrollView>
+      </View>
 
       <MuscleGroupSelectionModal
         visible={showMuscleGroupModal}
-        onClose={() => setShowMuscleGroupModal(false)}
-        onSelect={handleMuscleGroupSelection}
-        selectedGroups={selectedMuscleGroups}
         muscleGroups={MUSCLE_GROUPS}
+        selectedGroups={selectedMuscleGroups}
+        onSelect={handleMuscleGroupSelection}
+        onClose={() => setShowMuscleGroupModal(false)}
       />
-    </View>
+
+      <ExerciseDetailModal
+        visible={!!selectedExerciseForDetail}
+        exercise={selectedExerciseForDetail}
+        onClose={() => setSelectedExerciseForDetail(null)}
+        onUpdateSet={updateSet}
+        onAddSet={addSet}
+        onRemoveSet={removeSet}
+      />
+    </SafeAreaView>
   );
 };
 
@@ -968,33 +965,22 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10
-  },
-  exerciseQuickStats: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10
-  },
-  quickStat: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  quickStatValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff"
-  },
-  quickStatLabel: {
-    fontSize: 12,
-    color: "#666"
+    marginLeft: 10
   },
   exerciseConfig: {
     backgroundColor: "#1a1c2e",
     borderRadius: 12,
     padding: 15,
-    marginBottom: 10
+    marginTop: 10
+  },
+  setConfig: {
+    backgroundColor: "#23263a",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#333",
+    position: "relative"
   },
   configRow: {
     flexDirection: "row",
@@ -1004,22 +990,30 @@ const styles = StyleSheet.create({
   },
   configItem: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center"
+    marginHorizontal: 5
+  },
+  configItemFullWidth: {
+    flex: 1
   },
   configLabel: {
     fontSize: 12,
-    color: "#666",
-    marginBottom: 5
+    color: "#999",
+    marginBottom: 5,
+    textTransform: "uppercase"
   },
   configInput: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center"
+    alignItems: "center",
+    backgroundColor: "#1a1c2e",
+    borderRadius: 8,
+    padding: 5
   },
   configValue: {
     fontSize: 16,
-    color: "#fff"
+    color: "#fff",
+    marginHorizontal: 15,
+    fontWeight: "600"
   },
   weightInput: {
     backgroundColor: "#1a1c2e",
@@ -1028,34 +1022,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#fff",
     textAlign: "center",
-    width: 50
+    flex: 1
+  },
+  notesInput: {
+    backgroundColor: "#1a1c2e",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    color: "#fff",
+    textAlign: "left",
+    height: 50,
+    width: "100%"
   },
   setTypeSection: {
+    marginTop: 10,
     marginBottom: 10
   },
   setTypeButtons: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10
+    marginTop: 5
   },
   setTypeButton: {
     backgroundColor: "#23263a",
     borderRadius: 8,
-    padding: 10,
-    width: (width - 40) / 3,
-    justifyContent: "center",
-    alignItems: "center"
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#444"
   },
   setTypeButtonActive: {
-    backgroundColor: "#4CAF50"
+    backgroundColor: "#4CAF50",
+    borderColor: "#4CAF50"
   },
   setTypeButtonText: {
-    fontSize: 14,
-    color: "#fff"
+    fontSize: 12,
+    color: "#ccc",
+    fontWeight: "600",
+    textTransform: "capitalize"
   },
   setTypeButtonTextActive: {
     color: "#fff"
+  },
+  removeSetButton: {
+    position: "absolute",
+    top: 10,
+    right: 10
+  },
+  addSetButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 12,
+    padding: 15,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10
+  },
+  addSetButtonText: {
+    fontSize: 16,
+    color: "#fff",
+    marginLeft: 10
   },
   actionButtons: {
     flexDirection: "row",

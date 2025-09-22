@@ -13,6 +13,7 @@ import {
   View
 } from "react-native";
 import { useDispatch } from "react-redux";
+import ExerciseDetailModal from "../components/ExerciseDetailModal";
 import WorkoutPresets from "../components/WorkoutPresets";
 import { useTabData } from "../context/TabDataContext";
 import { resetMuscleRecovery } from "../redux/workoutSlice";
@@ -24,7 +25,6 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
   const { refreshTabData, setActiveWorkout } = useTabData();
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [workoutName, setWorkoutName] = useState("");
-  const [expandedExercise, setExpandedExercise] = useState(null);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -32,6 +32,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
   const [showPresetsModal, setShowPresetsModal] = useState(false);
   const [activeWorkoutData, setActiveWorkoutData] = useState(null);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [expandedExercise, setExpandedExercise] = useState(null);
   const dispatch = useDispatch();
 
   // Helper function to determine if an exercise is cardio
@@ -84,28 +85,35 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
         ...exercise,
         sets:
           exercise.sets && exercise.sets.length > 0
-            ? exercise.sets.map((s) => ({ ...s, id: Math.random() }))
+            ? exercise.sets.map((s) => ({
+                ...s,
+                id: `set_${Math.random()}`,
+                notes: s.notes || ""
+              }))
             : [
                 {
-                  id: Math.random(),
+                  id: `set_${Math.random()}`,
                   reps: 10,
                   weight: 0,
                   set_type: "working",
-                  completed: false
+                  completed: false,
+                  notes: ""
                 },
                 {
-                  id: Math.random(),
+                  id: `set_${Math.random()}`,
                   reps: 10,
                   weight: 0,
                   set_type: "working",
-                  completed: false
+                  completed: false,
+                  notes: ""
                 },
                 {
-                  id: Math.random(),
+                  id: `set_${Math.random()}`,
                   reps: 10,
                   weight: 0,
                   set_type: "working",
-                  completed: false
+                  completed: false,
+                  notes: ""
                 }
               ],
         rest_seconds: exercise.rest_seconds || 60
@@ -133,25 +141,28 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           ...exercise,
           sets: [
             {
-              id: 1,
+              id: `set_${Math.random()}`,
               reps: 10,
               weight: 0,
               set_type: "working",
-              completed: false
+              completed: false,
+              notes: ""
             },
             {
-              id: 2,
+              id: `set_${Math.random()}`,
               reps: 10,
               weight: 0,
               set_type: "working",
-              completed: false
+              completed: false,
+              notes: ""
             },
             {
-              id: 3,
+              id: `set_${Math.random()}`,
               reps: 10,
               weight: 0,
               set_type: "working",
-              completed: false
+              completed: false,
+              notes: ""
             }
           ],
           rest_seconds: exercise.rest_seconds || 60
@@ -229,15 +240,12 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
               sets: [
                 ...(exercise.sets || []),
                 {
-                  id: (exercise.sets || []).length + 1,
-                  reps:
-                    (exercise.sets || [])[exercise.sets?.length - 1]?.reps ||
-                    10,
-                  weight:
-                    (exercise.sets || [])[exercise.sets?.length - 1]?.weight ||
-                    0,
+                  id: `set_${Math.random()}`,
+                  reps: 10,
+                  weight: 0,
                   set_type: "working",
-                  completed: false
+                  completed: false,
+                  notes: ""
                 }
               ]
             }
@@ -252,12 +260,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
         exercise.id === exerciseId
           ? {
               ...exercise,
-              sets: (exercise.sets || [])
-                .filter((set) => set.id !== setId)
-                .map((set, index) => ({
-                  ...set,
-                  id: index + 1
-                }))
+              sets: (exercise.sets || []).filter((set) => set.id !== setId)
             }
           : exercise
       )
@@ -287,9 +290,9 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
     const newExercise = {
       ...exercise,
       id: `${exercise.id}_copy_${Date.now()}`,
-      sets: (exercise.sets || []).map((set, index) => ({
+      sets: (exercise.sets || []).map((set) => ({
         ...set,
-        id: index + 1,
+        id: `set_${Math.random()}`,
         completed: false
       }))
     };
@@ -488,7 +491,10 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           <Text style={styles.title}>Configure Workout</Text>
           <Text style={styles.subtitle}>
             {selectedExercises.length} exercises •{" "}
-            {selectedExercises.reduce((total, ex) => total + ex.sets.length, 0)}{" "}
+            {selectedExercises.reduce(
+              (total, ex) => total + (ex.sets?.length || 0),
+              0
+            )}{" "}
             sets
           </Text>
         </View>
@@ -521,7 +527,11 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
       >
         {selectedExercises.map((exercise, exerciseIndex) => (
-          <View key={exercise.id} style={styles.exerciseCard}>
+          <TouchableOpacity
+            key={exercise.id}
+            style={styles.exerciseCard}
+            onPress={() => setExpandedExercise(exercise)}
+          >
             <View style={styles.exerciseHeader}>
               <View style={styles.exerciseInfo}>
                 <Text style={styles.exerciseName}>{exercise.name}</Text>
@@ -542,157 +552,9 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
                 >
                   <Ionicons name="trash" size={18} color="#FF6B6B" />
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() =>
-                    setExpandedExercise(
-                      expandedExercise === exercise.id ? null : exercise.id
-                    )
-                  }
-                >
-                  <Ionicons
-                    name={
-                      expandedExercise === exercise.id
-                        ? "chevron-up"
-                        : "chevron-down"
-                    }
-                    size={18}
-                    color="#666"
-                  />
-                </TouchableOpacity>
               </View>
             </View>
-
-            <View style={styles.setsContainer}>
-              <View style={styles.setsHeader}>
-                <Text style={styles.setsTitle}>
-                  Sets ({exercise.sets.length})
-                </Text>
-                <TouchableOpacity
-                  style={styles.addSetButton}
-                  onPress={() => addSet(exercise.id)}
-                >
-                  <Ionicons name="add" size={16} color="#4CAF50" />
-                  <Text style={styles.addSetText}>Add Set</Text>
-                </TouchableOpacity>
-              </View>
-
-              {exercise.sets.map((set, setIndex) => (
-                <View key={set.id} style={styles.setRow}>
-                  <View style={styles.setNumber}>
-                    <Text style={styles.setNumberText}>{setIndex + 1}</Text>
-                  </View>
-
-                  <View style={styles.setInputs}>
-                    {isCardioExercise(exercise) ? (
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Duration (sec)</Text>
-                        <TextInput
-                          style={styles.setInput}
-                          value={set.duration_seconds?.toString()}
-                          onChangeText={(value) =>
-                            updateSetParameter(
-                              exercise.id,
-                              set.id,
-                              "duration_seconds",
-                              parseInt(value) || 0
-                            )
-                          }
-                          keyboardType="numeric"
-                          placeholder="60"
-                          placeholderTextColor="#666"
-                        />
-                      </View>
-                    ) : (
-                      <>
-                        <View style={styles.inputGroup}>
-                          <Text style={styles.inputLabel}>Reps</Text>
-                          <TextInput
-                            style={styles.setInput}
-                            value={set.reps?.toString()}
-                            onChangeText={(value) =>
-                              updateSetParameter(
-                                exercise.id,
-                                set.id,
-                                "reps",
-                                parseInt(value) || 0
-                              )
-                            }
-                            keyboardType="numeric"
-                            placeholder="10"
-                            placeholderTextColor="#666"
-                          />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                          <Text style={styles.inputLabel}>Weight</Text>
-                          <TextInput
-                            style={styles.setInput}
-                            value={set.weight?.toString()}
-                            onChangeText={(value) =>
-                              updateSetParameter(
-                                exercise.id,
-                                set.id,
-                                "weight",
-                                parseFloat(value) || 0
-                              )
-                            }
-                            keyboardType="numeric"
-                            placeholder="0"
-                            placeholderTextColor="#666"
-                          />
-                        </View>
-                      </>
-                    )}
-                  </View>
-
-                  {exercise.sets.length > 1 && (
-                    <TouchableOpacity
-                      style={styles.removeSetButton}
-                      onPress={() => removeSet(exercise.id, set.id)}
-                    >
-                      <Ionicons name="close" size={16} color="#FF6B6B" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-            </View>
-
-            {expandedExercise === exercise.id && (
-              <View style={styles.expandedConfig}>
-                <View style={styles.configRow}>
-                  <Text style={styles.configLabel}>Rest Between Sets</Text>
-                  <View style={styles.restControls}>
-                    <TouchableOpacity
-                      onPress={() =>
-                        updateExerciseParameter(
-                          exercise.id,
-                          "rest_seconds",
-                          Math.max(30, exercise.rest_seconds - 15)
-                        )
-                      }
-                    >
-                      <Ionicons name="remove" size={20} color="#666" />
-                    </TouchableOpacity>
-                    <Text style={styles.restValue}>
-                      {exercise.rest_seconds}s
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() =>
-                        updateExerciseParameter(
-                          exercise.id,
-                          "rest_seconds",
-                          exercise.rest_seconds + 15
-                        )
-                      }
-                    >
-                      <Ionicons name="add" size={20} color="#666" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            )}
-          </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
 
@@ -712,6 +574,15 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
           )}
         </TouchableOpacity>
       </View>
+
+      <ExerciseDetailModal
+        visible={!!expandedExercise}
+        exercise={expandedExercise}
+        onClose={() => setExpandedExercise(null)}
+        onUpdateSet={updateSetParameter}
+        onAddSet={addSet}
+        onRemoveSet={removeSet}
+      />
     </View>
   );
 };
@@ -840,114 +711,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginLeft: 10
-  },
-  setsContainer: {
-    padding: 20
-  },
-  setsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10
-  },
-  setsTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff"
-  },
-  addSetButton: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
-  addSetText: {
-    fontSize: 16,
-    color: "#4CAF50",
-    marginLeft: 5
-  },
-  setRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10
-  },
-  setNumber: {
-    width: 30,
-    alignItems: "center"
-  },
-  setNumberText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff"
-  },
-  setInputs: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
-  inputGroup: {
-    flex: 1,
-    marginRight: 20
-  },
-  setInput: {
-    fontSize: 18,
-    color: "#fff",
-    backgroundColor: "#2D3748",
-    padding: 5,
-    borderRadius: 5,
-    width: 50
-  },
-  setTypeButton: {
-    backgroundColor: "#2D3748",
-    padding: 5,
-    borderRadius: 5,
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  setTypeWorking: {
-    backgroundColor: "#4CAF50"
-  },
-  setTypeWarmup: {
-    backgroundColor: "#03A9F4"
-  },
-  setTypeFailure: {
-    backgroundColor: "#FF6B6B"
-  },
-  setTypeDrop: {
-    backgroundColor: "#666"
-  },
-  setTypeText: {
-    fontSize: 16,
-    color: "#fff"
-  },
-  removeSetButton: {
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  expandedConfig: {
-    padding: 20
-  },
-  configRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10
-  },
-  configLabel: {
-    fontSize: 16,
-    color: "#A0AEC0"
-  },
-  restControls: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center"
-  },
-  restValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginHorizontal: 10
   },
   bottomActions: {
     flexDirection: "row",

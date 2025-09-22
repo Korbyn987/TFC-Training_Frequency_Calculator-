@@ -350,10 +350,17 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
       .from("workouts")
       .select(
         `
+        id,
         name,
         completed_at,
+        created_at,
+        total_volume_kg,
         workout_exercises (
-          exercise_name
+          exercise_name,
+          exercise_sets (
+            reps,
+            weight_kg
+          )
         )
       `
       )
@@ -380,9 +387,11 @@ export const getUserWorkoutHistory = async (userId, limit = 50) => {
           workout.completed_at
         ).toLocaleDateString();
         console.log(
-          `  ${index + 1}. ${workout.name} - Completed: ${completedDate} (${
-            workout.completed_at
-          })`
+          `  ${index + 1}. ${
+            workout.name
+          } - Completed: ${completedDate} - Volume: ${
+            workout.total_volume_kg
+          } kg`
         );
       });
     }

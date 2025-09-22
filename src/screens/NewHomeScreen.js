@@ -245,6 +245,18 @@ const NewHomeScreen = ({ navigation }) => {
         });
       }
 
+      let totalVolumeKg = 0;
+      if (activeWorkout.exercises && activeWorkout.exercises.length > 0) {
+        totalVolumeKg = activeWorkout.exercises.reduce((total, exercise) => {
+          const exerciseVolume = exercise.sets.reduce((vol, set) => {
+            const weight = parseFloat(set.weight) || 0;
+            const reps = parseInt(set.reps) || 0;
+            return vol + weight * reps;
+          }, 0);
+          return total + exerciseVolume;
+        }, 0);
+      }
+
       const workoutData = {
         name: activeWorkout.name,
         notes: `Workout with ${activeWorkout.exercises?.length || 0} exercises`
@@ -290,7 +302,8 @@ const NewHomeScreen = ({ navigation }) => {
           (new Date() - new Date(activeWorkout.started_at)) / (1000 * 60)
         ),
         notes: "Workout completed",
-        muscle_groups: muscleGroups
+        muscle_groups: muscleGroups,
+        total_volume_kg: totalVolumeKg // Pass the calculated volume
       });
 
       // Optimistic UI update for recovery timers
