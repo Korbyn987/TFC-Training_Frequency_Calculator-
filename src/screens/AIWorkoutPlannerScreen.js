@@ -93,83 +93,72 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
 
   const { muscleRecoveryData, recentWorkouts } = useTabData();
 
-  const handleGeneratePlan = async () => {
-    setIsLoading(true);
-    setGeneratedPlan(null);
+const handleGeneratePlan = async () => {
+  setIsLoading(true);
+  setGeneratedPlan(null);
 
-    const userGoals = { goal, level, frequency, equipment };
+  const userGoals = { goal, level, frequency, equipment };
 
-    try {
-      const result = await generateWorkoutPlan(
-        userGoals,
-        muscleRecoveryData,
-        recentWorkouts
+  try {
+    const result = await generateWorkoutPlan(userGoals, muscleRecoveryData);
+
+    if (result.success) {
+      setGeneratedPlan(result.plan);
+      setAiContext(result.context);
+    } else {
+      Alert.alert(
+        "Error",
+        result.error || "Could not generate a workout plan. Please try again."
       );
-
-      if (result.success) {
-        setGeneratedPlan(result.plan);
-        // Save the context needed for regeneration
-        setAiContext(result.context);
-      } else {
-        Alert.alert(
-          "Error",
-          "Could not generate a workout plan. Please try again."
-        );
-      }
-    } catch (error) {
-      console.error("Error generating workout plan:", error);
-      Alert.alert("Error", "An unexpected error occurred. Please try again.");
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Error generating workout plan:", error);
+    Alert.alert("Error", "An unexpected error occurred. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+}; 
 
-  const handleRefreshDay = async (dayIndex) => {
-    console.log(`🔄 Refresh button pressed for day ${dayIndex + 1}`);
+const handleRefreshDay = async (dayIndex) => {
+  console.log(`🔄 Refresh button pressed for day ${dayIndex + 1}`);
 
-    if (!aiContext) {
-      console.log("❌ No AI context available for refresh");
-      return;
-    }
+  if (!aiContext) {
+    console.log("❌ No AI context available for refresh");
+    Alert.alert("Error", "Cannot refresh day: AI context is missing.");
+    return;
+  }
 
-    console.log("✅ AI context available, starting refresh...");
-    setDayLoading(dayIndex);
+  console.log("✅ AI context available, starting refresh...");
+  setDayLoading(dayIndex);
 
-    try {
-      const dayTemplate = aiContext.split.days[dayIndex];
-      console.log("📋 Day template:", dayTemplate);
+  try {
+    const dayTemplate = aiContext.split.days[dayIndex];
 
-      const newDayData = generateSingleDayWorkout(
-        dayTemplate,
-        aiContext.userGoals,
-        aiContext.allExercises,
-        aiContext.muscleRecovery
-      );
+    const newDayData = generateSingleDayWorkout(
+      dayTemplate,
+      aiContext.userGoals,
+      aiContext.allExercises,
+      aiContext.muscleRecovery
+    );
 
-      console.log("🆕 New day data generated:", newDayData);
+    console.log("🆕 New day data generated:", newDayData);
 
-      // Update the plan with the new day's data
-      setGeneratedPlan((prevPlan) => {
-        console.log("🔄 Updating plan state...");
-        const newDays = [...prevPlan.days];
-        // CRITICAL FIX: Create a completely new object to ensure re-render
-        newDays[dayIndex] = {
-          day: prevPlan.days[dayIndex].day,
-          focus: prevPlan.days[dayIndex].focus,
-          exercises: newDayData.exercises,
-          recoveryWarnings: newDayData.recoveryWarnings
-        };
-        const updatedPlan = { ...prevPlan, days: newDays };
-        console.log("✅ Plan state updated successfully");
-        return updatedPlan;
-      });
-    } catch (error) {
-      console.error(`❌ Error refreshing day ${dayIndex + 1}:`, error);
-      Alert.alert("Error", "Could not refresh the workout. Please try again.");
-    } finally {
-      setDayLoading(null);
-    }
-  };
+    setGeneratedPlan((prevPlan) => {
+      const newDays = [...prevPlan.days];
+      newDays[dayIndex] = {
+        ...prevPlan.days[dayIndex],
+        exercises: newDayData.exercises,
+        recoveryWarnings: newDayData.recoveryWarnings
+      };
+      return { ...prevPlan, days: newDays };
+    });
+  } catch (error) {
+    console.error(`❌ Error refreshing day ${dayIndex + 1}:`, error);
+    Alert.alert("Error", "Could not refresh the workout. Please try again.");
+  } finally {
+    setDayLoading(null);
+  }
+};
 
   const handleStartWorkout = (dayPlan) => {
     console.log("Starting workout with plan:", dayPlan);
