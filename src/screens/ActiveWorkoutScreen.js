@@ -242,9 +242,15 @@ const ActiveWorkoutScreen = ({ navigation }) => {
         "../services/supabaseWorkouts"
       );
       for (const exercise of exercises) {
+        console.log("Saving exercise to DB:", {
+          name: exercise.name,
+          muscle_group: exercise.muscle_group
+        });
         const exerciseResult = await addWorkoutExercise(workout.supabase_id, {
           exercise_id: exercise.id,
-          order_index: exercises.indexOf(exercise)
+          order_index: exercises.indexOf(exercise),
+          muscle_group:
+            exercise.muscle_group || exercise.target_muscle || "Unknown"
         });
 
         if (exerciseResult.success) {
@@ -257,6 +263,11 @@ const ActiveWorkoutScreen = ({ navigation }) => {
 
       // Clear local workout data
       await clearActiveWorkout();
+
+      // Refresh TabData to update recovery timers and workout history
+      console.log("ActiveWorkoutScreen: Refreshing TabData...");
+      await refreshTabData();
+      console.log("ActiveWorkoutScreen: TabData refresh completed");
 
       Alert.alert(
         "Workout Completed!",

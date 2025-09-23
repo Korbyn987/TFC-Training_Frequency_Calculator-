@@ -212,12 +212,7 @@ const NewHomeScreen = ({ navigation }) => {
     if (!activeWorkout) return;
 
     try {
-      const {
-        createWorkout,
-        addWorkoutExercise,
-        addExerciseSet,
-        completeWorkout
-      } = await import("../services/supabaseWorkouts");
+      const { completeWorkout } = await import("../services/supabaseWorkouts");
 
       const muscleGroups = [];
       if (activeWorkout.exercises && activeWorkout.exercises.length > 0) {
@@ -257,53 +252,17 @@ const NewHomeScreen = ({ navigation }) => {
         }, 0);
       }
 
-      const workoutData = {
-        name: activeWorkout.name,
-        notes: `Workout with ${activeWorkout.exercises?.length || 0} exercises`
-      };
+      // Complete the existing workout instead of creating a new one
+      console.log("Completing existing workout with ID:", activeWorkout.id);
 
-      const result = await createWorkout(workoutData);
-      if (!result.success) throw new Error(result.error);
-
-      const newWorkoutId = result.workout.id;
-
-      for (let i = 0; i < activeWorkout.exercises.length; i++) {
-        const exercise = activeWorkout.exercises[i];
-        const exerciseResult = await addWorkoutExercise(newWorkoutId, {
-          exercise_id: exercise.id,
-          exercise_name: exercise.name,
-          target_sets: exercise.sets?.length || 0,
-          muscle_group:
-            exercise.muscle_groups?.name ||
-            exercise.target_muscle ||
-            exercise.muscle_group ||
-            "Unknown"
-        });
-
-        if (!exerciseResult.success) continue;
-
-        const workoutExerciseId = exerciseResult.workoutExercise.id;
-
-        if (exercise.sets && exercise.sets.length > 0) {
-          for (let j = 0; j < exercise.sets.length; j++) {
-            const set = exercise.sets[j];
-            await addExerciseSet(workoutExerciseId, {
-              set_number: j + 1,
-              set_type: set.set_type || "normal",
-              reps: set.reps,
-              weight: set.weight
-            });
-          }
-        }
-      }
-
-      await completeWorkout(newWorkoutId, {
+      await completeWorkout(activeWorkout.id, {
         duration_minutes: Math.floor(
           (new Date() - new Date(activeWorkout.started_at)) / (1000 * 60)
         ),
         notes: "Workout completed",
         muscle_groups: muscleGroups,
-        total_volume_kg: totalVolumeKg // Pass the calculated volume
+        exercises: activeWorkout.exercises, // Pass exercises for volume calculation
+        total_volume_kg: totalVolumeKg
       });
 
       // Optimistic UI update for recovery timers

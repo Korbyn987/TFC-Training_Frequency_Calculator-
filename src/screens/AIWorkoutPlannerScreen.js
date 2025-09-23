@@ -13,6 +13,29 @@ import {
 import { useTabData } from "../context/TabDataContext";
 import { generateWorkoutPlan } from "../services/aiService";
 
+// Helper function to parse AI-generated set strings
+const parseAISetsToWorkoutSets = (setsString) => {
+  if (!setsString || typeof setsString !== 'string') {
+    // Return a default if the format is unexpected
+    return Array.from({ length: 3 }, () => ({ reps: 10, weight: 0, set_type: 'normal' }));
+  }
+
+  const parts = setsString.toLowerCase().split('x');
+  if (parts.length < 2) {
+    return Array.from({ length: 3 }, () => ({ reps: 10, weight: 0, set_type: 'normal' }));
+  }
+
+  const numSets = parseInt(parts[0], 10);
+  const repRange = parts[1].split('-');
+  const reps = parseInt(repRange[0], 10);
+
+  if (isNaN(numSets) || isNaN(reps)) {
+    return Array.from({ length: 3 }, () => ({ reps: 10, weight: 0, set_type: 'normal' }));
+  }
+
+  return Array.from({ length: numSets }, () => ({ reps: reps, weight: 0, set_type: 'normal' }));
+};
+
 const AIWorkoutPlannerScreen = ({ navigation }) => {
   const [goal, setGoal] = useState("muscle_gain");
   const [level, setLevel] = useState("intermediate");
@@ -54,22 +77,23 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
   };
 
   const handleStartWorkout = (dayPlan) => {
+    console.log("Starting workout with plan:", dayPlan);
+
+    // Create the workout object for navigation
     const workout = {
       name: dayPlan.focus,
-      exercises: dayPlan.exercises.map((ex, index) => ({
-        id: `${ex.name.replace(/\s/g, "-")}-${index}`,
-        name: ex.name, // Pass the name for lookup
-        // The AI provides sets as a string, so we let WorkoutOptionsScreen create defaults
-        sets: [],
-        // Attempt to parse a number from the rest string, or default
-        rest_seconds: parseInt(ex.rest, 10) || 60
-      }))
+      exercises: dayPlan.exercises.map((ex) => ({
+        ...ex,
+        // CRITICAL FIX: Ensure 'sets' is an array of objects
+        sets: parseAISetsToWorkoutSets(ex.sets)
+      })),
+      isAiGenerated: true // Add a flag to identify AI workouts
     };
 
-    // Navigate to WorkoutOptionsScreen with the correct parameter structure
+    // Navigate to WorkoutOptionsScreen, passing the full workout data
     navigation.navigate("WorkoutOptions", {
       presetData: workout,
-      fromPreset: true
+      fromPreset: true // Use the existing logic for loading presets
     });
   };
 
@@ -81,13 +105,13 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
       const newTemplate = {
         id: Date.now(),
         name: `${dayPlan.focus} (AI)`,
-        // The AI service provides exercise names. We'll need to match them to real exercises
-        // when loading the preset. For now, we save them as is.
         exercises: dayPlan.exercises.map((ex) => ({
+          id: ex.id, // Real database ID from new AI service
           name: ex.name,
-          // We don't have IDs, so WorkoutOptionsScreen will need to find them by name
-          sets_string: ex.sets, // Store the AI's string suggestion
-          rest_string: ex.rest
+          target_muscle: ex.muscle_group,
+          muscle_group: ex.muscle_group,
+          sets: parseAISetsToWorkoutSets(ex.sets), // Parse AI sets format
+          rest_seconds: parseRestTime(ex.rest)
         })),
         created_at: new Date().toISOString()
       };
@@ -195,6 +219,24 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
               <Text style={styles.dayTitle}>
                 Day {day.day}: {day.focus}
               </Text>
+              {day.recoveryWarnings && day.recoveryWarnings.length > 0 && (
+                <View style={styles.warningsContainer}>
+                  {day.recoveryWarnings.map((warning, index) => (
+                    <Text
+                      key={index}
+                      style={[
+                        styles.warningText,
+                        {
+                          color: warning.percentage < 50 ? "#ef4444" : "#f59e0b"
+                        }
+                      ]}
+                    >
+                      {warning.muscle} is only {Math.floor(warning.percentage)}%
+                      recovered.
+                    </Text>
+                  ))}
+                </View>
+              )}
               {day.exercises.map((ex, index) => (
                 <View key={index} style={styles.exerciseItem}>
                   <Text style={styles.exerciseName}>{ex.name}</Text>
@@ -266,6 +308,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#fff"
+  },
+  warningsContainer: {
+    marginBottom: 10,
+    paddingHorizontal: 5
+  },
+  warningText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    textAlign: "left",
+    marginBottom: 3
   },
   planContainer: {
     padding: 20

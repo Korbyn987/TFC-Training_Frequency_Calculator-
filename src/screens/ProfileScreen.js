@@ -83,8 +83,14 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const formatDuration = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
+    // Handle null, undefined, or NaN values
+    if (!minutes || isNaN(minutes) || minutes <= 0) {
+      return "0m";
+    }
+
+    const numMinutes = Math.round(Number(minutes));
+    const hours = Math.floor(numMinutes / 60);
+    const mins = numMinutes % 60;
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 

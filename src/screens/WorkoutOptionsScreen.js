@@ -17,8 +17,6 @@ import { useDispatch } from "react-redux";
 import ExerciseDetailModal from "../components/ExerciseDetailModal";
 import WorkoutPresets from "../components/WorkoutPresets";
 import { useTabData } from "../context/TabDataContext";
-import { resetMuscleRecovery } from "../redux/workoutSlice";
-import { completeWorkout, saveWorkout } from "../services/supabaseWorkouts";
 
 const { width } = Dimensions.get("window");
 
@@ -344,114 +342,86 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
 
     setSaving(true);
     try {
-      // Extract muscle groups for recovery tracking
-      const muscleGroups = [];
-      selectedExercises.forEach((exercise) => {
-        const muscleGroup = exercise.target_muscle || exercise.muscle_group;
-        if (muscleGroup && !muscleGroups.includes(muscleGroup)) {
-          muscleGroups.push(muscleGroup);
-        }
-      });
+      // This is the new, direct save logic that bypasses the faulty saveWorkout function
+      console.log("Creating new workout with direct DB calls...");
 
-      console.log("Extracted muscle groups:", muscleGroups);
-
-      if (isCompleting) {
-        // Complete existing workout
-        console.log("Completing existing workout");
-
-        const completionData = {
-          duration_minutes: Math.round(
-            (Date.now() - new Date(activeWorkoutData.started_at).getTime()) /
-              (1000 * 60)
-          ),
-          notes: workoutName.trim(),
-          muscle_groups: muscleGroups,
-          exercises: selectedExercises
-        };
-
-        console.log("Completion data:", completionData);
-
-        const result = await completeWorkout(
-          activeWorkoutData.id,
-          completionData
-        );
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to complete workout.");
-        }
-
-        console.log("Workout completed successfully:", result.workout);
-
-        // Reset muscle recovery timers in Redux
-        if (muscleGroups.length > 0) {
-          dispatch(resetMuscleRecovery({ muscleGroups }));
-        }
-
-        // Clear active workout from context
-        setActiveWorkout(null);
-
-        Alert.alert("Success", "Workout completed successfully!", [
-          {
-            text: "View Profile",
-            onPress: () => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Tabs", params: { screen: "Profile" } }]
-              });
-            }
-          }
-        ]);
-      } else {
-        // Create new workout and start it
-        console.log("Creating new workout");
-
-        const workoutData = {
-          name: workoutName.trim(),
-          exercises: selectedExercises.map((ex, index) => ({
-            id: ex.id,
-            name: ex.name,
-            target_muscle: ex.target_muscle || ex.muscle_group,
-            muscle_group: ex.target_muscle || ex.muscle_group,
-            sets: ex.sets || []
-          })),
-          notes: `Workout: ${workoutName.trim()}`,
-          started_at: new Date().toISOString()
-        };
-
-        console.log("Creating workout with data:", workoutData);
-
-        const saveResult = await saveWorkout(workoutData);
-        if (!saveResult.success) {
-          throw new Error(saveResult.error || "Failed to save workout.");
-        }
-
-        console.log("Workout saved successfully:", saveResult.workout);
-
-        // Set as active workout in context
-        const activeWorkoutData = {
-          id: saveResult.workout.id,
-          name: workoutName.trim(),
-          exercises: selectedExercises,
-          started_at: new Date().toISOString()
-        };
-
-        setActiveWorkout(activeWorkoutData);
-
-        Alert.alert("Success", "Workout started successfully!", [
-          {
-            text: "Go to Home",
-            onPress: () => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Tabs", params: { screen: "Home" } }]
-              });
-            }
-          }
-        ]);
+      // 1. Create the main workout entry
+      const { createWorkout, addWorkoutExercise, addExerciseSet } =
+        await import("../services/supabaseWorkouts");
+      const workoutResult = await createWorkout({ name: workoutName.trim() });
+      if (!workoutResult.success) {
+        throw new Error(workoutResult.error || "Failed to create workout.");
       }
+      const workoutId = workoutResult.workout.id;
+      console.log("Created workout with ID:", workoutId);
+
+      // 2. Add each exercise to the workout
+      for (const exercise of selectedExercises) {
+        console.log(
+          `Saving exercise: ${exercise.name}, Muscle: ${exercise.muscle_group}`
+        );
+        const exerciseResult = await addWorkoutExercise(workoutId, {
+          exercise_id: exercise.id, // The AI provides the correct exercise ID
+          exercise_name: exercise.name,
+          muscle_group:
+            exercise.muscle_group || exercise.target_muscle || "Unknown",
+          order_index: selectedExercises.indexOf(exercise),
+          target_sets: exercise.sets?.length || 0
+        });
+
+        if (!exerciseResult.success) {
+          console.error(
+            "Failed to add exercise:",
+            exercise.name,
+            exerciseResult.error
+          );
+          continue; // Continue to next exercise even if one fails
+        }
+
+        const workoutExerciseId = exerciseResult.workoutExercise.id;
+
+        // 3. Add sets for the exercise
+        if (exercise.sets && exercise.sets.length > 0) {
+          for (const set of exercise.sets) {
+            await addExerciseSet(workoutExerciseId, {
+              set_number: exercise.sets.indexOf(set) + 1,
+              set_type: set.set_type || "working",
+              weight_kg: parseFloat(set.weight) || 0,
+              reps: parseInt(set.reps) || 0,
+              rest_seconds: set.rest_seconds || 60
+            });
+          }
+        }
+      }
+
+      // 4. Set as active workout in context
+      const activeWorkoutPayload = {
+        supabase_id: workoutId, // Use the new workout ID
+        id: workoutId, // for compatibility
+        name: workoutName.trim(),
+        exercises: selectedExercises, // The exercises are already in the correct format
+        started_at: workoutResult.workout.started_at
+      };
+      setActiveWorkout(activeWorkoutPayload);
+      console.log("Set active workout in context:", activeWorkoutPayload);
+
+      // 5. Refresh data and navigate
+      await refreshTabData();
+
+      Alert.alert("Success", "Workout started successfully!", [
+        {
+          text: "Go to Home",
+          onPress: () => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Tabs", params: { screen: "Home" } }]
+            });
+          }
+        }
+      ]);
     } catch (error) {
-      console.error("Error saving workout:", error);
-      Alert.alert("Error", "Failed to save workout. Please try again.");
+      console.error("Error in handleSaveWorkout:", error);
+      Alert.alert("Error", `Failed to save workout: ${error.message}`);
     } finally {
       setSaving(false);
     }

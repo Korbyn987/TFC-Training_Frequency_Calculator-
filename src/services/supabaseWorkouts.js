@@ -51,6 +51,50 @@ export const getMuscleGroups = async () => {
   }
 };
 
+// Helper to find the best exercise match from a list of all exercises
+const findBestExerciseMatch = (exerciseName, allExercises) => {
+  const normalize = (str) =>
+    str
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const normalizedInputName = normalize(exerciseName);
+  if (!normalizedInputName) return null;
+
+  let bestMatch = null;
+  let highestScore = 0;
+
+  for (const dbExercise of allExercises) {
+    const normalizedDbName = normalize(dbExercise.name);
+
+    // Perfect match
+    if (normalizedDbName === normalizedInputName) {
+      return dbExercise;
+    }
+
+    // Simple word overlap score (Jaccard similarity)
+    const nameWords = new Set(normalizedInputName.split(" "));
+    const dbNameWords = new Set(normalizedDbName.split(" "));
+    const intersection = new Set([...nameWords].filter((x) => dbNameWords.has(x)));
+    const union = new Set([...nameWords, ...dbNameWords]);
+    const score = intersection.size / union.size;
+
+    if (score > highestScore) {
+      highestScore = score;
+      bestMatch = dbExercise;
+    }
+  }
+
+  // Only return a match if the score is reasonably high
+  if (highestScore > 0.5) {
+    return bestMatch;
+  }
+
+  return null;
+};
+
 // Create a new workout
 export const createWorkout = async (workoutData) => {
   try {
@@ -174,18 +218,17 @@ export const completeWorkout = async (workoutId, completionData) => {
       return { success: false, error: "User not authenticated" };
     }
 
-    // Debug: Log all user properties to identify correct ID
-    console.log("User object for workout completion:", {
-      id: user.id,
-      auth_id: user.auth_id,
-      user_metadata_id: user.user_metadata?.id,
-      user_metadata: user.user_metadata,
-      email: user.email
-    });
+    // The database user ID is required for RLS
+    const dbUserId = user.user_metadata?.id;
+    if (!dbUserId) {
+      console.error("Database user ID not found for workout completion");
+      return { success: false, error: "Database user ID not found" };
+    }
 
-    // Try multiple possible user ID formats
-    const userId = user.user_metadata?.id || user.auth_id || user.id;
-    console.log("Using user ID for workout completion:", userId);
+    console.log("User object for workout completion:", {
+      auth_id: user.id,
+      db_id: dbUserId
+    });
 
     // Calculate total volume from the exercises data passed in completionData
     let totalVolumeKg = 0;
@@ -218,7 +261,7 @@ export const completeWorkout = async (workoutId, completionData) => {
         total_volume_kg: totalVolumeKg
       })
       .eq("id", workoutId)
-      .eq("user_id", userId) // Add user_id check for RLS
+      .eq("user_id", dbUserId) // Use correct DB user ID for RLS
       .select()
       .single();
 
@@ -228,7 +271,7 @@ export const completeWorkout = async (workoutId, completionData) => {
     }
 
     // Update user stats
-    await updateUserStats(userId, {
+    await updateUserStats(dbUserId, {
       total_workouts: 1,
       total_workout_time_minutes: completionData.duration_minutes || 0
     });
@@ -726,45 +769,44 @@ export const saveWorkout = async (workoutData) => {
     const workoutId = workoutResult.workout.id;
     console.log("Created workout with ID:", workoutId);
 
+    // Pre-fetch all exercises for efficient matching
+    const { exercises: allDbExercises } = await getExercises();
+    if (!allDbExercises) {
+      return {
+        success: false,
+        error: "Could not fetch exercises for matching."
+      };
+    }
+
     // 2. Add exercises and their sets
     for (let i = 0; i < workoutData.exercises.length; i++) {
       const exercise = workoutData.exercises[i];
       console.log(`Processing exercise ${i + 1}:`, exercise.name);
 
-      // Look up the actual exercise ID from the exercises table by name
-      let actualExerciseId = 1; // Default fallback ID (Dips - always exists)
-      try {
-        const { data: exerciseData, error: exerciseError } = await supabase
-          .from("exercises")
-          .select("id")
-          .ilike("name", exercise.name) // Case-insensitive match
-          .single();
+      // Use the fuzzy matching helper to find the best match
+      const matchedExercise = findBestExerciseMatch(
+        exercise.name,
+        allDbExercises
+      );
 
-        if (!exerciseError && exerciseData) {
-          actualExerciseId = exerciseData.id;
-          console.log(
-            `Found exercise ID ${actualExerciseId} for "${exercise.name}"`
-          );
-        } else {
-          console.warn(
-            `Exercise "${exercise.name}" not found in database, using fallback ID ${actualExerciseId}`
-          );
-        }
-      } catch (lookupError) {
+      let actualExerciseId = 1; // Default fallback ID (Dips)
+      if (matchedExercise) {
+        actualExerciseId = matchedExercise.id;
+        console.log(
+          `Best match found: "${exercise.name}" -> "${matchedExercise.name}" (ID: ${actualExerciseId})`
+        );
+      } else {
         console.warn(
-          `Error looking up exercise "${exercise.name}":`,
-          lookupError,
-          `using fallback ID ${actualExerciseId}`
+          `No suitable match found for "${exercise.name}". Using fallback ID ${actualExerciseId}.`
         );
       }
 
       const workoutExerciseResult = await addWorkoutExercise(workoutId, {
         exercise_id: actualExerciseId, // Use the looked-up ID or fallback
         exercise_name: exercise.name,
-        muscle_group:
-          exercise.target_muscle || exercise.muscle_group || "Unknown",
+        muscle_group: exercise.muscle_group || exercise.target_muscle || "Unknown",
         order_index: i,
-        target_sets: exercise.sets ? exercise.sets.length : 0
+        target_sets: exercise.sets?.length || 0
       });
 
       if (!workoutExerciseResult.success) {
