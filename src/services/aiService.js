@@ -133,7 +133,7 @@ export const generateSingleDayWorkout = (
   allExercises,
   muscleRecovery
 ) => {
-  const dayExercises = [];
+  let dayExercises = [];
   const recoveryWarnings = [];
   const config = EXPERIENCE_CONFIGS[userGoals.level];
 
@@ -150,37 +150,189 @@ export const generateSingleDayWorkout = (
       name: "Active Recovery - Light Cardio",
       sets: "20-30 minutes",
       rest: "As needed",
-      muscle_group: "Cardio"
+      muscle_group: "Cardio",
+      exercise_type: "compound",
+      equipment: "bodyweight"
     });
-  } else {
-    const totalExercises = Math.min(
-      config.totalExercises.max,
-      Math.max(config.totalExercises.min, dayTemplate.muscles.length * 2)
-    );
-    const exercisesPerMuscle = Math.floor(
-      totalExercises / dayTemplate.muscles.length
-    );
-    let remainder = totalExercises % dayTemplate.muscles.length;
+    return { exercises: dayExercises, recoveryWarnings };
+  }
 
-    for (const muscle of dayTemplate.muscles) {
-      let countForThisMuscle = exercisesPerMuscle + (remainder > 0 ? 1 : 0);
-      if (remainder > 0) remainder--;
+  const totalExercises = Math.min(
+    config.totalExercises.max,
+    Math.max(config.totalExercises.min, dayTemplate.muscles.length * 2)
+  );
 
-      if (countForThisMuscle > 0) {
-        const exercises = selectExercisesForMuscle(
-          muscle,
-          allExercises,
-          countForThisMuscle,
-          userGoals.level,
-          userGoals.equipment
-        );
-        dayExercises.push(...exercises);
+  // --- New Balanced Selection Logic (Ported from Backend) ---
+  const focusType = dayTemplate.focus.toLowerCase();
+  const selectedIds = new Set();
+
+  // 1. Select Primary Lifts based on focus
+  if (focusType.includes("push")) {
+    const mainPress = selectExercisesForMuscle(
+      "chest",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        ex.exercise_type === "compound" &&
+        ex.name.toLowerCase().includes("press")
+    );
+    if (mainPress[0]) {
+      dayExercises.push(mainPress[0]);
+      selectedIds.add(mainPress[0].id);
+    }
+    const overheadPress = selectExercisesForMuscle(
+      "shoulders",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        ex.exercise_type === "compound" &&
+        ex.name.toLowerCase().includes("press") &&
+        !selectedIds.has(ex.id)
+    );
+    if (overheadPress[0]) {
+      dayExercises.push(overheadPress[0]);
+      selectedIds.add(overheadPress[0].id);
+    }
+  } else if (focusType.includes("pull")) {
+    const verticalPull = selectExercisesForMuscle(
+      "back",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        ex.name.toLowerCase().includes("pull-up") ||
+        ex.name.toLowerCase().includes("lat pulldown")
+    );
+    if (verticalPull[0]) {
+      dayExercises.push(verticalPull[0]);
+      selectedIds.add(verticalPull[0].id);
+    }
+    const horizontalPull = selectExercisesForMuscle(
+      "back",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) => ex.name.toLowerCase().includes("row") && !selectedIds.has(ex.id)
+    );
+    if (horizontalPull[0]) {
+      dayExercises.push(horizontalPull[0]);
+      selectedIds.add(horizontalPull[0].id);
+    }
+  } else if (focusType.includes("legs")) {
+    const squat = selectExercisesForMuscle(
+      "quads",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) => ex.name.toLowerCase().includes("squat") && !selectedIds.has(ex.id)
+    );
+    if (squat[0]) {
+      dayExercises.push(squat[0]);
+      selectedIds.add(squat[0].id);
+    }
+    const hinge = selectExercisesForMuscle(
+      "hamstrings",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        (ex.name.toLowerCase().includes("deadlift") ||
+          ex.name.toLowerCase().includes("hinge")) &&
+        !selectedIds.has(ex.id)
+    );
+    if (hinge[0]) {
+      dayExercises.push(hinge[0]);
+      selectedIds.add(hinge[0].id);
+    }
+    const lunge = selectExercisesForMuscle(
+      "quads",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) => ex.name.toLowerCase().includes("lunge") && !selectedIds.has(ex.id)
+    );
+    if (lunge[0]) {
+      dayExercises.push(lunge[0]);
+      selectedIds.add(lunge[0].id);
+    }
+    const calfExercise = selectExercisesForMuscle(
+      "calves",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter((ex) => !selectedIds.has(ex.id));
+    if (calfExercise[0]) {
+      dayExercises.push(calfExercise[0]);
+      selectedIds.add(calfExercise[0].id);
+    }
+    const gluteExercise = selectExercisesForMuscle(
+      "glutes",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter((ex) => !selectedIds.has(ex.id));
+    if (gluteExercise[0]) {
+      dayExercises.push(gluteExercise[0]);
+      selectedIds.add(gluteExercise[0].id);
+    }
+  }
+
+  // 2. Fill remaining slots with accessory exercises
+  const remainingSlots = totalExercises - dayExercises.length;
+  if (remainingSlots > 0) {
+    const accessoryMuscles = [...dayTemplate.muscles].sort(
+      () => Math.random() - 0.5
+    );
+    let currentMuscleIndex = 0;
+
+    for (let i = 0; i < remainingSlots; i++) {
+      const muscleToTrain = accessoryMuscles[currentMuscleIndex];
+      const accessoryExercises = selectExercisesForMuscle(
+        muscleToTrain,
+        allExercises,
+        remainingSlots,
+        userGoals.level,
+        userGoals.equipment
+      ).filter((ex) => !selectedIds.has(ex.id));
+
+      if (accessoryExercises.length > 0) {
+        const exerciseToAdd = accessoryExercises[0];
+        dayExercises.push(exerciseToAdd);
+        selectedIds.add(exerciseToAdd.id);
       }
+      currentMuscleIndex = (currentMuscleIndex + 1) % accessoryMuscles.length;
     }
-    dayExercises.sort(() => Math.random() - 0.5);
-    if (dayExercises.length > config.totalExercises.max) {
-      dayExercises.splice(config.totalExercises.max);
-    }
+  }
+
+  // 3. Final shuffle of accessory work, keeping primary lifts at the top
+  if (dayExercises.length > 2) {
+    const primaryLifts = dayExercises.slice(0, 2);
+    const accessoryWork = dayExercises.slice(2);
+    accessoryWork.sort(() => Math.random() - 0.5);
+    dayExercises = [...primaryLifts, ...accessoryWork];
+  }
+
+  // Ensure total exercise count is respected
+  if (dayExercises.length > totalExercises) {
+    dayExercises.splice(totalExercises);
   }
 
   return {
@@ -189,7 +341,8 @@ export const generateSingleDayWorkout = (
       name: ex.name,
       sets: ex.sets,
       rest: ex.rest,
-      muscle_group: ex.muscle_group
+      muscle_group: ex.muscle_group, // Keep this for display consistency
+      muscle_groups: ex.muscle_groups // Pass the new structure along
     })),
     recoveryWarnings
   };

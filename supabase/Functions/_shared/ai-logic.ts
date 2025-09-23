@@ -179,13 +179,15 @@ const selectExercisesForMuscle = (
   experienceLevel: "beginner" | "intermediate" | "advanced",
   equipment: "full_gym" | "home_gym" | "bodyweight"
 ): Exercise[] => {
+  console.log(
+    `🔍 Filtering for muscle "${muscle}" with equipment "${equipment}"...`
+  );
   const muscleExercises = allExercises.filter(
     (ex) =>
       // CRITICAL FIX: Look for the muscle group name in the nested object
       ex.muscle_groups?.name?.toLowerCase() === muscle.toLowerCase() &&
       EQUIPMENT_FILTERS[equipment](ex)
   );
-  // ADD THIS LINE TO DEBUG:
   console.log(
     `🔍 Filtering for muscle "${muscle}" with equipment "${equipment}". Found ${muscleExercises.length} exercises.`
   );
@@ -250,7 +252,7 @@ const generateSingleDayWorkout = (
   allExercises: Exercise[],
   muscleRecovery: MuscleRecovery
 ) => {
-  const dayExercises: Exercise[] = [];
+  let dayExercises: Exercise[] = [];
   const recoveryWarnings: any[] = [];
   const config = EXPERIENCE_CONFIGS[userGoals.level];
 
@@ -271,35 +273,194 @@ const generateSingleDayWorkout = (
       exercise_type: "compound",
       equipment: "bodyweight"
     });
-  } else {
-    const totalExercises = Math.min(
-      config.totalExercises.max,
-      Math.max(config.totalExercises.min, dayTemplate.muscles.length * 2)
-    );
-    const exercisesPerMuscle = Math.floor(
-      totalExercises / dayTemplate.muscles.length
-    );
-    let remainder = totalExercises % dayTemplate.muscles.length;
+    return { exercises: dayExercises, recoveryWarnings };
+  }
 
-    for (const muscle of dayTemplate.muscles) {
-      let countForThisMuscle = exercisesPerMuscle + (remainder > 0 ? 1 : 0);
-      if (remainder > 0) remainder--;
+  const totalExercises = Math.min(
+    config.totalExercises.max,
+    Math.max(config.totalExercises.min, dayTemplate.muscles.length * 2)
+  );
 
-      if (countForThisMuscle > 0) {
-        const exercises = selectExercisesForMuscle(
-          muscle,
-          allExercises,
-          countForThisMuscle,
-          userGoals.level,
-          userGoals.equipment
-        );
-        dayExercises.push(...exercises);
+  // --- New Balanced Selection Logic ---
+  const focusType = dayTemplate.focus.toLowerCase();
+  const selectedIds = new Set<number>();
+
+  // 1. Select Primary Lifts based on focus
+  if (focusType.includes("push")) {
+    // Main Press for Chest
+    const mainPress = selectExercisesForMuscle(
+      "chest",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        ex.exercise_type === "compound" &&
+        ex.name.toLowerCase().includes("press")
+    );
+    if (mainPress[0]) {
+      dayExercises.push(mainPress[0]);
+      selectedIds.add(mainPress[0].id);
+    }
+    // Main Overhead Press for Shoulders
+    const overheadPress = selectExercisesForMuscle(
+      "shoulders",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        ex.exercise_type === "compound" &&
+        ex.name.toLowerCase().includes("press") &&
+        !selectedIds.has(ex.id)
+    );
+    if (overheadPress[0]) {
+      dayExercises.push(overheadPress[0]);
+      selectedIds.add(overheadPress[0].id);
+    }
+  } else if (focusType.includes("pull")) {
+    // Main Vertical Pull for Back (Lats)
+    const verticalPull = selectExercisesForMuscle(
+      "back",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        ex.name.toLowerCase().includes("pull-up") ||
+        ex.name.toLowerCase().includes("lat pulldown")
+    );
+    if (verticalPull[0]) {
+      dayExercises.push(verticalPull[0]);
+      selectedIds.add(verticalPull[0].id);
+    }
+    // Main Horizontal Pull for Back (Rhomboids, Traps)
+    const horizontalPull = selectExercisesForMuscle(
+      "back",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) => ex.name.toLowerCase().includes("row") && !selectedIds.has(ex.id)
+    );
+    if (horizontalPull[0]) {
+      dayExercises.push(horizontalPull[0]);
+      selectedIds.add(horizontalPull[0].id);
+    }
+  } else if (focusType.includes("legs")) {
+    // Main Squat variation for Quads
+    const squat = selectExercisesForMuscle(
+      "quads",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) => ex.name.toLowerCase().includes("squat") && !selectedIds.has(ex.id)
+    );
+    if (squat[0]) {
+      dayExercises.push(squat[0]);
+      selectedIds.add(squat[0].id);
+    }
+    // Main Hinge variation for Hamstrings/Glutes
+    const hinge = selectExercisesForMuscle(
+      "hamstrings",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        (ex.name.toLowerCase().includes("deadlift") ||
+          ex.name.toLowerCase().includes("hinge")) &&
+        !selectedIds.has(ex.id)
+    );
+    if (hinge[0]) {
+      dayExercises.push(hinge[0]);
+      selectedIds.add(hinge[0].id);
+    }
+    // Unilateral movement (Lunge)
+    const lunge = selectExercisesForMuscle(
+      "quads",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) => ex.name.toLowerCase().includes("lunge") && !selectedIds.has(ex.id)
+    );
+    if (lunge[0]) {
+      dayExercises.push(lunge[0]);
+      selectedIds.add(lunge[0].id);
+    }
+    // Calf exercise
+    const calfExercise = selectExercisesForMuscle(
+      "calves",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter((ex) => !selectedIds.has(ex.id));
+    if (calfExercise[0]) {
+      dayExercises.push(calfExercise[0]);
+      selectedIds.add(calfExercise[0].id);
+    }
+    // Glute exercise
+    const gluteExercise = selectExercisesForMuscle(
+      "glutes",
+      allExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter((ex) => !selectedIds.has(ex.id));
+    if (gluteExercise[0]) {
+      dayExercises.push(gluteExercise[0]);
+      selectedIds.add(gluteExercise[0].id);
+    }
+  } 
+
+  // 2. Fill remaining slots with accessory exercises
+  const remainingSlots = totalExercises - dayExercises.length;
+  if (remainingSlots > 0) {
+    const accessoryMuscles = [...dayTemplate.muscles].sort(
+      () => Math.random() - 0.5
+    );
+    let currentMuscleIndex = 0;
+
+    for (let i = 0; i < remainingSlots; i++) {
+      const muscleToTrain = accessoryMuscles[currentMuscleIndex];
+      const accessoryExercises = selectExercisesForMuscle(
+        muscleToTrain,
+        allExercises,
+        remainingSlots,
+        userGoals.level,
+        userGoals.equipment
+      ).filter((ex) => !selectedIds.has(ex.id));
+
+      if (accessoryExercises.length > 0) {
+        const exerciseToAdd = accessoryExercises[0];
+        dayExercises.push(exerciseToAdd);
+        selectedIds.add(exerciseToAdd.id);
       }
+      currentMuscleIndex = (currentMuscleIndex + 1) % accessoryMuscles.length;
     }
-    dayExercises.sort(() => Math.random() - 0.5);
-    if (dayExercises.length > config.totalExercises.max) {
-      dayExercises.splice(config.totalExercises.max);
-    }
+  }
+
+  // 3. Final shuffle of accessory work, keeping primary lifts at the top
+  if (dayExercises.length > 2) {
+    const primaryLifts = dayExercises.slice(0, 2);
+    const accessoryWork = dayExercises.slice(2);
+    accessoryWork.sort(() => Math.random() - 0.5); // Shuffle accessory work
+    dayExercises = [...primaryLifts, ...accessoryWork];
+  }
+
+  // Ensure total exercise count is respected
+  if (dayExercises.length > totalExercises) {
+    dayExercises.splice(totalExercises);
   }
 
   return { exercises: dayExercises, recoveryWarnings };
