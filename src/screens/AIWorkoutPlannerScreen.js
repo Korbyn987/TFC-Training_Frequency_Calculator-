@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons"; // Import icons
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -90,75 +90,95 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
 
   // Store data needed for regeneration
   const [aiContext, setAiContext] = useState(null);
+  const [seenFocuses, setSeenFocuses] = useState(new Set()); // Track seen focuses
 
   const { muscleRecoveryData, recentWorkouts } = useTabData();
 
-const handleGeneratePlan = async () => {
-  setIsLoading(true);
-  setGeneratedPlan(null);
-
-  const userGoals = { goal, level, frequency, equipment };
-
-  try {
-    const result = await generateWorkoutPlan(userGoals, muscleRecoveryData);
-
-    if (result.success) {
-      setGeneratedPlan(result.plan);
-      setAiContext(result.context);
-    } else {
-      Alert.alert(
-        "Error",
-        result.error || "Could not generate a workout plan. Please try again."
+  useEffect(() => {
+    if (generatedPlan) {
+      const initialFocuses = new Set();
+      generatedPlan.days.forEach((day) =>
+        initialFocuses.add(day.focus.toLowerCase())
       );
+      setSeenFocuses(initialFocuses);
     }
-  } catch (error) {
-    console.error("Error generating workout plan:", error);
-    Alert.alert("Error", "An unexpected error occurred. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-}; 
+  }, [generatedPlan]);
 
-const handleRefreshDay = async (dayIndex) => {
-  console.log(`🔄 Refresh button pressed for day ${dayIndex + 1}`);
+  const handleGeneratePlan = async () => {
+    setIsLoading(true);
+    setGeneratedPlan(null);
 
-  if (!aiContext) {
-    console.log("❌ No AI context available for refresh");
-    Alert.alert("Error", "Cannot refresh day: AI context is missing.");
-    return;
-  }
+    const userGoals = { goal, level, frequency, equipment };
 
-  console.log("✅ AI context available, starting refresh...");
-  setDayLoading(dayIndex);
+    try {
+      const result = await generateWorkoutPlan(userGoals, muscleRecoveryData);
 
-  try {
-    const dayTemplate = aiContext.split.days[dayIndex];
+      if (result.success) {
+        setGeneratedPlan(result.plan);
+        setAiContext(result.context);
+      } else {
+        Alert.alert(
+          "Error",
+          result.error || "Could not generate a workout plan. Please try again."
+        );
+      }
+    } catch (error) {
+      console.error("Error generating workout plan:", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    const newDayData = generateSingleDayWorkout(
-      dayTemplate,
-      aiContext.userGoals,
-      aiContext.allExercises,
-      aiContext.muscleRecovery
-    );
+  const handleRefreshDay = async (dayIndex) => {
+    console.log(`🔄 Refresh button pressed for day ${dayIndex + 1}`);
 
-    console.log("🆕 New day data generated:", newDayData);
+    if (!aiContext) {
+      console.log("❌ No AI context available for refresh");
+      Alert.alert("Error", "Cannot refresh day: AI context is missing.");
+      return;
+    }
 
-    setGeneratedPlan((prevPlan) => {
-      const newDays = [...prevPlan.days];
-      newDays[dayIndex] = {
-        ...prevPlan.days[dayIndex],
-        exercises: newDayData.exercises,
-        recoveryWarnings: newDayData.recoveryWarnings
-      };
-      return { ...prevPlan, days: newDays };
-    });
-  } catch (error) {
-    console.error(`❌ Error refreshing day ${dayIndex + 1}:`, error);
-    Alert.alert("Error", "Could not refresh the workout. Please try again.");
-  } finally {
-    setDayLoading(null);
-  }
-};
+    console.log("✅ AI context available, starting refresh...");
+    setDayLoading(dayIndex);
+
+    try {
+      const currentSeenFocuses = new Set();
+      for (let i = 0; i < dayIndex; i++) {
+        currentSeenFocuses.add(generatedPlan.days[i].focus.toLowerCase());
+      }
+
+      const dayToRefresh = generatedPlan.days[dayIndex];
+      const refreshedDayResult = await generateSingleDayWorkout(
+        {
+          focus: dayToRefresh.focus,
+          muscles: aiContext.split.days[dayIndex].muscles
+        },
+        aiContext.userGoals,
+        aiContext.allExercises,
+        aiContext.muscleRecovery,
+        dayIndex,
+        currentSeenFocuses
+      );
+
+      console.log("🆕 New day data generated:", refreshedDayResult);
+
+      setGeneratedPlan((prevPlan) => {
+        const newDays = [...prevPlan.days];
+        newDays[dayIndex] = {
+          ...prevPlan.days[dayIndex],
+          exercises: refreshedDayResult.exercises,
+          recoveryWarnings: refreshedDayResult.recoveryWarnings
+        };
+        return { ...prevPlan, days: newDays };
+      });
+    } catch (error) {
+      console.error(`❌ Error refreshing day ${dayIndex + 1}:`, error);
+      Alert.alert("Error", "Could not refresh the workout. Please try again.");
+    } finally {
+      setDayLoading(null);
+    }
+  };
 
   const handleStartWorkout = (dayPlan) => {
     console.log("Starting workout with plan:", dayPlan);

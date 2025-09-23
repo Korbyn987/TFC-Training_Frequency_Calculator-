@@ -10,6 +10,7 @@ interface Exercise {
   sets?: string;
   rest?: string;
   muscle_groups?: { name: string }; // Add this to match the new query
+  difficulty_level: string; // Add this to match the new query
 }
 
 interface UserGoals {
@@ -172,6 +173,64 @@ const calculateRecoveryPercentage = (
   return Math.floor(Math.max(0, percentage));
 };
 
+const getMovementPattern = (name: string): string => {
+  const lowerName = name.toLowerCase();
+  // List of words to remove to find the core movement
+  const removableWords = [
+    "barbell",
+    "dumbbell",
+    "smith machine",
+    "cable",
+    "machine",
+    "band",
+    "incline",
+    "decline",
+    "seated",
+    "standing",
+    "alternating",
+    "single arm",
+    "single leg"
+  ];
+  let pattern = ` ${lowerName} `;
+  removableWords.forEach((word) => {
+    pattern = pattern.replace(` ${word} `, " ");
+  });
+  // Remove plural 's' to group exercises like 'row' and 'rows'
+  if (pattern.trim().endsWith("s")) {
+    pattern = pattern.trim().slice(0, -1);
+  }
+  return pattern.trim();
+};
+
+const getAvailableExercises = (
+  allExercises: Exercise[],
+  level: string,
+  hardExerciseCount: number,
+  hardExerciseMuscleGroups: Set<string>,
+  muscleToFilter?: string
+): Exercise[] => {
+  if (level === "beginner") {
+    return allExercises.filter((ex) => ex.difficulty_level === "beginner");
+  }
+
+  if (level === "intermediate") {
+    const canAddHardExercise = hardExerciseCount < 2;
+
+    // Filter out advanced exercises for muscles that already have one
+    if (muscleToFilter && hardExerciseMuscleGroups.has(muscleToFilter)) {
+      return allExercises.filter((ex) => ex.difficulty_level !== "advanced");
+    }
+
+    // If we can't add any more hard exercises, filter them all out
+    if (!canAddHardExercise) {
+      return allExercises.filter((ex) => ex.difficulty_level !== "advanced");
+    }
+  }
+
+  // For advanced users, or intermediates who can still add hard exercises
+  return allExercises;
+};
+
 const selectExercisesForMuscle = (
   muscle: string,
   allExercises: Exercise[],
@@ -184,8 +243,8 @@ const selectExercisesForMuscle = (
   );
   const muscleExercises = allExercises.filter(
     (ex) =>
-      // CRITICAL FIX: Look for the muscle group name in the nested object
-      ex.muscle_groups?.name?.toLowerCase() === muscle.toLowerCase() &&
+      ex.muscle_groups &&
+      ex.muscle_groups.name?.toLowerCase() === muscle.toLowerCase() &&
       EQUIPMENT_FILTERS[equipment](ex)
   );
   console.log(
@@ -193,6 +252,7 @@ const selectExercisesForMuscle = (
   );
   if (muscleExercises.length === 0) return [];
 
+  // Separate compound and isolation exercises
   const compound = muscleExercises.filter(
     (ex) =>
       ex.exercise_type === "compound" ||
@@ -202,12 +262,14 @@ const selectExercisesForMuscle = (
   );
   const isolation = muscleExercises.filter((ex) => !compound.includes(ex));
 
+  // Shuffle for variety
   compound.sort(() => Math.random() - 0.5);
   isolation.sort(() => Math.random() - 0.5);
 
   const config = EXPERIENCE_CONFIGS[experienceLevel];
   let selected: Exercise[] = [];
 
+  // Determine the number of compound vs isolation exercises
   let compoundCount = 0;
   let isolationCount = 0;
 
@@ -218,6 +280,7 @@ const selectExercisesForMuscle = (
     compoundCount = Math.ceil(count * 0.6);
     isolationCount = Math.floor(count * 0.4);
   } else {
+    // advanced
     compoundCount = Math.ceil(count * 0.7);
     isolationCount = Math.floor(count * 0.3);
   }
@@ -226,6 +289,7 @@ const selectExercisesForMuscle = (
   const selectedIsolation = isolation.slice(0, isolationCount);
   selected = [...selectedCompound, ...selectedIsolation];
 
+  // Fill any remaining slots if one category was short
   if (selected.length < count) {
     const allAvailable = [...compound, ...isolation];
     for (let i = 0; selected.length < count && i < allAvailable.length; i++) {
@@ -236,6 +300,7 @@ const selectExercisesForMuscle = (
     }
   }
 
+  // Assign sets and rest times based on exercise type and experience
   return selected.map((ex) => {
     const isCompound = selectedCompound.some((ce) => ce.id === ex.id);
     return {
@@ -250,8 +315,10 @@ const generateSingleDayWorkout = (
   dayTemplate: { focus: string; muscles: string[] },
   userGoals: UserGoals,
   allExercises: Exercise[],
-  muscleRecovery: MuscleRecovery
-) => {
+  muscleRecovery: MuscleRecovery,
+  dayIndex: number,
+  seenFocuses: Set<string>
+): { exercises: Exercise[]; recoveryWarnings: any[] } => {
   let dayExercises: Exercise[] = [];
   const recoveryWarnings: any[] = [];
   const config = EXPERIENCE_CONFIGS[userGoals.level];
@@ -263,15 +330,17 @@ const generateSingleDayWorkout = (
     }
   });
 
-  if (dayTemplate.muscles.length === 0) {
+  if (dayTemplate.focus.toLowerCase() === "cardio") {
     dayExercises.push({
-      id: 1,
-      name: "Active Recovery - Light Cardio",
-      sets: "20-30 minutes",
+      id: -1, // Use a temporary ID for cardio
+      name: "Cardio Session",
+      description: "Perform 30-45 minutes of moderate-intensity cardio.",
+      sets: "1",
       rest: "As needed",
       muscle_group: "Cardio",
       exercise_type: "compound",
-      equipment: "bodyweight"
+      equipment: "bodyweight",
+      difficulty_level: "beginner"
     });
     return { exercises: dayExercises, recoveryWarnings };
   }
@@ -284,29 +353,61 @@ const generateSingleDayWorkout = (
   // --- New Balanced Selection Logic ---
   const focusType = dayTemplate.focus.toLowerCase();
   const selectedIds = new Set<number>();
+  const selectedPatterns = new Set<string>();
+  let hardExercisesCount = 0;
+  const hardExerciseMuscleGroups = new Set<string>();
+
+  // Helper to add an exercise and its pattern
+  const addExercise = (exercise: Exercise) => {
+    if (!exercise) return;
+    dayExercises.push(exercise);
+    selectedIds.add(exercise.id);
+    selectedPatterns.add(getMovementPattern(exercise.name));
+    if (exercise.difficulty_level === "advanced") {
+      hardExercisesCount++;
+      hardExerciseMuscleGroups.add(exercise.muscle_groups.name.toLowerCase());
+    }
+  };
 
   // 1. Select Primary Lifts based on focus
+  const isFirstTimeFocus = !seenFocuses.has(focusType);
+
   if (focusType.includes("push")) {
-    // Main Press for Chest
+    if (isFirstTimeFocus) {
+      // Prioritize a heavy bench press variation first
+      let available = getAvailableExercises(
+        allExercises,
+        userGoals.level,
+        hardExercisesCount,
+        hardExerciseMuscleGroups,
+        "chest"
+      );
+      const mainPress = selectExercisesForMuscle(
+        "chest",
+        available,
+        1,
+        userGoals.level,
+        userGoals.equipment
+      ).filter(
+        (ex) =>
+          ex.exercise_type === "compound" &&
+          getMovementPattern(ex.name).includes("bench press")
+      );
+      addExercise(mainPress[0]);
+      seenFocuses.add(focusType);
+    }
+
+    // Main Press for Chest (if not already selected)
+    let available = getAvailableExercises(
+      allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "chest"
+    );
     const mainPress = selectExercisesForMuscle(
       "chest",
-      allExercises,
-      1,
-      userGoals.level,
-      userGoals.equipment
-    ).filter(
-      (ex) =>
-        ex.exercise_type === "compound" &&
-        ex.name.toLowerCase().includes("press")
-    );
-    if (mainPress[0]) {
-      dayExercises.push(mainPress[0]);
-      selectedIds.add(mainPress[0].id);
-    }
-    // Main Overhead Press for Shoulders
-    const overheadPress = selectExercisesForMuscle(
-      "shoulders",
-      allExercises,
+      available,
       1,
       userGoals.level,
       userGoals.equipment
@@ -316,60 +417,154 @@ const generateSingleDayWorkout = (
         ex.name.toLowerCase().includes("press") &&
         !selectedIds.has(ex.id)
     );
-    if (overheadPress[0]) {
-      dayExercises.push(overheadPress[0]);
-      selectedIds.add(overheadPress[0].id);
-    }
-  } else if (focusType.includes("pull")) {
-    // Main Vertical Pull for Back (Lats)
-    const verticalPull = selectExercisesForMuscle(
-      "back",
+    addExercise(mainPress[0]);
+
+    // Main Overhead Press for Shoulders
+    available = getAvailableExercises(
       allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "shoulders"
+    );
+    const overheadPress = selectExercisesForMuscle(
+      "shoulders",
+      available,
       1,
       userGoals.level,
       userGoals.equipment
     ).filter(
       (ex) =>
-        ex.name.toLowerCase().includes("pull-up") ||
-        ex.name.toLowerCase().includes("lat pulldown")
+        ex.exercise_type === "compound" &&
+        ex.name.toLowerCase().includes("press") &&
+        !selectedIds.has(ex.id) &&
+        !selectedPatterns.has(getMovementPattern(ex.name))
     );
-    if (verticalPull[0]) {
-      dayExercises.push(verticalPull[0]);
-      selectedIds.add(verticalPull[0].id);
+    addExercise(overheadPress[0]);
+  } else if (focusType.includes("pull")) {
+    if (isFirstTimeFocus) {
+      // Prioritize a heavy row variation first
+      let available = getAvailableExercises(
+        allExercises,
+        userGoals.level,
+        hardExercisesCount,
+        hardExerciseMuscleGroups,
+        "back"
+      );
+      const horizontalPull = selectExercisesForMuscle(
+        "back",
+        available,
+        1,
+        userGoals.level,
+        userGoals.equipment
+      ).filter(
+        (ex) =>
+          ex.exercise_type === "compound" &&
+          getMovementPattern(ex.name).includes("row")
+      );
+      addExercise(horizontalPull[0]);
+      seenFocuses.add(focusType);
     }
-    // Main Horizontal Pull for Back (Rhomboids, Traps)
-    const horizontalPull = selectExercisesForMuscle(
-      "back",
+
+    // Main Vertical Pull for Back (Lats)
+    let available = getAvailableExercises(
       allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "back"
+    );
+    const verticalPull = selectExercisesForMuscle(
+      "back",
+      available,
       1,
       userGoals.level,
       userGoals.equipment
     ).filter(
-      (ex) => ex.name.toLowerCase().includes("row") && !selectedIds.has(ex.id)
+      (ex) =>
+        (ex.name.toLowerCase().includes("pull-up") ||
+          ex.name.toLowerCase().includes("lat pulldown")) &&
+        !selectedIds.has(ex.id)
     );
-    if (horizontalPull[0]) {
-      dayExercises.push(horizontalPull[0]);
-      selectedIds.add(horizontalPull[0].id);
-    }
+    addExercise(verticalPull[0]);
+
+    // Main Horizontal Pull for Back (Rhomboids, Traps)
+    available = getAvailableExercises(
+      allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "back"
+    );
+    const horizontalPull = selectExercisesForMuscle(
+      "back",
+      available,
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        ex.name.toLowerCase().includes("row") &&
+        !selectedIds.has(ex.id) &&
+        !selectedPatterns.has(getMovementPattern(ex.name))
+    );
+    addExercise(horizontalPull[0]);
   } else if (focusType.includes("legs")) {
+    if (isFirstTimeFocus) {
+      // Prioritize a heavy squat or deadlift variation first
+      let available = getAvailableExercises(
+        allExercises,
+        userGoals.level,
+        hardExercisesCount,
+        hardExerciseMuscleGroups,
+        "quads"
+      );
+      const primaryCompound = selectExercisesForMuscle(
+        "quads",
+        available,
+        1,
+        userGoals.level,
+        userGoals.equipment
+      ).filter(
+        (ex) =>
+          ex.exercise_type === "compound" &&
+          (getMovementPattern(ex.name).includes("squat") ||
+            getMovementPattern(ex.name).includes("deadlift"))
+      );
+      addExercise(primaryCompound[0]);
+      seenFocuses.add(focusType);
+    }
+
     // Main Squat variation for Quads
+    let available = getAvailableExercises(
+      allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "quads"
+    );
     const squat = selectExercisesForMuscle(
       "quads",
-      allExercises,
+      available,
       1,
       userGoals.level,
       userGoals.equipment
     ).filter(
       (ex) => ex.name.toLowerCase().includes("squat") && !selectedIds.has(ex.id)
     );
-    if (squat[0]) {
-      dayExercises.push(squat[0]);
-      selectedIds.add(squat[0].id);
-    }
+    addExercise(squat[0]);
+
     // Main Hinge variation for Hamstrings/Glutes
+    available = getAvailableExercises(
+      allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "hamstrings"
+    );
     const hinge = selectExercisesForMuscle(
       "hamstrings",
-      allExercises,
+      available,
       1,
       userGoals.level,
       userGoals.equipment
@@ -377,51 +572,71 @@ const generateSingleDayWorkout = (
       (ex) =>
         (ex.name.toLowerCase().includes("deadlift") ||
           ex.name.toLowerCase().includes("hinge")) &&
-        !selectedIds.has(ex.id)
+        !selectedIds.has(ex.id) &&
+        !selectedPatterns.has(getMovementPattern(ex.name))
     );
-    if (hinge[0]) {
-      dayExercises.push(hinge[0]);
-      selectedIds.add(hinge[0].id);
-    }
+    addExercise(hinge[0]);
+
     // Unilateral movement (Lunge)
+    available = getAvailableExercises(
+      allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "quads"
+    );
     const lunge = selectExercisesForMuscle(
       "quads",
-      allExercises,
+      available,
       1,
       userGoals.level,
       userGoals.equipment
     ).filter(
-      (ex) => ex.name.toLowerCase().includes("lunge") && !selectedIds.has(ex.id)
+      (ex) =>
+        ex.name.toLowerCase().includes("lunge") &&
+        !selectedIds.has(ex.id) &&
+        !selectedPatterns.has(getMovementPattern(ex.name))
     );
-    if (lunge[0]) {
-      dayExercises.push(lunge[0]);
-      selectedIds.add(lunge[0].id);
-    }
+    addExercise(lunge[0]);
+
     // Calf exercise
+    available = getAvailableExercises(
+      allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "calves"
+    );
     const calfExercise = selectExercisesForMuscle(
       "calves",
-      allExercises,
+      available,
       1,
       userGoals.level,
       userGoals.equipment
     ).filter((ex) => !selectedIds.has(ex.id));
-    if (calfExercise[0]) {
-      dayExercises.push(calfExercise[0]);
-      selectedIds.add(calfExercise[0].id);
-    }
+    addExercise(calfExercise[0]);
+
     // Glute exercise
+    available = getAvailableExercises(
+      allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "glutes"
+    );
     const gluteExercise = selectExercisesForMuscle(
       "glutes",
-      allExercises,
+      available,
       1,
       userGoals.level,
       userGoals.equipment
-    ).filter((ex) => !selectedIds.has(ex.id));
-    if (gluteExercise[0]) {
-      dayExercises.push(gluteExercise[0]);
-      selectedIds.add(gluteExercise[0].id);
-    }
-  } 
+    ).filter(
+      (ex) =>
+        !selectedIds.has(ex.id) &&
+        !selectedPatterns.has(getMovementPattern(ex.name))
+    );
+    addExercise(gluteExercise[0]);
+  }
 
   // 2. Fill remaining slots with accessory exercises
   const remainingSlots = totalExercises - dayExercises.length;
@@ -433,40 +648,53 @@ const generateSingleDayWorkout = (
 
     for (let i = 0; i < remainingSlots; i++) {
       const muscleToTrain = accessoryMuscles[currentMuscleIndex];
+
+      let available = getAvailableExercises(
+        allExercises,
+        userGoals.level,
+        hardExercisesCount,
+        hardExerciseMuscleGroups,
+        muscleToTrain
+      );
       const accessoryExercises = selectExercisesForMuscle(
         muscleToTrain,
-        allExercises,
+        available,
         remainingSlots,
         userGoals.level,
         userGoals.equipment
-      ).filter((ex) => !selectedIds.has(ex.id));
+      ).filter(
+        (ex) =>
+          !selectedIds.has(ex.id) &&
+          !selectedPatterns.has(getMovementPattern(ex.name))
+      );
 
       if (accessoryExercises.length > 0) {
-        const exerciseToAdd = accessoryExercises[0];
-        dayExercises.push(exerciseToAdd);
-        selectedIds.add(exerciseToAdd.id);
+        addExercise(accessoryExercises[0]);
       }
       currentMuscleIndex = (currentMuscleIndex + 1) % accessoryMuscles.length;
     }
   }
 
-  // 3. Final shuffle of accessory work, keeping primary lifts at the top
-  if (dayExercises.length > 2) {
-    const primaryLifts = dayExercises.slice(0, 2);
-    const accessoryWork = dayExercises.slice(2);
-    accessoryWork.sort(() => Math.random() - 0.5); // Shuffle accessory work
-    dayExercises = [...primaryLifts, ...accessoryWork];
-  }
+  // 3. Final Ordering: Place all compound lifts before isolation lifts
+  const compoundLifts = dayExercises.filter(
+    (ex) =>
+      ex.exercise_type === "compound" ||
+      ex.name.toLowerCase().includes("squat") ||
+      ex.name.toLowerCase().includes("press") ||
+      ex.name.toLowerCase().includes("row")
+  );
+  const isolationLifts = dayExercises.filter(
+    (ex) => !compoundLifts.includes(ex)
+  );
 
-  // Ensure total exercise count is respected
-  if (dayExercises.length > totalExercises) {
-    dayExercises.splice(totalExercises);
-  }
+  // Shuffle within each category to provide variety
+  compoundLifts.sort(() => Math.random() - 0.5);
+  isolationLifts.sort(() => Math.random() - 0.5);
 
-  return { exercises: dayExercises, recoveryWarnings };
+  const finalOrderedExercises = [...compoundLifts, ...isolationLifts];
+
+  return { exercises: finalOrderedExercises, recoveryWarnings };
 };
-
-// --- Main Exported Function ---
 
 export const generateWorkoutPlan = async (
   supabaseClient: any,
@@ -475,14 +703,12 @@ export const generateWorkoutPlan = async (
 ) => {
   console.log("🏋️ Starting BACKEND AI workout plan generation...");
 
-  // CRITICAL FIX: Join with the muscle_groups table to get the name
   const { data: allExercises, error: exerciseError } = await supabaseClient
     .from("exercises")
     .select("*, muscle_groups(name)");
   if (exerciseError)
     throw new Error(`Could not load exercises: ${exerciseError.message}`);
   console.log(`📋 Loaded ${allExercises.length} exercises from database`);
-  // ADD THIS LINE TO DEBUG:
   console.log(
     "🔍 Sample exercise from DB:",
     JSON.stringify(allExercises[0], null, 2)
@@ -519,17 +745,21 @@ export const generateWorkoutPlan = async (
   if (!split)
     throw new Error(`No workout split for ${userGoals.frequency} days`);
 
+  const seenFocuses = new Set<string>(); // Track first-time focuses
   const generatedDays = split.days.map((dayTemplate, index) => {
     const dayResult = generateSingleDayWorkout(
       dayTemplate,
       userGoals,
       allExercises,
-      muscleRecovery
+      muscleRecovery,
+      index,
+      seenFocuses
     );
     return {
       day: index + 1,
       focus: dayTemplate.focus,
-      ...dayResult
+      exercises: dayResult.exercises,
+      recoveryWarnings: dayResult.recoveryWarnings
     };
   });
 
@@ -556,3 +786,4 @@ export const generateWorkoutPlan = async (
     context: { userGoals, allExercises, muscleRecovery, split }
   };
 };
+
