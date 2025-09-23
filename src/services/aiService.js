@@ -187,8 +187,12 @@ const selectExercisesForMuscle = (
 
   const isolation = muscleExercises.filter((ex) => !compound.includes(ex));
 
+  // CRITICAL FIX: Shuffle the filtered lists to ensure variety
+  compound.sort(() => Math.random() - 0.5);
+  isolation.sort(() => Math.random() - 0.5);
+
   const config = EXPERIENCE_CONFIGS[experienceLevel];
-  const selected = [];
+  let selected = [];
 
   // Determine the number of compound vs isolation exercises
   let compoundCount = 0;
@@ -206,30 +210,23 @@ const selectExercisesForMuscle = (
     isolationCount = Math.floor(count * 0.3);
   }
 
-  // Add compound movements first, ensuring not to exceed available
-  const numCompoundToAdd = Math.min(compoundCount, compound.length);
-  for (let i = 0; i < numCompoundToAdd; i++) {
-    selected.push({
-      ...compound[i],
-      sets: config.sets.compound,
-      rest: config.restTimes.compound,
-      type: "compound",
-      muscle_group: muscle // Explicitly set the target muscle group
-    });
-  }
+  // Select exercises using slice for true randomness
+  const selectedCompound = compound.slice(0, compoundCount);
+  const selectedIsolation = isolation.slice(0, isolationCount);
 
-  // Fill remaining with isolation if needed
-  const remainingCount = count - selected.length;
-  const numIsolationToAdd = Math.min(remainingCount, isolation.length);
-  for (let i = 0; i < numIsolationToAdd; i++) {
-    selected.push({
-      ...isolation[i],
-      sets: config.sets.isolation,
-      rest: config.restTimes.isolation,
-      type: "isolation",
-      muscle_group: muscle // Explicitly set the target muscle group
-    });
-  }
+  selected = [...selectedCompound, ...selectedIsolation];
+
+  // Add sets and rest times to the selected exercises
+  selected = selected.map((ex) => {
+    const isCompound = selectedCompound.some((ce) => ce.id === ex.id);
+    return {
+      ...ex,
+      sets: isCompound ? config.sets.compound : config.sets.isolation,
+      rest: isCompound ? config.restTimes.compound : config.restTimes.isolation,
+      type: isCompound ? "compound" : "isolation",
+      muscle_group: muscle
+    };
+  });
 
   // If not enough exercises were selected, fill with whatever is available
   if (selected.length < count) {
@@ -255,6 +252,106 @@ const selectExercisesForMuscle = (
   }
 
   return selected;
+};
+
+/**
+ * Generates the exercises and warnings for a single day of a workout plan.
+ */
+export const generateSingleDayWorkout = (
+  dayTemplate,
+  userGoals,
+  allExercises,
+  muscleRecovery
+) => {
+  const dayExercises = [];
+  const recoveryWarnings = [];
+  const config = EXPERIENCE_CONFIGS[userGoals.level];
+
+  // Check recovery status to create warnings
+  const musclesForThisDay = dayTemplate.muscles;
+  musclesForThisDay.forEach((muscle) => {
+    const recoveryInfo = muscleRecovery[muscle];
+    if (recoveryInfo && recoveryInfo.percentage < 100) {
+      const now = new Date(new Date().toISOString());
+      const lastWorkout = new Date(
+        recoveryInfo.lastWorkout.endsWith("Z")
+          ? recoveryInfo.lastWorkout
+          : recoveryInfo.lastWorkout + "Z"
+      );
+      const hoursSince =
+        (now.getTime() - lastWorkout.getTime()) / (1000 * 60 * 60);
+      const hoursRemaining = Math.max(
+        0,
+        recoveryInfo.recoveryHours - hoursSince
+      );
+
+      let timeString = "";
+      if (hoursRemaining > 24) {
+        timeString = `${Math.round(hoursRemaining / 24)} days`;
+      } else {
+        timeString = `${Math.round(hoursRemaining)} hours`;
+      }
+
+      recoveryWarnings.push({
+        muscle: muscle.charAt(0).toUpperCase() + muscle.slice(1),
+        percentage: Math.floor(recoveryInfo.percentage),
+        timeRemaining: timeString
+      });
+    }
+  });
+
+  if (musclesForThisDay.length === 0) {
+    dayExercises.push({
+      id: 1, // A real exercise ID for cardio/rest
+      name: "Active Recovery - Light Cardio",
+      sets: "20-30 minutes",
+      rest: "As needed",
+      muscle_group: "Cardio"
+    });
+  } else {
+    const totalExercises = Math.min(
+      config.totalExercises.max,
+      Math.max(config.totalExercises.min, musclesForThisDay.length * 2)
+    );
+
+    const exercisesPerMuscle = Math.floor(
+      totalExercises / musclesForThisDay.length
+    );
+    let remainder = totalExercises % musclesForThisDay.length;
+
+    for (const muscle of musclesForThisDay) {
+      let countForThisMuscle = exercisesPerMuscle + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder--;
+
+      if (countForThisMuscle > 0) {
+        const exercises = selectExercisesForMuscle(
+          muscle,
+          allExercises, // Pass the original unshuffled list
+          countForThisMuscle,
+          userGoals.level,
+          userGoals.equipment
+        );
+        dayExercises.push(...exercises);
+      }
+    }
+    // This shuffle is less important now but adds a final mix-up of muscle groups
+    dayExercises.sort(() => Math.random() - 0.5);
+
+    if (dayExercises.length > config.totalExercises.max) {
+      dayExercises.splice(config.totalExercises.max);
+    }
+  }
+
+  return {
+    exercises: dayExercises.map((ex) => ({
+      id: ex.id,
+      name: ex.name,
+      sets: ex.sets,
+      rest: ex.rest,
+      muscle_group: ex.muscle_group
+    })),
+    recoveryWarnings
+  };
 };
 
 /**
@@ -319,111 +416,22 @@ export const generateWorkoutPlan = async (
     }
 
     // 5. Generate each day of the workout plan
-    const config = EXPERIENCE_CONFIGS[userGoals.level];
     const generatedDays = [];
 
     for (let dayIndex = 0; dayIndex < split.days.length; dayIndex++) {
       const dayTemplate = split.days[dayIndex];
-      const dayExercises = [];
-      const recoveryWarnings = [];
 
-      // Don't filter muscles, but check their recovery status to create warnings
-      const musclesForThisDay = dayTemplate.muscles;
-
-      musclesForThisDay.forEach((muscle) => {
-        const recoveryInfo = muscleRecovery[muscle];
-        if (recoveryInfo && recoveryInfo.percentage < 100) {
-          // Get current time in UTC for accurate remaining time calculation
-          const now = new Date(new Date().toISOString());
-          const lastWorkout = new Date(recoveryInfo.lastWorkout);
-          const hoursSince =
-            (now.getTime() - lastWorkout.getTime()) / (1000 * 60 * 60);
-          const hoursRemaining = Math.max(
-            0,
-            recoveryInfo.recoveryHours - hoursSince
-          );
-
-          let timeString = "";
-          if (hoursRemaining > 24) {
-            timeString = `${Math.round(hoursRemaining / 24)} days`;
-          } else {
-            timeString = `${Math.round(hoursRemaining)} hours`;
-          }
-
-          recoveryWarnings.push({
-            muscle: muscle.charAt(0).toUpperCase() + muscle.slice(1),
-            percentage: Math.floor(recoveryInfo.percentage),
-            timeRemaining: timeString
-          });
-        }
-      });
-
-      console.log(
-        `📅 Day ${dayIndex + 1} (${dayTemplate.focus}): Muscles:`,
-        musclesForThisDay
+      const dayResult = generateSingleDayWorkout(
+        dayTemplate,
+        userGoals,
+        allExercises,
+        muscleRecovery
       );
-      console.log("⚠️ Recovery Warnings:", recoveryWarnings);
-
-      if (musclesForThisDay.length === 0) {
-        // If no muscles are defined for the day, suggest rest or light cardio
-        dayExercises.push({
-          id: 1, // Use a real exercise ID for cardio/rest
-          name: "Active Recovery - Light Cardio",
-          sets: "20-30 minutes",
-          rest: "As needed",
-          muscle_group: "Cardio"
-        });
-      } else {
-        // New logic for balanced workout generation
-        const totalExercises = Math.min(
-          config.totalExercises.max,
-          Math.max(config.totalExercises.min, musclesForThisDay.length * 2)
-        );
-
-        // Distribute exercises as evenly as possible across available muscles
-        const exercisesPerMuscle = Math.floor(
-          totalExercises / musclesForThisDay.length
-        );
-        let remainder = totalExercises % musclesForThisDay.length;
-
-        for (const muscle of musclesForThisDay) {
-          let countForThisMuscle = exercisesPerMuscle + (remainder > 0 ? 1 : 0);
-          if (remainder > 0) {
-            remainder--;
-          }
-
-          if (countForThisMuscle > 0) {
-            const exercises = selectExercisesForMuscle(
-              muscle,
-              allExercises,
-              countForThisMuscle,
-              userGoals.level,
-              userGoals.equipment
-            );
-            dayExercises.push(...exercises);
-          }
-        }
-
-        // Shuffle the exercises to mix up muscle groups
-        dayExercises.sort(() => Math.random() - 0.5);
-
-        // Ensure we don't exceed max exercises for experience level
-        if (dayExercises.length > config.totalExercises.max) {
-          dayExercises.splice(config.totalExercises.max);
-        }
-      }
 
       generatedDays.push({
         day: dayIndex + 1,
         focus: dayTemplate.focus,
-        exercises: dayExercises.map((ex) => ({
-          id: ex.id, // Real database ID
-          name: ex.name,
-          sets: ex.sets,
-          rest: ex.rest,
-          muscle_group: ex.muscle_group
-        })),
-        recoveryWarnings // Add warnings to the day's data
+        ...dayResult
       });
     }
 
@@ -448,7 +456,11 @@ export const generateWorkoutPlan = async (
     };
 
     console.log("✅ Generated workout plan:", plan);
-    return { success: true, plan };
+    return {
+      success: true,
+      plan,
+      context: { userGoals, allExercises, muscleRecovery, split }
+    };
   } catch (error) {
     console.error("❌ Error generating workout plan:", error);
     return {

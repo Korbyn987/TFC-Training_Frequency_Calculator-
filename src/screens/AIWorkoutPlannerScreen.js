@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons"; // Import icons
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import React, { useState } from "react";
@@ -11,29 +12,70 @@ import {
   View
 } from "react-native";
 import { useTabData } from "../context/TabDataContext";
-import { generateWorkoutPlan } from "../services/aiService";
+import {
+  generateSingleDayWorkout,
+  generateWorkoutPlan
+} from "../services/aiService";
 
 // Helper function to parse AI-generated set strings
 const parseAISetsToWorkoutSets = (setsString) => {
-  if (!setsString || typeof setsString !== 'string') {
+  if (!setsString || typeof setsString !== "string") {
     // Return a default if the format is unexpected
-    return Array.from({ length: 3 }, () => ({ reps: 10, weight: 0, set_type: 'normal' }));
+    return Array.from({ length: 3 }, () => ({
+      reps: 10,
+      weight: 0,
+      set_type: "normal"
+    }));
   }
 
-  const parts = setsString.toLowerCase().split('x');
+  const parts = setsString.toLowerCase().split("x");
   if (parts.length < 2) {
-    return Array.from({ length: 3 }, () => ({ reps: 10, weight: 0, set_type: 'normal' }));
+    return Array.from({ length: 3 }, () => ({
+      reps: 10,
+      weight: 0,
+      set_type: "normal"
+    }));
   }
 
   const numSets = parseInt(parts[0], 10);
-  const repRange = parts[1].split('-');
+  const repRange = parts[1].split("-");
   const reps = parseInt(repRange[0], 10);
 
   if (isNaN(numSets) || isNaN(reps)) {
-    return Array.from({ length: 3 }, () => ({ reps: 10, weight: 0, set_type: 'normal' }));
+    return Array.from({ length: 3 }, () => ({
+      reps: 10,
+      weight: 0,
+      set_type: "normal"
+    }));
   }
 
-  return Array.from({ length: numSets }, () => ({ reps: reps, weight: 0, set_type: 'normal' }));
+  return Array.from({ length: numSets }, () => ({
+    reps: reps,
+    weight: 0,
+    set_type: "normal"
+  }));
+};
+
+// Helper function to parse rest time strings (e.g., "90-120s" -> 105)
+const parseRestTime = (restString) => {
+  if (!restString || typeof restString !== "string") {
+    return 90; // Default rest time
+  }
+
+  // Extract numbers from strings like "90-120s" or "90s"
+  const numbers = restString.match(/\d+/g);
+  if (numbers && numbers.length > 0) {
+    if (numbers.length === 1) {
+      return parseInt(numbers[0], 10);
+    } else {
+      // If range, take the average
+      const min = parseInt(numbers[0], 10);
+      const max = parseInt(numbers[1], 10);
+      return Math.round((min + max) / 2);
+    }
+  }
+
+  return 90; // Default fallback
 };
 
 const AIWorkoutPlannerScreen = ({ navigation }) => {
@@ -44,6 +86,10 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState(null);
+  const [dayLoading, setDayLoading] = useState(null); // For single day refresh
+
+  // Store data needed for regeneration
+  const [aiContext, setAiContext] = useState(null);
 
   const { muscleRecoveryData, recentWorkouts } = useTabData();
 
@@ -62,6 +108,8 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
 
       if (result.success) {
         setGeneratedPlan(result.plan);
+        // Save the context needed for regeneration
+        setAiContext(result.context);
       } else {
         Alert.alert(
           "Error",
@@ -73,6 +121,53 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
       Alert.alert("Error", "An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRefreshDay = async (dayIndex) => {
+    console.log(`🔄 Refresh button pressed for day ${dayIndex + 1}`);
+
+    if (!aiContext) {
+      console.log("❌ No AI context available for refresh");
+      return;
+    }
+
+    console.log("✅ AI context available, starting refresh...");
+    setDayLoading(dayIndex);
+
+    try {
+      const dayTemplate = aiContext.split.days[dayIndex];
+      console.log("📋 Day template:", dayTemplate);
+
+      const newDayData = generateSingleDayWorkout(
+        dayTemplate,
+        aiContext.userGoals,
+        aiContext.allExercises,
+        aiContext.muscleRecovery
+      );
+
+      console.log("🆕 New day data generated:", newDayData);
+
+      // Update the plan with the new day's data
+      setGeneratedPlan((prevPlan) => {
+        console.log("🔄 Updating plan state...");
+        const newDays = [...prevPlan.days];
+        // CRITICAL FIX: Create a completely new object to ensure re-render
+        newDays[dayIndex] = {
+          day: prevPlan.days[dayIndex].day,
+          focus: prevPlan.days[dayIndex].focus,
+          exercises: newDayData.exercises,
+          recoveryWarnings: newDayData.recoveryWarnings
+        };
+        const updatedPlan = { ...prevPlan, days: newDays };
+        console.log("✅ Plan state updated successfully");
+        return updatedPlan;
+      });
+    } catch (error) {
+      console.error(`❌ Error refreshing day ${dayIndex + 1}:`, error);
+      Alert.alert("Error", "Could not refresh the workout. Please try again.");
+    } finally {
+      setDayLoading(null);
     }
   };
 
@@ -213,12 +308,30 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
 
       {generatedPlan && (
         <View style={styles.planContainer}>
-          <Text style={styles.planTitle}>{generatedPlan.name}</Text>
-          {generatedPlan.days.map((day) => (
+          <Text style={styles.planTitle} numberOfLines={2} ellipsizeMode="tail">
+            {generatedPlan.name}
+          </Text>
+          {generatedPlan.days.map((day, index) => (
             <View key={day.day} style={styles.dayCard}>
-              <Text style={styles.dayTitle}>
-                Day {day.day}: {day.focus}
-              </Text>
+              <View style={styles.dayHeader}>
+                <Text
+                  style={styles.dayTitle}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                >
+                  Day {day.day}: {day.focus}
+                </Text>
+                {dayLoading === index ? (
+                  <ActivityIndicator color="#fff" style={styles.refreshIcon} />
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => handleRefreshDay(index)}
+                    style={styles.refreshButton}
+                  >
+                    <Ionicons name="sync" size={20} color="#b0b3c2" />
+                  </TouchableOpacity>
+                )}
+              </View>
               {day.recoveryWarnings && day.recoveryWarnings.length > 0 && (
                 <View style={styles.warningsContainer}>
                   {day.recoveryWarnings.map((warning, index) => (
@@ -230,6 +343,8 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
                           color: warning.percentage < 50 ? "#ef4444" : "#f59e0b"
                         }
                       ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
                     >
                       {warning.muscle} is only {Math.floor(warning.percentage)}%
                       recovered.
@@ -239,10 +354,24 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
               )}
               {day.exercises.map((ex, index) => (
                 <View key={index} style={styles.exerciseItem}>
-                  <Text style={styles.exerciseName}>{ex.name}</Text>
-                  <Text style={styles.exerciseDetails}>
-                    {ex.sets} | Rest: {ex.rest}
-                  </Text>
+                  <View style={styles.exerciseNameContainer}>
+                    <Text
+                      style={styles.exerciseName}
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
+                    >
+                      {ex.name}
+                    </Text>
+                  </View>
+                  <View style={styles.exerciseDetailsContainer}>
+                    <Text
+                      style={styles.exerciseDetails}
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
+                    >
+                      {ex.sets} | Rest: {ex.rest}
+                    </Text>
+                  </View>
                 </View>
               ))}
               <View style={styles.dayActions}>
@@ -335,26 +464,55 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 20
   },
+  dayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 10,
+    minHeight: 40
+  },
   dayTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#fff",
-    marginBottom: 10
+    flex: 1,
+    marginRight: 10,
+    lineHeight: 20
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.1)"
+  },
+  refreshIcon: {
+    marginLeft: 10
   },
   exerciseItem: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#3a3d52"
+    borderBottomColor: "#3a3d52",
+    alignItems: "flex-start"
+  },
+  exerciseNameContainer: {
+    flex: 2,
+    marginRight: 10
   },
   exerciseName: {
-    fontSize: 16,
-    color: "#fff"
+    fontSize: 15,
+    color: "#fff",
+    lineHeight: 18
+  },
+  exerciseDetailsContainer: {
+    flex: 1,
+    alignItems: "flex-end"
   },
   exerciseDetails: {
-    fontSize: 16,
-    color: "gray"
+    fontSize: 13,
+    color: "gray",
+    textAlign: "right",
+    lineHeight: 16
   },
   dayActions: {
     flexDirection: "row",
