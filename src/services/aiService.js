@@ -74,21 +74,25 @@ const getAvailableExercises = (
   muscleToFilter
 ) => {
   if (level === "beginner") {
-    return allExercises.filter((ex) => ex.difficulty_level === "beginner");
+    const beginnerPool = allExercises.filter(
+      (ex) => ex.difficulty_level === "beginner"
+    );
+    // If the beginner pool is too small, expand it to include intermediate exercises.
+    if (beginnerPool.length < 10) {
+      const intermediatePool = allExercises.filter(
+        (ex) => ex.difficulty_level === "intermediate"
+      );
+      return [...beginnerPool, ...intermediatePool];
+    }
+    return beginnerPool;
   }
 
   if (level === "intermediate") {
-    const canAddHardExercise = hardExerciseCount < 2;
-
-    if (muscleToFilter && hardExerciseMuscleGroups.has(muscleToFilter)) {
-      return allExercises.filter((ex) => ex.difficulty_level !== "advanced");
-    }
-
-    if (!canAddHardExercise) {
-      return allExercises.filter((ex) => ex.difficulty_level !== "advanced");
-    }
+    // Intermediates should have access to beginner and intermediate exercises.
+    return allExercises.filter((ex) => ex.difficulty_level !== "advanced");
   }
 
+  // For advanced users, or intermediates who can still add hard exercises
   return allExercises;
 };
 
@@ -374,138 +378,102 @@ export const generateSingleDayWorkout = (
     );
     addExercise(horizontalPull[0]);
   } else if (focusType.includes("legs")) {
-    if (isFirstTimeFocus) {
-      // Prioritize a heavy squat or deadlift variation first
-      let available = getAvailableExercises(
+    // --- New Leg Day Logic (mirrors backend) ---
+
+    // 1. Secure one primary quad exercise (squat/press)
+    let quadFocus = selectExercisesForMuscle(
+      "Quadriceps",
+      getAvailableExercises(
         allExercises,
         userGoals.level,
         hardExercisesCount,
-        hardExerciseMuscleGroups,
-        "quads"
-      );
-      const primaryCompoundExercises = available.filter(
-        (ex) =>
-          ex.exercise_type === "compound" &&
-          (getMovementPattern(ex.name).includes("squat") ||
-            getMovementPattern(ex.name).includes("deadlift"))
-      );
-      const primaryCompound = selectExercisesForMuscle(
-        "quads",
-        primaryCompoundExercises,
+        hardExerciseMuscleGroups
+      ),
+      1,
+      userGoals.level,
+      userGoals.equipment
+    ).filter(
+      (ex) =>
+        ex.exercise_type === "compound" &&
+        (ex.name.toLowerCase().includes("squat") ||
+          ex.name.toLowerCase().includes("leg press"))
+    );
+    if (quadFocus.length === 0) {
+      // Fallback to intermediate if no beginner version is found
+      quadFocus = selectExercisesForMuscle(
+        "Quadriceps",
+        allExercises.filter((ex) => ex.difficulty_level !== "advanced"),
         1,
         userGoals.level,
         userGoals.equipment
+      ).filter(
+        (ex) =>
+          ex.exercise_type === "compound" &&
+          (ex.name.toLowerCase().includes("squat") ||
+            ex.name.toLowerCase().includes("leg press"))
       );
-      addExercise(primaryCompound[0]);
-      seenFocuses.add(focusType);
     }
+    addExercise(quadFocus[0]);
 
-    // Main Squat variation for Quads
-    let available = getAvailableExercises(
-      allExercises,
-      userGoals.level,
-      hardExercisesCount,
-      hardExerciseMuscleGroups,
-      "quads"
-    );
-    const squatExercises = available.filter(
-      (ex) => ex.name.toLowerCase().includes("squat") && !selectedIds.has(ex.id)
-    );
-    const squat = selectExercisesForMuscle(
-      "quads",
-      squatExercises,
+    // 2. Secure one primary hamstring exercise (hinge/curl)
+    let hamstringFocus = selectExercisesForMuscle(
+      "Hamstrings",
+      getAvailableExercises(
+        allExercises,
+        userGoals.level,
+        hardExercisesCount,
+        hardExerciseMuscleGroups
+      ).filter((ex) => !selectedIds.has(ex.id)),
       1,
       userGoals.level,
       userGoals.equipment
-    );
-    addExercise(squat[0]);
-
-    // Main Hinge variation for Hamstrings/Glutes
-    available = getAvailableExercises(
-      allExercises,
-      userGoals.level,
-      hardExercisesCount,
-      hardExerciseMuscleGroups,
-      "hamstrings"
-    );
-    const hingeExercises = available.filter(
+    ).filter(
       (ex) =>
-        (ex.name.toLowerCase().includes("deadlift") ||
-          ex.name.toLowerCase().includes("hinge")) &&
-        !selectedIds.has(ex.id) &&
-        !selectedPatterns.has(getMovementPattern(ex.name))
+        ex.name.toLowerCase().includes("deadlift") ||
+        ex.name.toLowerCase().includes("leg curl")
     );
-    const hinge = selectExercisesForMuscle(
-      "hamstrings",
-      hingeExercises,
-      1,
-      userGoals.level,
-      userGoals.equipment
-    );
-    addExercise(hinge[0]);
+    if (hamstringFocus.length === 0) {
+      // Fallback to intermediate
+      hamstringFocus = selectExercisesForMuscle(
+        "Hamstrings",
+        allExercises.filter(
+          (ex) => ex.difficulty_level !== "advanced" && !selectedIds.has(ex.id)
+        ),
+        1,
+        userGoals.level,
+        userGoals.equipment
+      ).filter(
+        (ex) =>
+          ex.name.toLowerCase().includes("deadlift") ||
+          ex.name.toLowerCase().includes("leg curl")
+      );
+    }
+    addExercise(hamstringFocus[0]);
 
-    // Unilateral movement (Lunge)
-    available = getAvailableExercises(
-      allExercises,
-      userGoals.level,
-      hardExercisesCount,
-      hardExerciseMuscleGroups,
-      "quads"
-    );
-    const lungeExercises = available.filter(
-      (ex) =>
-        ex.name.toLowerCase().includes("lunge") &&
-        !selectedIds.has(ex.id) &&
-        !selectedPatterns.has(getMovementPattern(ex.name))
-    );
-    const lunge = selectExercisesForMuscle(
-      "quads",
-      lungeExercises,
-      1,
-      userGoals.level,
-      userGoals.equipment
-    );
-    addExercise(lunge[0]);
-
-    // Calf exercise
-    available = getAvailableExercises(
-      allExercises,
-      userGoals.level,
-      hardExercisesCount,
-      hardExerciseMuscleGroups,
-      "calves"
-    );
-    const calfExercises = available.filter((ex) => !selectedIds.has(ex.id));
-    const calfExercise = selectExercisesForMuscle(
-      "calves",
-      calfExercises,
-      1,
-      userGoals.level,
-      userGoals.equipment
-    );
-    addExercise(calfExercise[0]);
-
-    // Glute exercise
-    available = getAvailableExercises(
-      allExercises,
-      userGoals.level,
-      hardExercisesCount,
-      hardExerciseMuscleGroups,
-      "glutes"
-    );
-    const gluteExercises = available.filter(
-      (ex) =>
-        !selectedIds.has(ex.id) &&
-        !selectedPatterns.has(getMovementPattern(ex.name))
-    );
-    const gluteExercise = selectExercisesForMuscle(
-      "glutes",
-      gluteExercises,
-      1,
-      userGoals.level,
-      userGoals.equipment
-    );
-    addExercise(gluteExercise[0]);
+    // 3. Fill remaining slots with other leg exercises
+    const remainingLegSlots = totalExercises - dayExercises.length;
+    if (remainingLegSlots > 0) {
+      const accessoryMuscles = ["glutes", "Quadriceps", "Hamstrings", "calves"];
+      let muscleIndex = 0;
+      for (let i = 0; i < remainingLegSlots; i++) {
+        const muscleToTrain =
+          accessoryMuscles[muscleIndex % accessoryMuscles.length];
+        const exercises = selectExercisesForMuscle(
+          muscleToTrain,
+          allExercises.filter(
+            (ex) =>
+              ex.difficulty_level !== "advanced" && !selectedIds.has(ex.id)
+          ),
+          1,
+          userGoals.level,
+          userGoals.equipment
+        );
+        if (exercises.length > 0) {
+          addExercise(exercises[0]);
+        }
+        muscleIndex++;
+      }
+    }
   }
 
   // 2. Fill remaining slots with accessory exercises
@@ -604,4 +572,21 @@ export const generateWorkoutPlan = async (userGoals, recoveryData) => {
 
   console.log("✅ Successfully received plan from edge function.");
   return data; // The edge function now returns the { success, plan, context } object
+};
+
+// This is a simplified client-side representation of WORKOUT_SPLITS
+// The full source of truth is in the Supabase Edge Function.
+const WORKOUT_SPLITS = {
+  5: {
+    days: [
+      { focus: "Push", muscles: ["chest", "shoulders", "triceps"] },
+      { focus: "Pull", muscles: ["back", "biceps"] },
+      { focus: "Legs", muscles: ["quads", "hamstrings", "glutes", "calves"] },
+      { focus: "Upper Body", muscles: ["chest", "back", "shoulders"] },
+      {
+        focus: "Lower Body (Glutes Focus)",
+        muscles: ["glutes", "hamstrings", "quads", "calves"]
+      }
+    ]
+  }
 };

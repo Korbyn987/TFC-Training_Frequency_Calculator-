@@ -359,6 +359,41 @@ INSERT INTO exercises (id, name, muscle_group_id, description) VALUES
 (123, 'Kettlebell Swing', 7, 'Explosive hip hinge targeting hamstrings and glutes')
 ON CONFLICT (id) DO NOTHING;
 
+-- Set difficulty levels for exercises
+UPDATE exercises SET difficulty_level = 'beginner' WHERE id IN (
+    -- Chest
+    2,  -- Pushups
+    6,  -- Chest Press (Machine)
+    7,  -- Dumbbell Bench Press
+
+    -- Biceps
+    29, -- Dumbbell Curl
+    33, -- Cable Curl
+
+    -- Triceps
+    40, -- Tricep Pushdown
+    48, -- Bench Dips
+
+    -- Back
+    55, -- Lat Pulldown
+    58, -- Seated Cable Row
+    75, -- Inverted Row
+
+    -- Shoulders
+    81, -- Dumbbell Shoulder Press
+    89, -- Machine Shoulder Press
+    83, -- Lateral Raise
+
+    -- Quadriceps
+    111, -- Leg Press
+    112, -- Leg Extension
+    116, -- Goblet Squat
+
+    -- Hamstrings
+    120, -- Lying Leg Curl
+    121  -- Seated Leg Curl
+);
+
 -- Create indexes for performance
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
