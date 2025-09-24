@@ -29,9 +29,19 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Fetch all exercises once here
+    const { data: allExercises, error: exerciseError } = await supabaseAdmin
+      .from("exercises")
+      .select("*, muscle_groups(name)");
+
+    if (exerciseError) {
+      throw new Error(`Could not load exercises: ${exerciseError.message}`);
+    }
+
+    // Pass the fetched data into the logic function
     const result = await generateWorkoutPlan(
-      supabaseAdmin,
       userGoals,
+      allExercises,
       recoveryData
     );
 

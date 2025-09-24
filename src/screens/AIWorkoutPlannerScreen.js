@@ -148,18 +148,29 @@ const AIWorkoutPlannerScreen = ({ navigation }) => {
         currentSeenFocuses.add(generatedPlan.days[i].focus.toLowerCase());
       }
 
-      const dayToRefresh = generatedPlan.days[dayIndex];
-      const refreshedDayResult = await generateSingleDayWorkout(
-        {
-          focus: dayToRefresh.focus,
-          muscles: aiContext.split.days[dayIndex].muscles
-        },
-        aiContext.userGoals,
-        aiContext.allExercises,
-        aiContext.muscleRecovery,
-        dayIndex,
-        currentSeenFocuses
-      );
+          const splitDay = aiContext?.split?.days?.[dayIndex];
+          if (!splitDay?.muscles) {
+            console.warn("Missing split context for day", dayIndex);
+            Alert.alert(
+              "Error",
+              "Refresh context is incomplete. Please regenerate the plan."
+            );
+            setDayLoading(null);
+            return;
+          }
+
+          const dayToRefresh = generatedPlan.days[dayIndex];
+          const refreshedDayResult = await generateSingleDayWorkout(
+            {
+              focus: dayToRefresh.focus,
+              muscles: splitDay.muscles
+            },
+            aiContext.userGoals,
+            aiContext.allExercises,
+            aiContext.muscleRecovery,
+            dayIndex,
+            currentSeenFocuses
+          );
 
       console.log("🆕 New day data generated:", refreshedDayResult);
 
