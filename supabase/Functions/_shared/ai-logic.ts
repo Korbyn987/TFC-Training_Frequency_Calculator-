@@ -122,7 +122,7 @@ const WORKOUT_SPLITS = {
 
 const EXPERIENCE_CONFIGS = {
   beginner: {
-    sets: { compound: "3x8-12", isolation: "2x10-15" },
+    sets: { compound: "3x8-12", isolation: "2x10-12" },
     restTimes: { compound: "90-120s", isolation: "60-90s" },
     totalExercises: { min: 4, max: 6 }
   },
@@ -132,7 +132,7 @@ const EXPERIENCE_CONFIGS = {
     totalExercises: { min: 5, max: 8 }
   },
   advanced: {
-    sets: { compound: "4x4-8", isolation: "3x8-15" },
+    sets: { compound: "4x4-8", isolation: "3x8-12" },
     restTimes: { compound: "180-240s", isolation: "90-120s" },
     totalExercises: { min: 6, max: 10 }
   }
@@ -156,8 +156,147 @@ const EQUIPMENT_FILTERS = {
     exercise.equipment?.toLowerCase().includes("bodyweight")
 };
 
-// --- Helper Functions migrated from aiService.js ---
+// Helper function to detect cardio exercises
+const isCardioExercise = (exercise: Exercise): boolean => {
+  const exerciseName = exercise.name.toLowerCase();
 
+  // Explicitly exclude Inchworm from cardio classification
+  if (exerciseName.includes("inchworm")) {
+    return false;
+  }
+
+  const cardioKeywords = [
+    "cardio",
+    "running",
+    "jogging",
+    "cycling",
+    "rowing",
+    "elliptical",
+    "treadmill",
+    "bike",
+    "jump rope",
+    "jumping jacks",
+    "burpees",
+    "mountain climbers",
+    "high knees",
+    "butt kicks",
+    "step ups"
+  ];
+
+  const muscleGroup = exercise.muscle_groups?.name?.toLowerCase() || "";
+
+  return cardioKeywords.some(
+    (keyword) =>
+      exerciseName.includes(keyword) || muscleGroup.includes("cardio")
+  );
+};
+
+// Helper function to check if cardio exercise is appropriate for experience level
+const isAppropriateCardioForLevel = (
+  exercise: Exercise,
+  level: string
+): boolean => {
+  const exerciseName = exercise.name.toLowerCase();
+
+  // High-intensity exercises that beginners should avoid
+  const highIntensityKeywords = [
+    "hiit",
+    "sprint",
+    "burpee",
+    "tabata",
+    "interval",
+    "explosive",
+    "plyometric",
+    "battle rope",
+    "kettlebell swing",
+    "box jump"
+  ];
+
+  // Medium-intensity exercises that intermediates can handle
+  const mediumIntensityKeywords = [
+    "mountain climber",
+    "high knee",
+    "butt kick"
+  ];
+
+  const isHighIntensity = highIntensityKeywords.some((keyword) =>
+    exerciseName.includes(keyword)
+  );
+
+  const isMediumIntensity = mediumIntensityKeywords.some((keyword) =>
+    exerciseName.includes(keyword)
+  );
+
+  // Filter based on experience level
+  if (level === "beginner") {
+    // Beginners should avoid high and medium intensity cardio
+    return !isHighIntensity && !isMediumIntensity;
+  } else if (level === "intermediate") {
+    // Intermediates can do medium intensity but not high intensity
+    return !isHighIntensity;
+  } else {
+    // Advanced users can do any cardio
+    return true;
+  }
+};
+
+// Helper function to determine sets/reps or duration for cardio
+const getCardioFormat = (
+  exercise: Exercise,
+  level: string
+): { sets: string; rest: string } => {
+  const dynamicCardioKeywords = [
+    "high knees",
+    "butt kicks",
+    "butt kickers",
+    "star jumps",
+    "jumping jacks",
+    "burpees",
+    "mountain climbers",
+    "box jump",
+    "step ups",
+    "tuck jumps",
+    "skaters",
+    "lateral shuffles"
+  ];
+
+  const exerciseName = exercise.name.toLowerCase();
+  const isDynamic = dynamicCardioKeywords.some((keyword) =>
+    exerciseName.includes(keyword)
+  );
+
+  if (isDynamic) {
+    // Rep-based format for dynamic exercises
+    if (level === "beginner") {
+      return { sets: "3x15-20", rest: "30-45s" };
+    } else if (level === "intermediate") {
+      return { sets: "4x20-25", rest: "30s" };
+    } else {
+      // advanced
+      return { sets: "4x25-30", rest: "15-30s" };
+    }
+  } else {
+    // Duration-based format for endurance exercises
+    const duration = level === "beginner" ? "15-20 minutes" : "20-30 minutes";
+    return { sets: duration, rest: "As needed" };
+  }
+};
+
+// Helper function to check if goal includes fat loss
+const isFatLossGoal = (goal: string): boolean => {
+  return (
+    goal.toLowerCase().includes("fat loss") ||
+    goal.toLowerCase().includes("fat_loss") ||
+    goal.toLowerCase().includes("weight loss") ||
+    goal.toLowerCase().includes("weight_loss") ||
+    goal.toLowerCase().includes("lose weight") ||
+    goal.toLowerCase().includes("lose_weight") ||
+    goal.toLowerCase().includes("cut") ||
+    goal.toLowerCase().includes("cutting")
+  );
+};
+
+// Helper function to calculate recovery percentage
 const calculateRecoveryPercentage = (
   lastWorkoutDate: string | null,
   recoveryHours = 72
@@ -189,7 +328,12 @@ const getMovementPattern = (name: string): string => {
     "standing",
     "alternating",
     "single arm",
-    "single leg"
+    "single leg",
+    "one arm",
+    "one leg",
+    "lying",
+    "reverse",
+    "ez-bar"
   ];
   let pattern = ` ${lowerName} `;
   removableWords.forEach((word) => {
@@ -239,12 +383,13 @@ const getAvailableExercises = (
 };
 
 const selectExercisesForMuscle = (
-  muscle,
-  availableExercises,
-  count,
-  experienceLevel,
-  equipment
-) => {
+  muscle: string,
+  availableExercises: Exercise[],
+  count: number,
+  experienceLevel: string,
+  equipment: string,
+  selectedPatterns: Set<string>
+): Exercise[] => {
   console.log(
     `🔍 Working with ${availableExercises.length} pre-filtered exercises for muscle "${muscle}"...`
   );
@@ -252,7 +397,8 @@ const selectExercisesForMuscle = (
     (ex) =>
       ex.muscle_groups &&
       ex.muscle_groups.name?.toLowerCase() === muscle.toLowerCase() &&
-      EQUIPMENT_FILTERS[equipment](ex)
+      EQUIPMENT_FILTERS[equipment](ex) &&
+      !selectedPatterns.has(getMovementPattern(ex.name))
   );
   console.log(
     `🔍 Found ${muscleExercises.length} matching exercises for muscle "${muscle}" after filtering.`
@@ -320,7 +466,7 @@ export const generateSingleDayWorkout = (
   muscleRecovery,
   dayIndex,
   seenFocuses
-) => {
+): { exercises: Exercise[]; recoveryWarnings: any[] } => {
   let dayExercises = [];
   const recoveryWarnings = [];
   const config = EXPERIENCE_CONFIGS[userGoals.level];
@@ -332,17 +478,17 @@ export const generateSingleDayWorkout = (
     }
   });
 
-  if (dayTemplate.focus.toLowerCase() === "cardio") {
+  if (dayTemplate.muscles.length === 0) {
     dayExercises.push({
-      id: -1, // Use a temporary ID for cardio
-      name: "Cardio Session",
-      description: "Perform 30-45 minutes of moderate-intensity cardio.",
-      sets: "1",
+      id: -1, // Use a unique negative ID for non-DB exercises
+      name: "Active Recovery - Light Cardio",
+      sets: "20-30 minutes",
       rest: "As needed",
       muscle_group: "Cardio",
-      exercise_type: "compound",
+      muscle_groups: { name: "Cardio" },
+      exercise_type: "compound" as const,
       equipment: "bodyweight",
-      difficulty_level: "beginner"
+      difficulty_level: "beginner" as const
     });
     return { exercises: dayExercises, recoveryWarnings };
   }
@@ -352,9 +498,14 @@ export const generateSingleDayWorkout = (
     Math.max(config.totalExercises.min, dayTemplate.muscles.length * 2)
   );
 
-  // Ensure at least 3 exercises are always generated
-  if (totalExercises < 3) {
-    totalExercises = 3;
+  // Adjust for beginner fat loss goal to shorten the strength portion
+  if (userGoals.level === "beginner" && isFatLossGoal(userGoals.goal)) {
+    totalExercises = Math.floor(Math.random() * 2) + 3; // Randomly 3 or 4 exercises
+  } else {
+    // For all other cases, ensure at least 4 exercises are generated
+    if (totalExercises < 4) {
+      totalExercises = 4;
+    }
   }
 
   const focusType = dayTemplate.focus.toLowerCase();
@@ -363,7 +514,7 @@ export const generateSingleDayWorkout = (
   let hardExercisesCount = 0;
   const hardExerciseMuscleGroups = new Set();
 
-  const addExercise = (exercise) => {
+  const addExercise = (exercise: Exercise) => {
     if (!exercise) return;
     dayExercises.push(exercise);
     selectedIds.add(exercise.id);
@@ -390,7 +541,8 @@ export const generateSingleDayWorkout = (
         available,
         1,
         userGoals.level,
-        userGoals.equipment
+        userGoals.equipment,
+        selectedPatterns
       ).filter(
         (ex) =>
           ex.exercise_type === "compound" &&
@@ -412,7 +564,8 @@ export const generateSingleDayWorkout = (
       available,
       1,
       userGoals.level,
-      userGoals.equipment
+      userGoals.equipment,
+      selectedPatterns
     ).filter(
       (ex) =>
         ex.exercise_type === "compound" &&
@@ -433,7 +586,8 @@ export const generateSingleDayWorkout = (
       available,
       1,
       userGoals.level,
-      userGoals.equipment
+      userGoals.equipment,
+      selectedPatterns
     ).filter(
       (ex) =>
         ex.exercise_type === "compound" &&
@@ -456,7 +610,8 @@ export const generateSingleDayWorkout = (
         available,
         1,
         userGoals.level,
-        userGoals.equipment
+        userGoals.equipment,
+        selectedPatterns
       ).filter(
         (ex) =>
           ex.exercise_type === "compound" &&
@@ -478,7 +633,8 @@ export const generateSingleDayWorkout = (
       available,
       1,
       userGoals.level,
-      userGoals.equipment
+      userGoals.equipment,
+      selectedPatterns
     ).filter(
       (ex) =>
         (ex.name.toLowerCase().includes("pull-up") ||
@@ -499,7 +655,8 @@ export const generateSingleDayWorkout = (
       available,
       1,
       userGoals.level,
-      userGoals.equipment
+      userGoals.equipment,
+      selectedPatterns
     ).filter(
       (ex) =>
         ex.name.toLowerCase().includes("row") &&
@@ -521,7 +678,8 @@ export const generateSingleDayWorkout = (
       ),
       1,
       userGoals.level,
-      userGoals.equipment
+      userGoals.equipment,
+      selectedPatterns
     ).filter(
       (ex) =>
         ex.exercise_type === "compound" &&
@@ -535,7 +693,8 @@ export const generateSingleDayWorkout = (
         allExercises.filter((ex) => ex.difficulty_level !== "advanced"),
         1,
         userGoals.level,
-        userGoals.equipment
+        userGoals.equipment,
+        selectedPatterns
       ).filter(
         (ex) =>
           ex.exercise_type === "compound" &&
@@ -556,7 +715,8 @@ export const generateSingleDayWorkout = (
       ).filter((ex) => !selectedIds.has(ex.id)),
       1,
       userGoals.level,
-      userGoals.equipment
+      userGoals.equipment,
+      selectedPatterns
     ).filter(
       (ex) =>
         ex.name.toLowerCase().includes("deadlift") ||
@@ -571,7 +731,8 @@ export const generateSingleDayWorkout = (
         ),
         1,
         userGoals.level,
-        userGoals.equipment
+        userGoals.equipment,
+        selectedPatterns
       ).filter(
         (ex) =>
           ex.name.toLowerCase().includes("deadlift") ||
@@ -610,7 +771,8 @@ export const generateSingleDayWorkout = (
           ),
           1,
           userGoals.level,
-          userGoals.equipment
+          userGoals.equipment,
+          selectedPatterns
         );
 
         if (exercises.length > 0) {
@@ -643,7 +805,8 @@ export const generateSingleDayWorkout = (
         available,
         remainingSlots,
         userGoals.level,
-        userGoals.equipment
+        userGoals.equipment,
+        selectedPatterns
       ).filter(
         (ex) =>
           !selectedIds.has(ex.id) &&
@@ -657,7 +820,90 @@ export const generateSingleDayWorkout = (
     }
   }
 
+  // Add cardio exercises for fat loss goals
+  if (isFatLossGoal(userGoals.goal)) {
+    console.log("🔥 Fat loss goal detected, adding cardio exercises...");
+    console.log("🔍 User goal:", userGoals.goal);
+
+    const cardioExercises = allExercises.filter(
+      (ex) =>
+        isCardioExercise(ex) &&
+        isAppropriateCardioForLevel(ex, userGoals.level) &&
+        EQUIPMENT_FILTERS[userGoals.equipment](ex) &&
+        !selectedIds.has(ex.id) &&
+        !ex.name.toLowerCase().includes("cardio circuit")
+    );
+
+    console.log(
+      `🏃 Found ${cardioExercises.length} cardio exercises in database`
+    );
+    if (cardioExercises.length > 0) {
+      console.log(
+        "📋 Available cardio exercises:",
+        cardioExercises.map((ex) => ex.name)
+      );
+    }
+
+    if (cardioExercises.length > 0) {
+      // Add 1 cardio exercise
+      const cardioCount = 1;
+      const shuffledCardio = cardioExercises.sort(() => Math.random() - 0.5);
+
+      for (let i = 0; i < Math.min(cardioCount, shuffledCardio.length); i++) {
+        const cardioEx = shuffledCardio[i];
+        const cardioFormat = getCardioFormat(cardioEx, userGoals.level);
+        dayExercises.push({
+          ...cardioEx,
+          sets: cardioFormat.sets,
+          rest: cardioFormat.rest
+        });
+        selectedIds.add(cardioEx.id);
+        console.log(`✅ Added cardio exercise: ${cardioEx.name}`);
+      }
+    } else {
+      // Fallback: Create a generic cardio exercise if none found in database
+      console.log(
+        "⚠️ No cardio exercises found in database, creating fallback"
+      );
+      const fallbackCardio = {
+        id: -1000 - dayIndex, // Unique negative ID for fallback
+        name:
+          userGoals.equipment === "bodyweight"
+            ? "Jumping Jacks"
+            : userGoals.equipment === "home_gym"
+            ? "Stationary Bike"
+            : "Treadmill",
+        sets:
+          userGoals.level === "beginner" ? "15-20 minutes" : "20-30 minutes",
+        rest: "As needed",
+        muscle_group: "Cardio",
+        muscle_groups: { name: "Cardio" },
+        exercise_type: "compound" as const,
+        equipment:
+          userGoals.equipment === "bodyweight" ? "bodyweight" : "machine",
+        difficulty_level: "beginner" as const
+      };
+
+      dayExercises.push(fallbackCardio);
+      selectedIds.add(fallbackCardio.id);
+      console.log(`✅ Added fallback cardio exercise: ${fallbackCardio.name}`);
+    }
+
+    console.log(
+      `🎯 Total exercises after cardio addition: ${dayExercises.length}`
+    );
+  } else {
+    console.log("💪 Non-fat loss goal detected:", userGoals.goal);
+  }
+
+  // Final Ordering: Key lifts > Compound > Isolation > Cardio
   const finalOrderedExercises = [...dayExercises].sort((a, b) => {
+    const aIsCardio = isCardioExercise(a);
+    const bIsCardio = isCardioExercise(b);
+
+    if (aIsCardio && !bIsCardio) return 1; // a (cardio) goes after b (non-cardio)
+    if (!aIsCardio && bIsCardio) return -1; // a (non-cardio) goes before b (cardio)
+
     const keyLiftSubstrings = ["bench press", "squat", "deadlift", "row"];
     const aIsKeyLift = keyLiftSubstrings.some((substring) =>
       a.name.toLowerCase().includes(substring)
@@ -666,44 +912,43 @@ export const generateSingleDayWorkout = (
       b.name.toLowerCase().includes(substring)
     );
 
-    // 1. Prioritize key lifts
     if (aIsKeyLift && !bIsKeyLift) return -1;
     if (!aIsKeyLift && bIsKeyLift) return 1;
 
-    const aIsCompound =
-      a.exercise_type === "compound" ||
-      a.name.toLowerCase().includes("press") ||
-      a.name.toLowerCase().includes("row");
-    const bIsCompound =
-      b.exercise_type === "compound" ||
-      b.name.toLowerCase().includes("press") ||
-      b.name.toLowerCase().includes("row");
+    const aIsCompound = a.exercise_type === "compound";
+    const bIsCompound = b.exercise_type === "compound";
 
-    // 2. Primary sorting: Compound vs. Isolation
-    if (aIsCompound && !bIsCompound) return -1; // a (compound) comes first
-    if (!aIsCompound && bIsCompound) return 1; // b (compound) comes first
+    if (aIsCompound && !bIsCompound) return -1;
+    if (!aIsCompound && bIsCompound) return 1;
 
-    // 3. Secondary sorting (if both are compound): by difficulty
-    if (aIsCompound && bIsCompound) {
-      const difficultyOrder = { advanced: 0, intermediate: 1, beginner: 2 };
-      const aDifficulty = difficultyOrder[a.difficulty_level] ?? 2;
-      const bDifficulty = difficultyOrder[b.difficulty_level] ?? 2;
-      if (aDifficulty < bDifficulty) return -1; // a (more difficult) comes first
-      if (aDifficulty > bDifficulty) return 1; // b (more difficult) comes first
-    }
-
-    // 4. If types and difficulty are the same, maintain original order
     return 0;
   });
 
-  return { exercises: finalOrderedExercises, recoveryWarnings };
+  dayExercises = finalOrderedExercises;
+
+  return {
+    exercises: dayExercises.map((ex) => ({
+      ...ex,
+      sets: ex.sets || config.sets.isolation,
+      rest: ex.rest || config.restTimes.isolation
+    })),
+    recoveryWarnings
+  };
 };
 
 export const generateWorkoutPlan = async (
   userGoals: UserGoals,
   allExercises: Exercise[],
   recoveryData: any
-) => {
+): Promise<{
+  success: boolean;
+  plan: { days: { day: number; focus: string; exercises: Exercise[] }[] };
+  context: {
+    userGoals: UserGoals;
+    allExercises: Exercise[];
+    muscleRecovery: MuscleRecovery;
+  };
+}> => {
   console.log("🏋️ Starting BACKEND AI workout plan generation...");
 
   const muscleRecovery: MuscleRecovery = {};
