@@ -1342,6 +1342,13 @@ export const generateWorkoutPlan = async (
     })
   };
 
+  // If bodyweight, override day names to be more generic
+  if (userGoals.equipment === "bodyweight") {
+    plan.days.forEach((day, index) => {
+      day.focus = `Full Body Workout ${String.fromCharCode(65 + index)}`;
+    });
+  }
+
   return {
     success: true,
     plan,

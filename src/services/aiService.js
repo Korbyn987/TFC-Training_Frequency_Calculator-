@@ -1137,6 +1137,16 @@ export const generateWorkoutPlan = async (userGoals, recoveryData) => {
   }
 
   console.log("✅ Successfully received plan from edge function.");
+
+  // Ensure bodyweight workouts have generic names, even on the client
+  if (data.plan && data.context.userGoals.equipment === "bodyweight") {
+    console.log("Renaming bodyweight workout days on the client...");
+    data.plan.days.forEach((day, index) => {
+      day.focus = `Full Body Workout ${String.fromCharCode(65 + index)}`;
+    });
+  }
+
+  // The backend now returns the full context needed for client-side refresh
   return data; // The edge function now returns the { success, plan, context } object
 };
 
