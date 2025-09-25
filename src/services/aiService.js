@@ -27,28 +27,157 @@ const EQUIPMENT_FILTERS = {
       "dumbbell",
       "resistance band",
       "bodyweight",
-      "cable",
-      "machine",
-      "band",
-      "incline",
-      "decline",
-      "seated",
-      "standing",
-      "alternating",
-      "single arm",
-      "single leg",
-      "one arm",
-      "one leg",
-      "lying",
-      "reverse",
-      "ez-bar"
+      "barbell",
+      "kettlebell",
+      "medicine ball",
+      "stability ball",
+      "pull-up bar",
+      "bench",
+      "mat",
+      "free weight",
+      "weight plate",
+      "ez bar",
+      "curl bar",
+      "adjustable",
+      "home"
     ];
-    return homeEquipment.some((eq) =>
-      exercise.equipment?.toLowerCase().includes(eq)
-    );
+
+    const machineKeywords = [
+      "machine",
+      "smith machine",
+      "leg press machine",
+      "leg curl machine",
+      "leg extension",
+      "seated leg curl",
+      "hammer strength",
+      "lat pulldown machine",
+      "cable machine",
+      "cable",
+      "pec deck",
+      "leg press",
+      "calf raise machine",
+      "preacher curl machine",
+      "tricep dip machine",
+      "chest press machine",
+      "shoulder press machine",
+      "dumbbell",
+      "barbell",
+      "kettlebell",
+      "weight",
+      "plate"
+    ];
+
+    // Debug logging
+    console.log(`🏠 HOME GYM FILTER (CLIENT) - Exercise: "${exercise.name}"`);
+    console.log(`   Equipment: "${exercise.equipment || "NONE"}"`);
+
+    const equipmentLower = (exercise.equipment || "").toLowerCase();
+    const exerciseName = exercise.name.toLowerCase();
+
+    console.log(`   Checking equipment: "${equipmentLower}"`);
+    console.log(`   Checking name: "${exerciseName}"`);
+
+    // ALWAYS check exercise name for machine/cable keywords FIRST, regardless of equipment field
+    const isMachine = machineKeywords.some((keyword) => {
+      const equipmentMatch = equipmentLower.includes(keyword);
+      const nameMatch = exerciseName.includes(keyword);
+      if (equipmentMatch || nameMatch) {
+        console.log(
+          `   🚫 BLOCKED by keyword: "${keyword}" (equipment: ${equipmentMatch}, name: ${nameMatch})`
+        );
+      }
+      return equipmentMatch || nameMatch;
+    });
+
+    if (isMachine) {
+      console.log(`   ❌ REJECTED - Machine/Cable exercise`);
+      return false;
+    }
+
+    // If no equipment specified AND name doesn't contain machine keywords, allow it for home gym
+    if (!exercise.equipment || exercise.equipment.trim() === "") {
+      console.log(`   ✅ ALLOWED - No equipment specified and name is safe`);
+      return true;
+    }
+
+    const isHomeEquipment = homeEquipment.some((eq) => {
+      const match = equipmentLower.includes(eq);
+      if (match) {
+        console.log(`   ✅ ALLOWED - Matches home equipment: "${eq}"`);
+      }
+      return match;
+    });
+
+    if (!isHomeEquipment) {
+      console.log(`   ❌ REJECTED - Equipment not suitable for home gym`);
+    }
+
+    return isHomeEquipment;
   },
-  bodyweight: (exercise) =>
-    exercise.equipment?.toLowerCase().includes("bodyweight")
+  bodyweight: (exercise) => {
+    const bodyweightKeywords = [
+      "bodyweight",
+      "body weight",
+      "no equipment",
+      "none",
+      "mat",
+      "floor"
+    ];
+
+    const machineKeywords = [
+      "machine",
+      "smith machine",
+      "leg press machine",
+      "leg curl machine",
+      "leg extension",
+      "seated leg curl",
+      "hammer strength",
+      "lat pulldown machine",
+      "cable machine",
+      "cable",
+      "pec deck",
+      "leg press",
+      "calf raise machine",
+      "preacher curl machine",
+      "tricep dip machine",
+      "chest press machine",
+      "shoulder press machine",
+      "dumbbell",
+      "barbell",
+      "kettlebell",
+      "weight",
+      "plate"
+    ];
+
+    // If no equipment specified, allow it for bodyweight
+    if (!exercise.equipment || exercise.equipment.trim() === "") {
+      return true;
+    }
+
+    const equipmentLower = exercise.equipment.toLowerCase();
+    const exerciseName = exercise.name.toLowerCase();
+
+    // Exclude machine-based and weighted exercises
+    const requiresEquipment = machineKeywords.some(
+      (keyword) =>
+        equipmentLower.includes(keyword) || exerciseName.includes(keyword)
+    );
+
+    if (requiresEquipment) {
+      return false;
+    }
+
+    return (
+      bodyweightKeywords.some((keyword) => equipmentLower.includes(keyword)) ||
+      // Also allow exercises that are typically bodyweight movements
+      exercise.name.toLowerCase().includes("push-up") ||
+      exercise.name.toLowerCase().includes("sit-up") ||
+      exercise.name.toLowerCase().includes("squat") ||
+      exercise.name.toLowerCase().includes("lunge") ||
+      exercise.name.toLowerCase().includes("plank") ||
+      exercise.name.toLowerCase().includes("crunch")
+    );
+  }
 };
 
 // Helper function to detect cardio exercises
@@ -447,6 +576,30 @@ export const generateSingleDayWorkout = (
       selectedPatterns
     );
     addExercise(mainPress[0]);
+
+    // Add a fly variation for chest
+    available = getAvailableExercises(
+      allExercises,
+      userGoals.level,
+      hardExercisesCount,
+      hardExerciseMuscleGroups,
+      "Chest"
+    );
+    const flyExercises = available.filter(
+      (ex) =>
+        ex.name.toLowerCase().includes("fly") &&
+        !selectedIds.has(ex.id) &&
+        !selectedPatterns.has(getMovementPattern(ex.name))
+    );
+    const chestFly = selectExercisesForMuscle(
+      "Chest",
+      flyExercises,
+      1,
+      userGoals.level,
+      userGoals.equipment,
+      selectedPatterns
+    );
+    addExercise(chestFly[0]);
 
     // Main Overhead Press for Shoulders
     available = getAvailableExercises(
