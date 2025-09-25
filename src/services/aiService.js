@@ -115,68 +115,8 @@ const EQUIPMENT_FILTERS = {
     return isHomeEquipment;
   },
   bodyweight: (exercise) => {
-    const bodyweightKeywords = [
-      "bodyweight",
-      "body weight",
-      "no equipment",
-      "none",
-      "mat",
-      "floor"
-    ];
-
-    const machineKeywords = [
-      "machine",
-      "smith machine",
-      "leg press machine",
-      "leg curl machine",
-      "leg extension",
-      "seated leg curl",
-      "hammer strength",
-      "lat pulldown machine",
-      "cable machine",
-      "cable",
-      "pec deck",
-      "leg press",
-      "calf raise machine",
-      "preacher curl machine",
-      "tricep dip machine",
-      "chest press machine",
-      "shoulder press machine",
-      "dumbbell",
-      "barbell",
-      "kettlebell",
-      "weight",
-      "plate"
-    ];
-
-    // If no equipment specified, allow it for bodyweight
-    if (!exercise.equipment || exercise.equipment.trim() === "") {
-      return true;
-    }
-
-    const equipmentLower = exercise.equipment.toLowerCase();
-    const exerciseName = exercise.name.toLowerCase();
-
-    // Exclude machine-based and weighted exercises
-    const requiresEquipment = machineKeywords.some(
-      (keyword) =>
-        equipmentLower.includes(keyword) || exerciseName.includes(keyword)
-    );
-
-    if (requiresEquipment) {
-      return false;
-    }
-
-    return (
-      bodyweightKeywords.some((keyword) => equipmentLower.includes(keyword)) ||
-      // Also allow exercises that are typically bodyweight movements
-      exercise.name.toLowerCase().includes("push-up") ||
-      exercise.name.toLowerCase().includes("sit-up") ||
-      exercise.name.toLowerCase().includes("squat") ||
-      exercise.name.toLowerCase().includes("lunge") ||
-      exercise.name.toLowerCase().includes("plank") ||
-      exercise.name.toLowerCase().includes("crunch")
-    );
+    // With the database now having accurate equipment fields, this check is much simpler.
+    return exercise.equipment === "bodyweight";
   }
 };
 
@@ -489,6 +429,225 @@ export const generateSingleDayWorkout = (
     return { exercises: dayExercises, recoveryWarnings };
   }
 
+  // SPECIAL LOGIC FOR BODYWEIGHT: Generate full-body workouts instead of splits
+  if (userGoals.equipment === "bodyweight") {
+    console.log("🏋️ BODYWEIGHT MODE (CLIENT): Generating full-body workout");
+    console.log(`🎯 User level: ${userGoals.level}`);
+    console.log(`📊 Total exercises available: ${allExercises.length}`);
+
+    // Filter for bodyweight exercises within this block, not before
+    const allBodyweightExercises = allExercises.filter((ex) =>
+      EQUIPMENT_FILTERS.bodyweight(ex)
+    );
+    console.log(
+      `🏋️ Total bodyweight exercises found: ${allBodyweightExercises.length}`
+    );
+
+    // DEBUG: Show beginner bodyweight exercises specifically
+    const beginnerBodyweight = allBodyweightExercises.filter(
+      (ex) => ex.difficulty_level === "beginner"
+    );
+    console.log(
+      `👶 Beginner bodyweight exercises found: ${beginnerBodyweight.length}`
+    );
+    console.log(
+      `👶 Beginner exercises (ID | Name): ${beginnerBodyweight
+        .map((ex) => `${ex.id} | ${ex.name}`)
+        .join(", ")}`
+    );
+
+    const selectedIds = new Set();
+    const selectedPatterns = new Set();
+
+    // Helper to add an exercise and its pattern
+    const addExercise = (exercise) => {
+      if (!exercise) return;
+      dayExercises.push(exercise);
+      selectedIds.add(exercise.id);
+      selectedPatterns.add(getMovementPattern(exercise.name));
+    };
+
+    // GUARANTEED EXERCISES FOR BODYWEIGHT WORKOUTS
+
+    // 1. CORE EXERCISE (ALWAYS INCLUDED)
+    const coreExercises = allBodyweightExercises.filter(
+      (ex) =>
+        (ex.name.toLowerCase().includes("plank") ||
+          ex.name.toLowerCase().includes("crunch") ||
+          ex.name.toLowerCase().includes("sit-up") ||
+          ex.name.toLowerCase().includes("russian twist") ||
+          ex.name.toLowerCase().includes("leg raise") ||
+          ex.name.toLowerCase().includes("v-up") ||
+          ex.name.toLowerCase().includes("dead bug") ||
+          ex.name.toLowerCase().includes("mountain climber") ||
+          ex.name.toLowerCase().includes("bicycle crunch") ||
+          ex.name.toLowerCase().includes("knee raise") ||
+          ex.name.toLowerCase().includes("flutter kick") ||
+          ex.name.toLowerCase().includes("scissor kick") ||
+          ex.name.toLowerCase().includes("toe touch") ||
+          ex.name.toLowerCase().includes("bird dog") ||
+          ex.name.toLowerCase().includes("hollow hold") ||
+          ex.name.toLowerCase().includes("superman") ||
+          ex.name.toLowerCase().includes("bear crawl") ||
+          ex.name.toLowerCase().includes("crab walk")) &&
+        !selectedIds.has(ex.id) &&
+        // Filter by difficulty level
+        (userGoals.level === "beginner"
+          ? ex.difficulty_level === "beginner"
+          : userGoals.level === "intermediate"
+          ? ex.difficulty_level !== "advanced"
+          : true)
+    );
+    if (coreExercises.length > 0) {
+      const coreEx =
+        coreExercises[Math.floor(Math.random() * coreExercises.length)];
+      addExercise({
+        ...coreEx,
+        sets: config.sets.isolation,
+        rest: config.restTimes.isolation
+      });
+      console.log(`✅ Added GUARANTEED core exercise: ${coreEx.name}`);
+    }
+
+    // 2. CARDIO/CALISTHENICS (ALWAYS INCLUDED)
+    const cardioExercises = allBodyweightExercises.filter(
+      (ex) =>
+        (ex.name.toLowerCase().includes("jumping jack") ||
+          ex.name.toLowerCase().includes("burpee") ||
+          ex.name.toLowerCase().includes("high knee") ||
+          ex.name.toLowerCase().includes("butt kick") ||
+          ex.name.toLowerCase().includes("star jump") ||
+          ex.name.toLowerCase().includes("running in place") ||
+          ex.name.toLowerCase().includes("marching")) &&
+        !selectedIds.has(ex.id) &&
+        // Filter by difficulty level
+        (userGoals.level === "beginner"
+          ? ex.difficulty_level === "beginner"
+          : userGoals.level === "intermediate"
+          ? ex.difficulty_level !== "advanced"
+          : true)
+    );
+    if (cardioExercises.length > 0) {
+      const cardioEx =
+        cardioExercises[Math.floor(Math.random() * cardioExercises.length)];
+      const cardioFormat = getCardioFormat(cardioEx, userGoals.level);
+      addExercise({
+        ...cardioEx,
+        sets: cardioFormat.sets,
+        rest: cardioFormat.rest
+      });
+      console.log(`✅ Added GUARANTEED cardio exercise: ${cardioEx.name}`);
+    }
+
+    // 3. PUSH-UPS (Upper body push)
+    const pushExercises = allBodyweightExercises.filter(
+      (ex) =>
+        (ex.name.toLowerCase().includes("push-up") ||
+          ex.name.toLowerCase().includes("pushup") ||
+          ex.name.toLowerCase().includes("push up")) &&
+        !selectedIds.has(ex.id) &&
+        // Filter by difficulty level, allowing only basic push-up for beginners
+        (userGoals.level === "beginner"
+          ? ex.difficulty_level === "beginner" ||
+            ex.name.toLowerCase() === "push-up"
+          : userGoals.level === "intermediate"
+          ? ex.difficulty_level !== "advanced"
+          : true)
+    );
+    if (pushExercises.length > 0) {
+      const pushUp =
+        pushExercises[Math.floor(Math.random() * pushExercises.length)];
+      addExercise({
+        ...pushUp,
+        sets: config.sets.compound,
+        rest: config.restTimes.compound
+      });
+      console.log(`✅ Added push exercise: ${pushUp.name}`);
+    }
+
+    // 4. SQUATS/LUNGES (Lower body)
+    const legExercises = allBodyweightExercises.filter(
+      (ex) =>
+        (ex.name.toLowerCase().includes("squat") ||
+          ex.name.toLowerCase().includes("lunge")) &&
+        !selectedIds.has(ex.id) &&
+        // Filter by difficulty level
+        (userGoals.level === "beginner"
+          ? ex.difficulty_level === "beginner"
+          : userGoals.level === "intermediate"
+          ? ex.difficulty_level !== "advanced"
+          : true)
+    );
+    if (legExercises.length > 0) {
+      const legEx =
+        legExercises[Math.floor(Math.random() * legExercises.length)];
+      addExercise({
+        ...legEx,
+        sets: config.sets.compound,
+        rest: config.restTimes.compound
+      });
+      console.log(`✅ Added leg exercise: ${legEx.name}`);
+    }
+
+    // 5. FILL REMAINING SLOTS with any appropriate bodyweight exercises
+    const targetExercises =
+      userGoals.level === "beginner"
+        ? 4
+        : userGoals.level === "intermediate"
+        ? 5
+        : 6;
+
+    while (dayExercises.length < targetExercises) {
+      // Get ALL bodyweight exercises that match difficulty level
+      const remainingExercises = allBodyweightExercises.filter(
+        (ex) =>
+          !selectedIds.has(ex.id) &&
+          !selectedPatterns.has(getMovementPattern(ex.name)) &&
+          // Filter by difficulty level
+          (userGoals.level === "beginner"
+            ? ex.difficulty_level === "beginner"
+            : userGoals.level === "intermediate"
+            ? ex.difficulty_level !== "advanced"
+            : true)
+      );
+
+      if (remainingExercises.length === 0) {
+        console.log(
+          "⚠️ No more appropriate bodyweight exercises found, breaking"
+        );
+        break;
+      }
+
+      const randomEx =
+        remainingExercises[
+          Math.floor(Math.random() * remainingExercises.length)
+        ];
+      const isCompound =
+        randomEx.exercise_type === "compound" ||
+        randomEx.name.toLowerCase().includes("squat") ||
+        randomEx.name.toLowerCase().includes("push") ||
+        randomEx.name.toLowerCase().includes("lunge");
+
+      addExercise({
+        ...randomEx,
+        sets: isCompound ? config.sets.compound : config.sets.isolation,
+        rest: isCompound
+          ? config.restTimes.compound
+          : config.restTimes.isolation
+      });
+      console.log(`✅ Added additional exercise: ${randomEx.name}`);
+    }
+
+    console.log(
+      `🎯 Generated ${dayExercises.length} bodyweight exercises for full-body workout`
+    );
+    console.log(
+      `📋 Final workout: ${dayExercises.map((ex) => ex.name).join(", ")}`
+    );
+    return { exercises: dayExercises, recoveryWarnings };
+  }
+
+  // ORIGINAL LOGIC FOR NON-BODYWEIGHT EQUIPMENT
   let totalExercises = Math.min(
     config.totalExercises.max,
     Math.max(config.totalExercises.min, dayTemplate.muscles.length * 2)
@@ -717,9 +876,9 @@ export const generateSingleDayWorkout = (
       selectedPatterns
     ).filter(
       (ex) =>
-        ex.exercise_type === "compound" &&
-        (ex.name.toLowerCase().includes("squat") ||
-          ex.name.toLowerCase().includes("leg press"))
+        ex.exercise_type === "compound" ||
+        ex.name.toLowerCase().includes("press") ||
+        ex.name.toLowerCase().includes("squat")
     );
     if (quadFocus.length === 0) {
       // Fallback to intermediate if no beginner version is found
@@ -732,9 +891,9 @@ export const generateSingleDayWorkout = (
         selectedPatterns
       ).filter(
         (ex) =>
-          ex.exercise_type === "compound" &&
-          (ex.name.toLowerCase().includes("squat") ||
-            ex.name.toLowerCase().includes("leg press"))
+          ex.exercise_type === "compound" ||
+          ex.name.toLowerCase().includes("press") ||
+          ex.name.toLowerCase().includes("squat")
       );
     }
     addExercise(quadFocus[0]);
