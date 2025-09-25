@@ -20,9 +20,61 @@ const EXPERIENCE_CONFIGS = {
   }
 };
 
+// Whitelist of bodyweight exercises allowed in all equipment settings
+const UNIVERSAL_BODYWEIGHT_EXERCISES = [
+  "plank",
+  "russian twist",
+  "mountain climbers",
+  "side plank",
+  "sit-up",
+  "v-up",
+  "bicycle crunch",
+  "crunch",
+  "flutter kicks",
+  "leg raise",
+  "scissor kicks",
+  "burpee",
+  "free running",
+  "jumping jacks"
+];
+
+// Specific bodyweight exercises to EXCLUDE from any gym setting
+const GYM_BODYWEIGHT_EXCLUSIONS = ["air squat"];
+
+// Helper function to check if a bodyweight exercise is universally allowed
+const isUniversalBodyweightExercise = (exercise) => {
+  const exerciseName = exercise.name.toLowerCase();
+  return UNIVERSAL_BODYWEIGHT_EXERCISES.some(allowed => 
+    exerciseName.includes(allowed)
+  );
+};
+
 const EQUIPMENT_FILTERS = {
-  full_gym: () => true,
+  full_gym: (exercise) => {
+    const exerciseName = exercise.name.toLowerCase();
+    // Exclude specific bodyweight exercises from gym settings
+    if (GYM_BODYWEIGHT_EXCLUSIONS.some((ex) => exerciseName.includes(ex))) {
+      return false;
+    }
+
+    // Allow bodyweight exercises only if they are in the universal whitelist
+    if (exercise.equipment === "bodyweight") {
+      return isUniversalBodyweightExercise(exercise);
+    }
+    return true; // Allow all other equipment types
+  },
   home_gym: (exercise) => {
+    const exerciseName = exercise.name.toLowerCase();
+    // Exclude specific bodyweight exercises from gym settings
+    if (GYM_BODYWEIGHT_EXCLUSIONS.some((ex) => exerciseName.includes(ex))) {
+      return false;
+    }
+
+    // Allow bodyweight exercises only if they are in the universal whitelist
+    if (exercise.equipment === "bodyweight") {
+      return isUniversalBodyweightExercise(exercise);
+    }
+
     const homeEquipment = [
       "dumbbell",
       "resistance band",
@@ -72,15 +124,14 @@ const EQUIPMENT_FILTERS = {
     console.log(`   Equipment: "${exercise.equipment || "NONE"}"`);
 
     const equipmentLower = (exercise.equipment || "").toLowerCase();
-    const exerciseName = exercise.name.toLowerCase();
 
     console.log(`   Checking equipment: "${equipmentLower}"`);
-    console.log(`   Checking name: "${exerciseName}"`);
+    console.log(`   Checking name: "${exercise.name}"`);
 
     // ALWAYS check exercise name for machine/cable keywords FIRST, regardless of equipment field
     const isMachine = machineKeywords.some((keyword) => {
       const equipmentMatch = equipmentLower.includes(keyword);
-      const nameMatch = exerciseName.includes(keyword);
+      const nameMatch = exercise.name.toLowerCase().includes(keyword);
       if (equipmentMatch || nameMatch) {
         console.log(
           `   🚫 BLOCKED by keyword: "${keyword}" (equipment: ${equipmentMatch}, name: ${nameMatch})`
@@ -152,6 +203,43 @@ const isCardioExercise = (exercise) => {
     (keyword) =>
       exerciseName.includes(keyword) || muscleGroup.includes("cardio")
   );
+};
+
+// Helper function to detect core exercises
+const isCoreExercise = (exercise) => {
+  const exerciseName = exercise.name.toLowerCase();
+  const muscleGroup = exercise.muscle_groups?.name?.toLowerCase() || "";
+
+  if (muscleGroup.includes("core") || muscleGroup.includes("abs")) {
+    return true;
+  }
+
+  const coreKeywords = [
+    "plank",
+    "crunch",
+    "sit-up",
+    "russian twist",
+    "leg raise",
+    "v-up",
+    "dead bug",
+    "mountain climber",
+    "bicycle crunch",
+    "knee raise",
+    "flutter kick",
+    "scissor kick",
+    "toe touch",
+    "bird dog",
+    "hollow hold",
+    "superman",
+    "bear crawl",
+    "crab walk",
+    "ab roller",
+    "cable crunch",
+    "hanging leg raise",
+    "wood chop"
+  ];
+
+  return coreKeywords.some((keyword) => exerciseName.includes(keyword));
 };
 
 // Helper function to check if cardio exercise is appropriate for experience level
@@ -236,6 +324,36 @@ const getCardioFormat = (exercise, level) => {
     // Duration-based format for endurance exercises
     const duration = level === "beginner" ? "15-20 minutes" : "20-30 minutes";
     return { sets: duration, rest: "As needed" };
+  }
+};
+
+// Helper function to identify static stretches
+const isStretchExercise = (exercise) => {
+  const exerciseName = exercise.name.toLowerCase();
+  const stretchKeywords = [
+    "stretch",
+    "pose",
+    "hold",
+    "mobilization",
+    "mobility",
+    "cat-cow",
+    "downward dog",
+    "pigeon pose",
+    "child's pose",
+    "cobra"
+  ];
+  return stretchKeywords.some((keyword) => exerciseName.includes(keyword));
+};
+
+// Helper function to format sets for stretches
+const getStretchFormat = (level) => {
+  if (level === "beginner") {
+    return { sets: "2x30s per side", rest: "15s" };
+  } else if (level === "intermediate") {
+    return { sets: "3x45s per side", rest: "15s" };
+  } else {
+    // advanced
+    return { sets: "3x60s per side", rest: "10s" };
   }
 };
 
@@ -327,15 +445,32 @@ const selectExercisesForMuscle = (
   console.log(
     `🔍 Filtering for muscle "${muscle}" with equipment "${equipment}"...`
   );
-  const muscleExercises = allExercises.filter(
-    (ex) =>
+
+  const legMuscles = ["quadriceps", "hamstrings", "glutes", "calves"];
+
+  const muscleExercises = allExercises.filter((ex) => {
+    const exNameLower = ex.name.toLowerCase();
+    if (legMuscles.includes(muscle.toLowerCase())) {
+      // PREVENT CORE EXERCISES ON LEG DAY
+      if (exNameLower.includes("v-up") || exNameLower.includes("sit-up")) {
+        return false;
+      }
+    }
+
+    return (
       ex.muscle_groups &&
       ex.muscle_groups.name?.toLowerCase() === muscle.toLowerCase() &&
+      // SAFGUARD: Explicitly prevent bicycle crunches from being a leg exercise
+      !(
+        legMuscles.includes(muscle.toLowerCase()) &&
+        exNameLower.includes("bicycle crunch")
+      ) &&
       EQUIPMENT_FILTERS[equipment](ex) &&
       !selectedPatterns.has(getMovementPattern(ex.name))
-  );
+    );
+  });
   console.log(
-    `🔍 Filtering for muscle "${muscle}" with equipment "${equipment}". Found ${muscleExercises.length} exercises.`
+    `🔍 Found ${muscleExercises.length} exercises for muscle "${muscle}"`
   );
   if (muscleExercises.length === 0) return [];
 
@@ -409,14 +544,19 @@ export const generateSingleDayWorkout = (
   const recoveryWarnings = [];
   const config = EXPERIENCE_CONFIGS[userGoals.level];
 
-  dayTemplate.muscles.forEach((muscle) => {
+  // Make a mutable copy and remove 'Core' to prevent it from being selected twice.
+  const mutableMuscles = [...dayTemplate.muscles].filter(
+    (m) => m.toLowerCase() !== "core"
+  );
+
+  mutableMuscles.forEach((muscle) => {
     const recoveryInfo = muscleRecovery[muscle];
     if (recoveryInfo && recoveryInfo.percentage < 100) {
       recoveryWarnings.push({ muscle, percentage: recoveryInfo.percentage });
     }
   });
 
-  if (dayTemplate.muscles.length === 0) {
+  if (mutableMuscles.length === 0) {
     dayExercises.push({
       id: 1,
       name: "Active Recovery - Light Cardio",
@@ -650,7 +790,7 @@ export const generateSingleDayWorkout = (
   // ORIGINAL LOGIC FOR NON-BODYWEIGHT EQUIPMENT
   let totalExercises = Math.min(
     config.totalExercises.max,
-    Math.max(config.totalExercises.min, dayTemplate.muscles.length * 2)
+    Math.max(config.totalExercises.min, mutableMuscles.length * 2)
   );
 
   // Adjust for beginner fat loss goal to shorten the strength portion
@@ -785,6 +925,23 @@ export const generateSingleDayWorkout = (
     );
     addExercise(overheadPress[0]);
   } else if (focusType.includes("pull")) {
+    // SAFEGUARD: Explicitly prevent squats/presses from appearing on pull days
+    const PULL_DAY_EXCLUSIONS = [
+      "squat",
+      "press",
+      "sumo squat",
+      "cossack squat"
+    ];
+    if (
+      PULL_DAY_EXCLUSIONS.some((keyword) =>
+        dayTemplate.focus.toLowerCase().includes(keyword)
+      )
+    ) {
+      console.error(
+        "Configuration Error: Pull day should not contain push/leg keywords."
+      );
+    }
+
     if (isFirstTimeFocus) {
       // Prioritize a heavy row variation first
       let available = getAvailableExercises(
@@ -965,12 +1122,34 @@ export const generateSingleDayWorkout = (
   // 2. Fill remaining slots with accessory exercises
   const remainingSlots = totalExercises - dayExercises.length;
   if (remainingSlots > 0) {
-    const accessoryMuscles = [...dayTemplate.muscles].sort(
+    // Ensure one slot is reserved for a core exercise
+    const hasCoreExercise = dayExercises.some(isCoreExercise);
+
+    // Accessory muscles should ONLY be from the day's template
+    const daySpecificMuscles = [...mutableMuscles].filter(
+      (m) => m.toLowerCase() !== "core"
+    );
+
+    let accessoryMuscles = [...daySpecificMuscles].sort(
       () => Math.random() - 0.5
     );
+
+    // If no core exercise is present yet, inject 'Core' into the muscle rotation
+    if (!hasCoreExercise) {
+      accessoryMuscles.unshift("Core");
+    }
+
     let currentMuscleIndex = 0;
 
     for (let i = 0; i < remainingSlots; i++) {
+      // Prevent adding another core exercise if one was already added
+      if (
+        dayExercises.some(isCoreExercise) &&
+        accessoryMuscles[currentMuscleIndex] === "Core"
+      ) {
+        currentMuscleIndex++;
+        continue; // Skip to the next muscle
+      }
       const muscleToTrain = accessoryMuscles[currentMuscleIndex];
 
       let available = getAvailableExercises(
@@ -1001,13 +1180,23 @@ export const generateSingleDayWorkout = (
     }
   }
 
-  // Final Ordering: Key lifts > Compound > Isolation > Cardio
+  // Final Ordering: Key lifts > Compound > Isolation > Core > Cardio > Stretch
   dayExercises.sort((a, b) => {
+    const aIsStretch = isStretchExercise(a);
+    const bIsStretch = isStretchExercise(b);
+    if (aIsStretch && !bIsStretch) return 1;
+    if (!aIsStretch && bIsStretch) return -1;
+
     const aIsCardio = isCardioExercise(a);
     const bIsCardio = isCardioExercise(b);
+    const aIsCore = isCoreExercise(a);
+    const bIsCore = isCoreExercise(b);
 
     if (aIsCardio && !bIsCardio) return 1;
     if (!aIsCardio && bIsCardio) return -1;
+
+    if (aIsCore && !bIsCore) return aIsCardio ? -1 : 1;
+    if (!aIsCore && bIsCore) return bIsCardio ? 1 : -1;
 
     const keyLiftSubstrings = ["bench press", "squat", "deadlift", "row"];
     const aIsKeyLift = keyLiftSubstrings.some((substring) =>
@@ -1106,14 +1295,24 @@ export const generateSingleDayWorkout = (
   }
 
   return {
-    exercises: dayExercises.map((ex) => ({
-      id: ex.id,
-      name: ex.name,
-      sets: ex.sets,
-      rest: ex.rest,
-      muscle_group: ex.muscle_group, // Keep this for display consistency
-      muscle_groups: ex.muscle_groups // Pass the new structure along
-    })),
+    exercises: dayExercises.map((ex) => {
+      if (isStretchExercise(ex)) {
+        const stretchFormat = getStretchFormat(userGoals.level);
+        return {
+          ...ex,
+          sets: stretchFormat.sets,
+          rest: stretchFormat.rest
+        };
+      }
+      return {
+        id: ex.id,
+        name: ex.name,
+        sets: ex.sets,
+        rest: ex.rest,
+        muscle_group: ex.muscle_group, // Keep this for display consistency
+        muscle_groups: ex.muscle_groups // Pass the new structure along
+      };
+    }),
     recoveryWarnings
   };
 };
