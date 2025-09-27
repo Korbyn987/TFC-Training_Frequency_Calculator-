@@ -1354,13 +1354,16 @@ export const generateWorkoutPlan = async (userGoals, recoveryData) => {
 const WORKOUT_SPLITS = {
   5: {
     days: [
-      { focus: "Push", muscles: ["chest", "shoulders", "triceps"] },
-      { focus: "Pull", muscles: ["back", "biceps"] },
-      { focus: "Legs", muscles: ["quads", "hamstrings", "glutes", "calves"] },
-      { focus: "Upper Body", muscles: ["chest", "back", "shoulders"] },
+      { focus: "Push", muscles: ["Chest", "Shoulders", "Triceps"] },
+      { focus: "Pull", muscles: ["Back", "Biceps"] },
+      {
+        focus: "Legs",
+        muscles: ["Quadriceps", "Hamstrings", "Glutes", "Calves"]
+      },
+      { focus: "Upper Body", muscles: ["Chest", "Back", "Shoulders"] },
       {
         focus: "Lower Body (Glutes Focus)",
-        muscles: ["glutes", "hamstrings", "quads", "calves"]
+        muscles: ["Glutes", "Hamstrings", "Quadriceps", "Calves"]
       }
     ]
   }

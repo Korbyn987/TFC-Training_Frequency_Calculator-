@@ -40,7 +40,7 @@ const WORKOUT_SPLITS = {
       },
       {
         focus: "Lower Body",
-        muscles: ["Quadriceps", "Hamstrings", "glutes", "calves"]
+        muscles: ["Quadriceps", "Hamstrings", "Glutes", "Calves"]
       }
     ]
   },
@@ -51,10 +51,10 @@ const WORKOUT_SPLITS = {
         focus: "Push (Chest, Shoulders, Triceps)",
         muscles: ["Chest", "Shoulders", "Triceps"]
       },
-      { focus: "Pull (Back, Biceps)", muscles: ["Back", "Biceps", "forearms"] },
+      { focus: "Pull (Back, Biceps)", muscles: ["Back", "Biceps", "Forearms"] },
       {
         focus: "Legs (Quads, Hamstrings, Glutes)",
-        muscles: ["Quadriceps", "Hamstrings", "glutes", "calves"]
+        muscles: ["Quadriceps", "Hamstrings", "Glutes", "Calves"]
       }
     ]
   },
@@ -67,7 +67,7 @@ const WORKOUT_SPLITS = {
       },
       {
         focus: "Lower Body (Heavy)",
-        muscles: ["Quadriceps", "Hamstrings", "glutes", "calves"]
+        muscles: ["Quadriceps", "Hamstrings", "Glutes", "Calves"]
       },
       {
         focus: "Upper Body (Volume)",
@@ -75,7 +75,7 @@ const WORKOUT_SPLITS = {
       },
       {
         focus: "Lower Body (Volume)",
-        muscles: ["Quadriceps", "Hamstrings", "glutes", "calves"]
+        muscles: ["Quadriceps", "Hamstrings", "Glutes", "Calves"]
       }
     ]
   },
@@ -86,18 +86,18 @@ const WORKOUT_SPLITS = {
         focus: "Push (Chest, Shoulders, Triceps)",
         muscles: ["Chest", "Shoulders", "Triceps"]
       },
-      { focus: "Pull (Back, Biceps)", muscles: ["Back", "Biceps", "forearms"] },
+      { focus: "Pull (Back, Biceps)", muscles: ["Back", "Biceps", "Forearms"] },
       {
         focus: "Legs (Quads, Hamstrings, Glutes)",
-        muscles: ["Quadriceps", "Hamstrings", "glutes", "calves"]
+        muscles: ["Quadriceps", "Hamstrings", "Glutes", "Calves"]
       },
       {
         focus: "Upper Body (Arms Focus)",
-        muscles: ["Biceps", "Triceps", "Shoulders", "forearms"]
+        muscles: ["Biceps", "Triceps", "Shoulders", "Forearms"]
       },
       {
         focus: "Lower Body (Glutes Focus)",
-        muscles: ["glutes", "Hamstrings", "Quadriceps", "calves", "Core"]
+        muscles: ["Glutes", "Hamstrings", "Quadriceps", "Calves", "Core"]
       }
     ]
   },
@@ -105,16 +105,16 @@ const WORKOUT_SPLITS = {
     name: "Push/Pull/Legs (2x)",
     days: [
       { focus: "Push (Heavy)", muscles: ["Chest", "Shoulders", "Triceps"] },
-      { focus: "Pull (Heavy)", muscles: ["Back", "Biceps", "forearms"] },
+      { focus: "Pull (Heavy)", muscles: ["Back", "Biceps", "Forearms"] },
       {
         focus: "Legs (Heavy)",
-        muscles: ["Quadriceps", "Hamstrings", "glutes", "calves"]
+        muscles: ["Quadriceps", "Hamstrings", "Glutes", "Calves"]
       },
       { focus: "Push (Volume)", muscles: ["Chest", "Shoulders", "Triceps"] },
-      { focus: "Pull (Volume)", muscles: ["Back", "Biceps", "forearms"] },
+      { focus: "Pull (Volume)", muscles: ["Back", "Biceps", "Forearms"] },
       {
         focus: "Legs (Volume)",
-        muscles: ["Quadriceps", "Hamstrings", "glutes", "calves"]
+        muscles: ["Quadriceps", "Hamstrings", "Glutes", "Calves"]
       }
     ]
   }
@@ -161,17 +161,19 @@ const GYM_BODYWEIGHT_EXCLUSIONS = ["air squat"];
 
 // Helper function to check if a bodyweight exercise is universally allowed
 const isUniversalBodyweightExercise = (exercise: Exercise): boolean => {
-  const exerciseName = exercise.name.toLowerCase();
+  const universalExerciseName = exercise.name.toLowerCase();
   return UNIVERSAL_BODYWEIGHT_EXERCISES.some((allowed) =>
-    exerciseName.includes(allowed)
+    universalExerciseName.includes(allowed)
   );
 };
 
 const EQUIPMENT_FILTERS = {
   full_gym: (exercise: Exercise) => {
-    const exerciseName = exercise.name.toLowerCase();
+    const fullGymExerciseName = exercise.name.toLowerCase();
     // Exclude specific bodyweight exercises from gym settings
-    if (GYM_BODYWEIGHT_EXCLUSIONS.some((ex) => exerciseName.includes(ex))) {
+    if (
+      GYM_BODYWEIGHT_EXCLUSIONS.some((ex) => fullGymExerciseName.includes(ex))
+    ) {
       return false;
     }
 
@@ -182,9 +184,11 @@ const EQUIPMENT_FILTERS = {
     return true; // Allow all other equipment types
   },
   home_gym: (exercise: Exercise) => {
-    const exerciseName = exercise.name.toLowerCase();
+    const homeGymExerciseName = exercise.name.toLowerCase();
     // Exclude specific bodyweight exercises from gym settings
-    if (GYM_BODYWEIGHT_EXCLUSIONS.some((ex) => exerciseName.includes(ex))) {
+    if (
+      GYM_BODYWEIGHT_EXCLUSIONS.some((ex) => homeGymExerciseName.includes(ex))
+    ) {
       return false;
     }
 
@@ -253,15 +257,15 @@ const EQUIPMENT_FILTERS = {
     console.log(`   Equipment: "${exercise.equipment || "NONE"}"`);
 
     const equipmentLower = (exercise.equipment || "").toLowerCase();
-    const exerciseName = exercise.name.toLowerCase();
+    const bodyweightExerciseName = exercise.name.toLowerCase();
 
     console.log(`   Checking equipment: "${equipmentLower}"`);
-    console.log(`   Checking name: "${exerciseName}"`);
+    console.log(`   Checking name: "${bodyweightExerciseName}"`);
 
     // ALWAYS check exercise name for machine/cable keywords FIRST, regardless of equipment field
     const isMachine = machineKeywords.some((keyword) => {
       const equipmentMatch = equipmentLower.includes(keyword);
-      const nameMatch = exerciseName.includes(keyword);
+      const nameMatch = bodyweightExerciseName.includes(keyword);
       if (equipmentMatch || nameMatch) {
         console.log(
           `   🚫 BLOCKED by keyword: "${keyword}" (equipment: ${equipmentMatch}, name: ${nameMatch})`
@@ -303,10 +307,10 @@ const EQUIPMENT_FILTERS = {
 
 // Helper function to detect cardio exercises
 const isCardioExercise = (exercise: Exercise): boolean => {
-  const exerciseName = exercise.name.toLowerCase();
+  const cardioExerciseName = exercise.name.toLowerCase();
 
   // Explicitly exclude Inchworm from cardio classification
-  if (exerciseName.includes("inchworm")) {
+  if (cardioExerciseName.includes("inchworm")) {
     return false;
   }
 
@@ -335,13 +339,13 @@ const isCardioExercise = (exercise: Exercise): boolean => {
 
   return cardioKeywords.some(
     (keyword) =>
-      exerciseName.includes(keyword) || muscleGroup.includes("cardio")
+      cardioExerciseName.includes(keyword) || muscleGroup.includes("cardio")
   );
 };
 
 // Helper function to detect core exercises
 const isCoreExercise = (exercise: Exercise): boolean => {
-  const exerciseName = exercise.name.toLowerCase();
+  const coreExerciseName = exercise.name.toLowerCase();
   const muscleGroup = exercise.muscle_groups?.name?.toLowerCase() || "";
 
   if (muscleGroup.includes("core") || muscleGroup.includes("abs")) {
@@ -373,7 +377,7 @@ const isCoreExercise = (exercise: Exercise): boolean => {
     "wood chop"
   ];
 
-  return coreKeywords.some((keyword) => exerciseName.includes(keyword));
+  return coreKeywords.some((keyword) => coreExerciseName.includes(keyword));
 };
 
 // Helper function to check if cardio exercise is appropriate for experience level
@@ -381,7 +385,7 @@ const isAppropriateCardioForLevel = (
   exercise: Exercise,
   level: string
 ): boolean => {
-  const exerciseName = exercise.name.toLowerCase();
+  const cardioLevelExerciseName = exercise.name.toLowerCase();
 
   // High-intensity exercises that beginners should avoid
   const highIntensityKeywords = [
@@ -405,11 +409,11 @@ const isAppropriateCardioForLevel = (
   ];
 
   const isHighIntensity = highIntensityKeywords.some((keyword) =>
-    exerciseName.includes(keyword)
+    cardioLevelExerciseName.includes(keyword)
   );
 
   const isMediumIntensity = mediumIntensityKeywords.some((keyword) =>
-    exerciseName.includes(keyword)
+    cardioLevelExerciseName.includes(keyword)
   );
 
   // Filter based on experience level
@@ -445,9 +449,9 @@ const getCardioFormat = (
     "lateral shuffles"
   ];
 
-  const exerciseName = exercise.name.toLowerCase();
+  const dynamicExerciseName = exercise.name.toLowerCase();
   const isDynamic = dynamicCardioKeywords.some((keyword) =>
-    exerciseName.includes(keyword)
+    dynamicExerciseName.includes(keyword)
   );
 
   if (isDynamic) {
@@ -469,7 +473,7 @@ const getCardioFormat = (
 
 // Helper function to identify static stretches
 const isStretchExercise = (exercise: Exercise): boolean => {
-  const exerciseName = exercise.name.toLowerCase();
+  const stretchExerciseName = exercise.name.toLowerCase();
   const stretchKeywords = [
     "stretch",
     "pose",
@@ -482,7 +486,9 @@ const isStretchExercise = (exercise: Exercise): boolean => {
     "child's pose",
     "cobra"
   ];
-  return stretchKeywords.some((keyword) => exerciseName.includes(keyword));
+  return stretchKeywords.some((keyword) =>
+    stretchExerciseName.includes(keyword)
+  );
 };
 
 // Helper function to format sets for stretches
