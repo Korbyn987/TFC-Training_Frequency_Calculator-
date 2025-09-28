@@ -17,6 +17,7 @@ import { useDispatch } from "react-redux";
 import ExerciseDetailModal from "../components/ExerciseDetailModal";
 import WorkoutPresets from "../components/WorkoutPresets";
 import { useTabData } from "../context/TabDataContext";
+import { resetMuscleRecovery } from "../redux/workoutSlice";
 
 const { width } = Dimensions.get("window");
 
@@ -340,8 +341,22 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
       return;
     }
 
+    // Add safety check for selectedExercises
+    if (!selectedExercises || selectedExercises.length === 0) {
+      Alert.alert("Error", "Please add at least one exercise to your workout.");
+      return;
+    }
+
     setSaving(true);
     try {
+      // Add additional debugging
+      console.log("selectedExercises at start:", selectedExercises);
+      console.log("selectedExercises type:", typeof selectedExercises);
+      console.log(
+        "selectedExercises is array:",
+        Array.isArray(selectedExercises)
+      );
+
       // This is the new, direct save logic that bypasses the faulty saveWorkout function
       console.log("Creating new workout with direct DB calls...");
 
@@ -355,16 +370,44 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
       const workoutId = workoutResult.workout.id;
       console.log("Created workout with ID:", workoutId);
 
-      // 2. Add each exercise to the workout
+      // 2. Extract muscle groups for recovery timer reset
+      const muscleGroups = [];
+      selectedExercises.forEach((exercise) => {
+        const muscleGroup =
+          exercise.muscle_group ||
+          exercise.target_muscle ||
+          (exercise.muscle_groups && exercise.muscle_groups.name) ||
+          (exercise.muscle_groups && typeof exercise.muscle_groups === "string"
+            ? exercise.muscle_groups
+            : null);
+
+        if (
+          muscleGroup &&
+          muscleGroup !== "Unknown" &&
+          !muscleGroups.includes(muscleGroup)
+        ) {
+          muscleGroups.push(muscleGroup);
+        }
+      });
+
+      console.log("Extracted muscle groups for recovery reset:", muscleGroups);
+
+      // 3. Add each exercise to the workout
       for (const exercise of selectedExercises) {
         console.log(
           `Saving exercise: ${exercise.name}, Muscle: ${exercise.muscle_group}`
         );
+        console.log(`Full exercise data for ${exercise.name}:`, JSON.stringify(exercise, null, 2));
+        
         const exerciseResult = await addWorkoutExercise(workoutId, {
           exercise_id: exercise.id, // The AI provides the correct exercise ID
           exercise_name: exercise.name,
           muscle_group:
-            exercise.muscle_group || exercise.target_muscle || "Unknown",
+            exercise.muscle_group || 
+            exercise.target_muscle || 
+            (exercise.muscle_groups && exercise.muscle_groups.name) ||
+            (exercise.muscle_groups && typeof exercise.muscle_groups === "string" ? exercise.muscle_groups : null) ||
+            "Unknown",
           order_index: selectedExercises.indexOf(exercise),
           target_sets: exercise.sets?.length || 0
         });
@@ -380,21 +423,58 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
 
         const workoutExerciseId = exerciseResult.workoutExercise.id;
 
-        // 3. Add sets for the exercise
-        if (exercise.sets && exercise.sets.length > 0) {
-          for (const set of exercise.sets) {
-            await addExerciseSet(workoutExerciseId, {
-              set_number: exercise.sets.indexOf(set) + 1,
-              set_type: set.set_type || "working",
-              weight_kg: parseFloat(set.weight) || 0,
-              reps: parseInt(set.reps) || 0,
-              rest_seconds: set.rest_seconds || 60
-            });
+        // 4. Add sets for the exercise
+        console.log("Processing sets for exercise:", exercise.name);
+        console.log("exercise.sets:", exercise.sets);
+        console.log("exercise.sets type:", typeof exercise.sets);
+        console.log("exercise.sets is array:", Array.isArray(exercise.sets));
+
+        if (
+          exercise.sets &&
+          Array.isArray(exercise.sets) &&
+          exercise.sets.length > 0
+        ) {
+          console.log(
+            "Sets data structure:",
+            JSON.stringify(exercise.sets, null, 2)
+          );
+
+          for (let i = 0; i < exercise.sets.length; i++) {
+            const set = exercise.sets[i];
+            console.log(`Processing set ${i + 1}:`, set);
+
+            // Safety check for set object
+            if (!set || typeof set !== "object") {
+              console.warn(`Skipping invalid set at index ${i}:`, set);
+              continue;
+            }
+
+            try {
+              await addExerciseSet(workoutExerciseId, {
+                set_number: i + 1, // Use index instead of indexOf to avoid potential issues
+                set_type: set.set_type || "working",
+                weight_kg: parseFloat(set.weight || set.weight_kg || 0),
+                reps: parseInt(set.reps || 0),
+                rest_seconds: set.rest_seconds || 60
+              });
+              console.log(`Successfully added set ${i + 1}`);
+            } catch (setError) {
+              console.error(`Error adding set ${i + 1}:`, setError);
+              // Continue with next set even if one fails
+            }
           }
+        } else {
+          console.log("No valid sets found for exercise:", exercise.name);
         }
+      } // Added missing closing brace here
+
+      // 5. Reset recovery timers for worked muscle groups
+      if (muscleGroups.length > 0) {
+        console.log("Dispatching recovery timer reset for:", muscleGroups);
+        dispatch(resetMuscleRecovery({ muscleGroups }));
       }
 
-      // 4. Set as active workout in context
+      // 6. Set as active workout in context
       const activeWorkoutPayload = {
         supabase_id: workoutId, // Use the new workout ID
         id: workoutId, // for compatibility
@@ -405,7 +485,7 @@ const WorkoutOptionsScreen = ({ navigation, route }) => {
       setActiveWorkout(activeWorkoutPayload);
       console.log("Set active workout in context:", activeWorkoutPayload);
 
-      // 5. Refresh data and navigate
+      // 7. Refresh data and navigate
       await refreshTabData();
 
       Alert.alert("Success", "Workout started successfully!", [

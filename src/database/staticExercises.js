@@ -9,7 +9,8 @@ export const STATIC_MUSCLE_GROUPS = [
   { id: 5, name: "Shoulders" },
   { id: 6, name: "Quadriceps" },
   { id: 7, name: "Hamstrings" },
-  { id: 8, name: "Core" }
+  { id: 8, name: "Abs" },
+  { id: 11, name: "Forearms" }
 ];
 
 export const STATIC_EXERCISES = [
@@ -1023,7 +1024,7 @@ export const STATIC_EXERCISES = [
     description: "Isolation for soleus muscle"
   },
 
-  // Core (8)
+  // Abs (8)
   {
     id: 169,
     name: "Plank",
@@ -1239,5 +1240,73 @@ export const STATIC_EXERCISES = [
     name: "Plank Hip Dips",
     muscle_group_id: 8,
     description: "Oblique-focused plank variation"
+  },
+
+  // Forearms (11)
+  {
+    id: 205,
+    name: "Wrist Curl",
+    muscle_group_id: 11,
+    description: "Isolation exercise for forearm flexors"
+  },
+  {
+    id: 206,
+    name: "Wrist Extension",
+    muscle_group_id: 11,
+    description: "Isolation exercise for forearm extensors"
+  },
+  {
+    id: 207,
+    name: "Plate Pinch",
+    muscle_group_id: 11,
+    description: "Grip strength exercise using weight plate"
+  },
+  {
+    id: 208,
+    name: "Farmer's Walk",
+    muscle_group_id: 11,
+    description: "Loaded carry for grip strength"
+  },
+  {
+    id: 209,
+    name: "Towel Pull-Ups",
+    muscle_group_id: 11,
+    description: "Pull-up variation with towel for grip challenge"
+  },
+  {
+    id: 210,
+    name: "Fat Grip Deadlift",
+    muscle_group_id: 11,
+    description: "Deadlift variation with thick grip for forearm challenge"
+  },
+  {
+    id: 211,
+    name: "Wrist Roller",
+    muscle_group_id: 11,
+    description: "Dynamic forearm exercise using wrist roller"
+  },
+  {
+    id: 212,
+    name: "Reverse Wrist Curl",
+    muscle_group_id: 11,
+    description: "Isolation exercise for forearm extensors"
+  },
+  {
+    id: 213,
+    name: "Plate Wrist Curl",
+    muscle_group_id: 11,
+    description: "Wrist curl variation using weight plate"
+  },
+  {
+    id: 214,
+    name: "Dumbbell Wrist Extension",
+    muscle_group_id: 11,
+    description: "Wrist extension exercise using dumbbell"
+  },
+  {
+    id: 215,
+    name: "Barbell Wrist Curl",
+    muscle_group_id: 11,
+    description: "Wrist curl exercise using barbell"
   }
 ];

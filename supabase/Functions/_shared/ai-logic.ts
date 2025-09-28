@@ -177,6 +177,11 @@ const EQUIPMENT_FILTERS = {
       return false;
     }
 
+    // Disallow Resistance Band Press in full gym
+    if (fullGymExerciseName.includes("resistance band press")) {
+      return false;
+    }
+
     // Allow bodyweight exercises only if they are in the universal whitelist
     if (exercise.equipment === "bodyweight") {
       return isUniversalBodyweightExercise(exercise);
@@ -190,6 +195,11 @@ const EQUIPMENT_FILTERS = {
       GYM_BODYWEIGHT_EXCLUSIONS.some((ex) => homeGymExerciseName.includes(ex))
     ) {
       return false;
+    }
+
+    // Explicitly allow Resistance Band Press for home gym
+    if (homeGymExerciseName.includes("resistance band press")) {
+      return true;
     }
 
     // Allow bodyweight exercises only if they are in the universal whitelist
@@ -706,6 +716,40 @@ const selectExercisesForMuscle = (
   });
 };
 
+// Utility: detect big lifts to avoid pairing in the same day
+const isSquat = (name: string): boolean => name.toLowerCase().includes("squat");
+const isDeadlift = (name: string): boolean =>
+  name.toLowerCase().includes("deadlift");
+const conflictsWithBigLifts = (
+  currentDay: Exercise[],
+  candidate: Exercise
+): boolean => {
+  const hasSquat = currentDay.some((ex) => isSquat(ex.name));
+  const hasDeadlift = currentDay.some((ex) => isDeadlift(ex.name));
+  const candSquat = isSquat(candidate.name);
+  const candDeadlift = isDeadlift(candidate.name);
+  return (candSquat && hasDeadlift) || (candDeadlift && hasSquat);
+};
+
+const KEY_LIFT_PRIORITIES: { substring: string; priority: number }[] = [
+  { substring: "back squat", priority: 0 },
+  { substring: "bench press", priority: 1 },
+  { substring: "dumbbell bench press", priority: 2 },
+  { substring: "barbell row", priority: 3 },
+  { substring: "dumbbell row", priority: 4 },
+  { substring: "deadlift", priority: 5 }
+];
+const getKeyLiftPriority = (name: string): number | null => {
+  const lower = name.toLowerCase();
+  let best: number | null = null;
+  for (const { substring, priority } of KEY_LIFT_PRIORITIES) {
+    if (lower.includes(substring)) {
+      if (best === null || priority < best) best = priority;
+    }
+  }
+  return best;
+};
+
 export const generateSingleDayWorkout = (
   dayTemplate,
   userGoals,
@@ -777,6 +821,12 @@ export const generateSingleDayWorkout = (
     // Helper to add an exercise and its pattern
     const addExercise = (exercise: Exercise) => {
       if (!exercise) return;
+      if (conflictsWithBigLifts(dayExercises, exercise)) {
+        console.log(
+          `⚖️ Skipping ${exercise.name} due to squat/deadlift conflict within the same day.`
+        );
+        return;
+      }
       dayExercises.push(exercise);
       selectedIds.add(exercise.id);
       selectedPatterns.add(getMovementPattern(exercise.name));
@@ -988,6 +1038,12 @@ export const generateSingleDayWorkout = (
   // Helper to add an exercise and its pattern
   const addExercise = (exercise: Exercise) => {
     if (!exercise) return;
+    if (conflictsWithBigLifts(dayExercises, exercise)) {
+      console.log(
+        `⚖️ Skipping ${exercise.name} due to squat/deadlift conflict within the same day.`
+      );
+      return;
+    }
     dayExercises.push(exercise);
     selectedIds.add(exercise.id);
     selectedPatterns.add(getMovementPattern(exercise.name));
@@ -1354,6 +1410,16 @@ export const generateSingleDayWorkout = (
 
   // Final Ordering: Key lifts > Compound > Isolation > Core > Cardio > Stretch
   dayExercises.sort((a, b) => {
+    // 0) Strict key-lift priority (requested: if present, they must be first)
+    const aKey = getKeyLiftPriority(a.name);
+    const bKey = getKeyLiftPriority(b.name);
+    if (aKey !== null || bKey !== null) {
+      if (aKey !== null && bKey === null) return -1;
+      if (aKey === null && bKey !== null) return 1;
+      if (aKey !== null && bKey !== null && aKey !== bKey) return aKey - bKey;
+      // fall through to tie-breakers if same key priority
+    }
+
     const aIsStretch = isStretchExercise(a);
     const bIsStretch = isStretchExercise(b);
     if (aIsStretch && !bIsStretch) return 1;
@@ -1370,16 +1436,16 @@ export const generateSingleDayWorkout = (
     if (aIsCore && !bIsCore) return aIsCardio ? -1 : 1;
     if (!aIsCore && bIsCore) return bIsCardio ? 1 : -1;
 
-    const keyLiftSubstrings = ["bench press", "squat", "deadlift", "row"];
-    const aIsKeyLift = keyLiftSubstrings.some((substring) =>
-      a.name.toLowerCase().includes(substring)
+    // 1) Generic key-lift precedence (still keep general preference if none of the strict keys matched)
+    const genericKeys = ["bench press", "squat", "deadlift", "row"];
+    const aIsGenericKey = genericKeys.some((s) =>
+      a.name.toLowerCase().includes(s)
     );
-    const bIsKeyLift = keyLiftSubstrings.some((substring) =>
-      b.name.toLowerCase().includes(substring)
+    const bIsGenericKey = genericKeys.some((s) =>
+      b.name.toLowerCase().includes(s)
     );
-
-    if (aIsKeyLift && !bIsKeyLift) return -1;
-    if (!aIsKeyLift && bIsKeyLift) return 1;
+    if (aIsGenericKey && !bIsGenericKey) return -1;
+    if (!aIsGenericKey && bIsGenericKey) return 1;
 
     const aIsCompound = a.exercise_type === "compound";
     const bIsCompound = b.exercise_type === "compound";
